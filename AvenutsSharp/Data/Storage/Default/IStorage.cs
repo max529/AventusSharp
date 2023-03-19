@@ -11,6 +11,7 @@ namespace AventusSharp.Data.Storage.Default
         public void AddPyramid(PyramidInfo pyramid);
         public void CreateTable(PyramidInfo pyramid);
         public bool TableExist(PyramidInfo pyramid);
+        public List<X> Create<X>(List<X> values) where X : IStorable;
 
         public bool Connect();
 

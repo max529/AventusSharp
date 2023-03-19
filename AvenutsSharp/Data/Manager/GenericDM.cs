@@ -93,7 +93,7 @@ namespace AventusSharp.Data.Manager
         {
             if (!pyramid.isForceInherit || !isRoot)
             {
-                if(rootType == null)
+                if (rootType == null)
                 {
                     rootType = pyramid.type;
                 }
@@ -130,17 +130,42 @@ namespace AventusSharp.Data.Manager
         protected abstract Task<bool> Initialize();
 
 
+        #region get
 
         public abstract List<X> GetAll<X>() where X : U;
         public List<U> GetAll()
         {
             return this.GetAll<U>();
         }
-
         List<X> IGenericDM.GetAll<X>()
         {
             return InvokeMethod<List<X>, X>();
         }
+        #endregion
+
+        #region insert
+        public abstract List<X> Create<X>(List<X> values) where X : U;
+
+        public X Create<X>(X value) where X : U
+        {
+            List<X> result = Create(new List<X>() { value });
+            if(result.Count > 0)
+            {
+                return result[0];
+            }
+            return default;
+        }
+
+        X IGenericDM.Create<X>(X value)
+        {
+            return InvokeMethod<X, X>();
+        }
+
+        List<X> IGenericDM.Create<X>(List<X> values)
+        {
+            return InvokeMethod<List<X>, X>();
+        }
+        #endregion
 
 
 
@@ -154,5 +179,7 @@ namespace AventusSharp.Data.Manager
             method = method.MakeGenericMethod(typeof(Y));
             return (X)method.Invoke(this, parameters);
         }
+
+
     }
 }

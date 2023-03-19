@@ -17,11 +17,16 @@ namespace AventusSharp.Data.Manager
         Task<bool> Init();
 
         List<X> GetAll<X>();
+        List<X> Create<X>(List<X> values);
+        X Create<X>(X value);
 
     }
     public interface IGenericDM<U> : IGenericDM where U : IStorable
     {
         List<U> GetAll();
         new List<X> GetAll<X>() where X : U;
+
+        new List<X> Create<X>(List<X> values) where X : U;
+        new X Create<X>(X value) where X : U;
     }
 }

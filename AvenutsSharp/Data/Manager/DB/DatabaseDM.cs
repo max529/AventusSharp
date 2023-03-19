@@ -50,5 +50,10 @@ namespace AventusSharp.Data.Manager.DB
             storage.CreateTable(pyramidInfo);
             return true;
         }
+
+        public override List<X> Create<X>(List<X> values)
+        {
+            return storage.Create(values);
+        }
     }
 }

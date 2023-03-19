@@ -12,6 +12,11 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
+        public override List<X> Create<X>(List<X> values)
+        {
+            throw new NotImplementedException();
+        }
+
         protected override Task<bool> Initialize()
         {
             throw new NotImplementedException();

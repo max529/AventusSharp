@@ -32,5 +32,26 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetAll<T>();
         }
+
+        #region create
+        public static List<T> Create(List<T> values)
+        {
+            return GenericDM.Get<T>().Create(values);
+        }
+        public static T Create(T value)
+        {
+            return GenericDM.Get<T>().Create(value);
+        }
+        public bool Create()
+        {
+            Storable<T> result = GenericDM.Get<T>().Create(this);
+            if (Equals(result, this))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        #endregion
     }
 }

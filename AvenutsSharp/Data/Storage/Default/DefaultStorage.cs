@@ -333,6 +333,21 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region Insert
+        public List<X> Create<X>(List<X> values) where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return Insert(allTableInfos[type], values);
+            }
+            LogError.getInstance().WriteLine("Can't find the type " + type);
+            return new List<X>();
+        }
+
+        public List<X> Insert<X>(TableInfo pyramid, List<X> values) where X : IStorable
+        {
+            return Actions._Insert.run(pyramid, values);
+        }
 
         #endregion
 
