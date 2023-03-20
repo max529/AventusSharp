@@ -45,6 +45,102 @@ namespace AventusSharp.Data.Storage.Default
         public string SqlType { get; private set; }
         public string SqlName { get; private set; }
 
+        public string GetSqlValue(object obj)
+        {
+            if (obj == null)
+            {
+                return "NULL";
+            }
+
+            obj = this.GetValue(obj);
+            if (obj == null)
+            {
+                return "NULL";
+            }
+
+            if (SqlType.StartsWith("varchar"))
+            {
+
+            }
+
+            if (SqlType == "bit")
+            {
+                if ((bool)obj)
+                {
+                    return "1";
+                }
+                return "0";
+            }
+            if (SqlType == "float")
+            {
+                return obj.ToString().Replace(",", ".");
+            }
+
+
+            return obj.ToString();
+        }
+
+        public void SetSqlValue(object obj, string value)
+        {
+            if (obj == null)
+            {
+                return;
+            }
+            Type type = Type;
+            if (type == typeof(Int32))
+            {
+                int nb;
+                int.TryParse(value, out nb);
+                SetValue(obj, nb);
+            }
+            else if (type == typeof(double))
+            {
+                double nb;
+                double.TryParse(value, out nb);
+                SetValue(obj, nb);
+            }
+            else if(type == typeof(float))
+            {
+                float nb;
+                float.TryParse(value, out nb);
+                SetValue(obj, nb);
+            }
+            else if (type == typeof(decimal))
+            {
+                decimal nb;
+                decimal.TryParse(value, out nb);
+                SetValue(obj, nb);
+            }
+            else if (type == typeof(string))
+            {
+               SetValue(obj, value);
+            }
+            else if (type == typeof(bool))
+            {
+                if (value == "1")
+                {
+                    SetValue(obj, true);
+                }
+                else
+                {
+                    SetValue(obj, false);
+                }
+            }
+            else if (type == typeof(DateTime))
+            {
+                
+            }
+            else if (type.IsEnum)
+            {
+                SetValue(obj, Enum.Parse(type, value.ToString()));
+            }
+            else
+            {
+                SetValue(obj, value);
+            }
+
+        }
+
         #region link
         public TableMemberInfoLink link { get; private set; } = TableMemberInfoLink.None;
         public TableInfo TableLinked { get; set; }
@@ -65,7 +161,7 @@ namespace AventusSharp.Data.Storage.Default
         }
         public bool PrepareForSQL()
         {
-            
+
             SqlName = memberInfo.Name;
             PrepareAttributesForSQL();
             return PrepareTypeForSQL();
@@ -166,26 +262,26 @@ namespace AventusSharp.Data.Storage.Default
         private void PrepareAttributesForSQL()
         {
             List<object> attributes = GetCustomAttributes(false);
-            foreach(object attribute in attributes)
+            foreach (object attribute in attributes)
             {
-                if(attribute is Primary)
+                if (attribute is Primary)
                 {
                     IsPrimary = true;
                 }
-                else if(attribute is AutoIncrement)
+                else if (attribute is AutoIncrement)
                 {
                     IsAutoIncrement = true;
                 }
-                else if(attribute is Attributes.Nullable)
+                else if (attribute is Attributes.Nullable)
                 {
                     IsNullable = true;
                 }
             }
-            
+
         }
         private bool IsTypeUsable(Type type)
         {
-            if(type == null)
+            if (type == null)
             {
                 return false;
             }
@@ -193,7 +289,8 @@ namespace AventusSharp.Data.Storage.Default
         }
         private Type IsListTypeUsable(Type type)
         {
-            if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList))){
+            if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))
+            {
                 Type typeInList = type.GetGenericArguments()[0];
                 if (IsTypeUsable(typeInList))
                 {
@@ -207,7 +304,7 @@ namespace AventusSharp.Data.Storage.Default
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IDictionary)))
             {
                 Type typeIndex = type.GetGenericArguments()[0];
-                if(typeIndex == typeof(Int32))
+                if (typeIndex == typeof(Int32))
                 {
                     Type typeValue = type.GetGenericArguments()[1];
                     if (IsTypeUsable(typeValue))

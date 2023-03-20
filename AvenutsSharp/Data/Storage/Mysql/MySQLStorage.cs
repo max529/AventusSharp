@@ -84,7 +84,7 @@ namespace AventusSharp.Data.Storage.Mysql
             }
         }
 
-        protected override DbCommand CreateCmd(string sql)
+        public override DbCommand CreateCmd(string sql)
         {
             MySqlCommand command = ((MySqlConnection)connection).CreateCommand();
             command.CommandType = System.Data.CommandType.Text;

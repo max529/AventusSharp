@@ -77,13 +77,13 @@ namespace AventusSharp.Data.Storage.Default
             }
         }
         protected abstract DbConnection getConnection();
-        protected abstract DbCommand CreateCmd(string sql);
+        public abstract DbCommand CreateCmd(string sql);
         private void Close()
         {
             connection.Close();
         }
 
-        public void Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public bool Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
 
             mutex.WaitOne();
@@ -92,7 +92,7 @@ namespace AventusSharp.Data.Storage.Default
                 if (!Connect())
                 {
                     mutex.ReleaseMutex();
-                    return;
+                    return false;
                 }
             }
 
@@ -110,6 +110,7 @@ namespace AventusSharp.Data.Storage.Default
                     Close();
                 }
                 mutex.ReleaseMutex();
+                return true;
             }
             catch (Exception e)
             {
@@ -120,9 +121,68 @@ namespace AventusSharp.Data.Storage.Default
                 mutex.ReleaseMutex();
                 Console.WriteLine(e);
             }
-
+            return false;
         }
 
+        public bool Execute(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        {
+            mutex.WaitOne();
+            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
+            {
+                if (!Connect())
+                {
+                    mutex.ReleaseMutex();
+                    return false;
+                }
+            }
+
+            try
+            {
+                using (DbTransaction transaction = connection.BeginTransaction())
+                {
+                    command.Transaction = transaction;
+
+                    try
+                    {
+                        foreach (Dictionary<string, string> parameters in dataParameters)
+                        {
+                            foreach (KeyValuePair<string, string> parameter in parameters)
+                            {
+                                command.Parameters[parameter.Key].Value = parameter.Value;
+                            }
+
+                            if (command.ExecuteNonQuery() != -1)
+                            {
+                                // TODO get error
+                                throw new InvalidProgramException();
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch (Exception e)
+                    {
+                        transaction.Rollback();
+                    }
+                }
+
+                if (!keepConnectionOpen)
+                {
+                    Close();
+                }
+                mutex.ReleaseMutex();
+                return true;
+            }
+            catch (Exception e)
+            {
+                if (!keepConnectionOpen)
+                {
+                    Close();
+                }
+                mutex.ReleaseMutex();
+                Console.WriteLine(e);
+            }
+            return false;
+        }
         public List<Dictionary<string, string>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
@@ -177,6 +237,82 @@ namespace AventusSharp.Data.Storage.Default
                 Console.WriteLine(e);
             }
             return new List<Dictionary<string, string>>();
+        }
+        public List<Dictionary<string, string>> Query(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        {
+            mutex.WaitOne();
+            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
+            {
+                if (!Connect())
+                {
+                    mutex.ReleaseMutex();
+                    return new List<Dictionary<string, string>>();
+                }
+            }
+            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
+
+            try
+            {
+                using (DbTransaction transaction = connection.BeginTransaction())
+                {
+                    command.Transaction = transaction;
+
+                    try
+                    {
+                        foreach (Dictionary<string, string> parameters in dataParameters)
+                        {
+                            foreach (KeyValuePair<string, string> parameter in parameters)
+                            {
+                                command.Parameters[parameter.Key].Value = parameter.Value;
+                            }
+
+                            using (IDataReader reader = command.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    Dictionary<string, string> temp = new Dictionary<string, string>();
+                                    for (int i = 0; i < reader.FieldCount; i++)
+                                    {
+                                        if (!temp.ContainsKey(reader.GetName(i)))
+                                        {
+                                            if (reader[reader.GetName(i)] != null)
+                                            {
+                                                temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                            }
+                                            else
+                                            {
+                                                temp.Add(reader.GetName(i), "");
+                                            }
+                                        }
+                                    }
+                                    result.Add(temp);
+                                }
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch (Exception e)
+                    {
+                        transaction.Rollback();
+                    }
+                }
+
+                if (!keepConnectionOpen)
+                {
+                    Close();
+                }
+                mutex.ReleaseMutex();
+            }
+            catch (Exception e)
+            {
+                if (!keepConnectionOpen)
+                {
+                    Close();
+                }
+                mutex.ReleaseMutex();
+                Console.WriteLine(e);
+            }
+            return result;
         }
 
 
@@ -267,7 +403,7 @@ namespace AventusSharp.Data.Storage.Default
                     parent.Children.Add(classInfo);
 
                     List<TableMemberInfo> prims = parent.primaries;
-                    foreach(TableMemberInfo prim in prims)
+                    foreach (TableMemberInfo prim in prims)
                     {
                         classInfo.members.Insert(0, prim.TransformForParentLink(parent));
                     }
@@ -302,7 +438,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             else
             {
-                foreach(PyramidInfo child in pyramid.children)
+                foreach (PyramidInfo child in pyramid.children)
                 {
                     CreateTable(child);
                 }
