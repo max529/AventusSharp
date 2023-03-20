@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -149,7 +150,7 @@ namespace AventusSharp.Data.Manager
         public X Create<X>(X value) where X : U
         {
             List<X> result = Create(new List<X>() { value });
-            if(result.Count > 0)
+            if (result.Count > 0)
             {
                 return result[0];
             }
@@ -158,16 +159,14 @@ namespace AventusSharp.Data.Manager
 
         X IGenericDM.Create<X>(X value)
         {
-            return InvokeMethod<X, X>();
+            return InvokeMethod<X, X>(new object[] { value });
         }
 
         List<X> IGenericDM.Create<X>(List<X> values)
         {
-            return InvokeMethod<List<X>, X>();
+            return InvokeMethod<List<X>, X>(new object[] { values });
         }
         #endregion
-
-
 
         protected X InvokeMethod<X, Y>(object[] parameters = null, [CallerMemberName] string name = "")
         {
@@ -175,11 +174,41 @@ namespace AventusSharp.Data.Manager
             {
                 parameters = new object[] { };
             }
-            MethodInfo method = this.GetType().GetMethod(name);
-            method = method.MakeGenericMethod(typeof(Y));
-            return (X)method.Invoke(this, parameters);
-        }
+            List<Type> types = new List<Type>();
+            foreach (object param in parameters)
+            {
+                types.Add(param.GetType());
+            }
 
+            MethodInfo[] methods = this.GetType().GetMethods();
+            foreach (MethodInfo method in methods)
+            {
+                if (method.Name == name && method.IsGenericMethod)
+                {
+                    MethodInfo methodType = method.MakeGenericMethod(typeof(Y));
+                    if (IsSameParameters(methodType.GetParameters(), types))
+                    {
+                        return (X)methodType.Invoke(this, parameters);
+                    }
+                }
+            }
+            throw new NullReferenceException();
+        }
+        private bool IsSameParameters(ParameterInfo[] parameterInfos, List<Type> types)
+        {
+            if (parameterInfos.Length == types.Count)
+            {
+                for (int i = 0; i < parameterInfos.Length; i++)
+                {
+                    if (parameterInfos[i].ParameterType != types[i])
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
 
     }
 }
