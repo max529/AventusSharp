@@ -17,6 +17,6 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 
         protected override CreateTableAction<MySQLStorage> CreateTable => new CreateTableAction();
 
-        protected override CreateAction<MySQLStorage> Insert => throw new NotImplementedException();
+        protected override CreateAction<MySQLStorage> Insert => new CreateAction();
     }
 }

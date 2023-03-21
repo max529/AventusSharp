@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace AventusSharp.Tools
@@ -45,6 +46,19 @@ namespace AventusSharp.Tools
                 generic += ">";
             }
             return type.Name.Split('`')[0] + generic;
+        }
+
+        public static object CreateNewObj(Type type)
+        {
+            NewExpression constructorExpression = Expression.New(type);
+            Expression<Func<object>> lambdaExpression = Expression.Lambda<Func<object>>(constructorExpression);
+            Func<object> createFunc = lambdaExpression.Compile();
+            object newObj = createFunc();
+            return newObj;
+        }
+        public static T CreateNewObj<T>()
+        {
+            return (T)CreateNewObj(typeof(T));
         }
     }
 }

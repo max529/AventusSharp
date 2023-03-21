@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -55,12 +56,14 @@ namespace AventusSharp.Data.Storage.Default
 
         public TableInfo(PyramidInfo pyramid)
         {
-            this.SqlTableName = TableInfo.GetSQLTableName(pyramid.type);
+            SqlTableName = GetSQLTableName(pyramid.type);
+            Type typeToLoad = pyramid.type;
             if (pyramid.type.IsGenericType)
             {
-                this.IsAbstract = true;
+                IsAbstract = true;
+                //typeToLoad = pyramid.type.MakeGenericType(pyramid.aliasType);
             }
-            this.LoadMembers(pyramid.type);
+            LoadMembers(typeToLoad);
 
         }
 
