@@ -28,7 +28,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             foreach (TableMemberInfo prim in prims)
             {
                 string intermediateName = "`" + prim.SqlName + "_" + instance.SqlTableName + "`";
-                string schemaProp = "\t" + intermediateName + " " + prim.SqlType;
+                string schemaProp = "\t" + intermediateName + " " + prim.SqlTypeTxt;
 
                 intermediatePrimsNameTmp.Add(intermediateName);
                 primaryConstraint.Add(intermediateName);
@@ -48,7 +48,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             {
                 //member.name usefull if link is same class as instance
                 string intermediateName = "`" + memberInfo.SqlName + "*" + prim.SqlName + "_" + link.SqlTableName + "`";
-                string schemaProp = "\t" + intermediateName + " " + prim.SqlType;
+                string schemaProp = "\t" + intermediateName + " " + prim.SqlTypeTxt;
 
                 intermediatePrimsNameTmp.Add(intermediateName);
                 primaryConstraint.Add(intermediateName);

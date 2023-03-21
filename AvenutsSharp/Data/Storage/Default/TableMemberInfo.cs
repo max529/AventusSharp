@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Data;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -19,8 +20,13 @@ namespace AventusSharp.Data.Storage.Default
     }
     public class TableMemberInfo
     {
-        private MemberInfo memberInfo;
+        protected MemberInfo memberInfo;
+        protected Dictionary<Type, MemberInfo> memberInfoByType = new Dictionary<Type, MemberInfo>();
         public readonly TableInfo TableInfo;
+        public TableMemberInfo(TableInfo tableInfo)
+        {
+            TableInfo = tableInfo;
+        }
         public TableMemberInfo(FieldInfo fieldInfo, TableInfo tableInfo)
         {
             memberInfo = fieldInfo;
@@ -38,49 +44,21 @@ namespace AventusSharp.Data.Storage.Default
         }
 
         #region SQL
-        public bool IsPrimary { get; private set; }
-        public bool IsAutoIncrement { get; private set; }
-        public bool IsNullable { get; private set; }
-        public bool IsParentLink { get; private set; }
-        public string SqlType { get; private set; }
-        public string SqlName { get; private set; }
+        public bool IsPrimary { get; protected set; }
+        public bool IsAutoIncrement { get; protected set; }
+        public bool IsNullable { get; protected set; }
+        public bool IsParentLink { get; protected set; }
+        public string SqlTypeTxt { get; protected set; }
+        public DbType SqlType { get; protected set; }
+        public string SqlName { get; protected set; }
 
-        public string GetSqlValue(object obj)
+        public virtual object GetSqlValue(object obj)
         {
-            if (obj == null)
-            {
-                return "NULL";
-            }
-
-            obj = this.GetValue(obj);
-            if (obj == null)
-            {
-                return "NULL";
-            }
-
-            if (SqlType.StartsWith("varchar"))
-            {
-
-            }
-
-            if (SqlType == "bit")
-            {
-                if ((bool)obj)
-                {
-                    return "1";
-                }
-                return "0";
-            }
-            if (SqlType == "float")
-            {
-                return obj.ToString().Replace(",", ".");
-            }
-
-
-            return obj.ToString();
+            // TODO maybe check constraint here
+            return GetValue(obj);
         }
 
-        public void SetSqlValue(object obj, string value)
+        public virtual void SetSqlValue(object obj, string value)
         {
             if (obj == null)
             {
@@ -99,7 +77,7 @@ namespace AventusSharp.Data.Storage.Default
                 double.TryParse(value, out nb);
                 SetValue(obj, nb);
             }
-            else if(type == typeof(float))
+            else if (type == typeof(float))
             {
                 float nb;
                 float.TryParse(value, out nb);
@@ -113,7 +91,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             else if (type == typeof(string))
             {
-               SetValue(obj, value);
+                SetValue(obj, value);
             }
             else if (type == typeof(bool))
             {
@@ -128,7 +106,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             else if (type == typeof(DateTime))
             {
-                
+
             }
             else if (type.IsEnum)
             {
@@ -142,9 +120,9 @@ namespace AventusSharp.Data.Storage.Default
         }
 
         #region link
-        public TableMemberInfoLink link { get; private set; } = TableMemberInfoLink.None;
+        public TableMemberInfoLink link { get; protected set; } = TableMemberInfoLink.None;
         public TableInfo TableLinked { get; set; }
-        public Type TableLinkedType { get; private set; }
+        public Type TableLinkedType { get; protected set; }
 
         #endregion
         public TableMemberInfo TransformForParentLink(TableInfo parentTable)
@@ -166,13 +144,14 @@ namespace AventusSharp.Data.Storage.Default
             PrepareAttributesForSQL();
             return PrepareTypeForSQL();
         }
-        private bool PrepareTypeForSQL()
+        protected bool PrepareTypeForSQL()
         {
             bool isOk = false;
             Type type = Type;
-            if (type == typeof(Int32))
+            if (type == typeof(int))
             {
-                SqlType = "int";
+                SqlTypeTxt = "int";
+                SqlType = DbType.Int32;
                 ForeignKey attr = GetCustomAttribute<ForeignKey>();
                 if (attr != null)
                 {
@@ -188,52 +167,57 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 isOk = true;
             }
-            else if (type == typeof(Double) || type == typeof(Single) || type == typeof(Decimal))
+            else if (type == typeof(double) || type == typeof(float) || type == typeof(decimal))
             {
-                SqlType = "float";
+                SqlTypeTxt = "float";
+                SqlType = DbType.Double;
                 isOk = true;
             }
-            else if (type == typeof(String))
+            else if (type == typeof(string))
             {
+                SqlType = DbType.String;
                 Size attr = GetCustomAttribute<Size>();
                 if (attr != null)
                 {
                     if (attr.max)
                     {
-                        SqlType = "varchar(MAX)";
+                        SqlTypeTxt = "varchar(MAX)";
                     }
                     else
                     {
-                        SqlType = "varchar(" + attr.nb + ")";
+                        SqlTypeTxt = "varchar(" + attr.nb + ")";
                     }
                 }
                 else
                 {
-                    SqlType = "varchar(255)";
+                    SqlTypeTxt = "varchar(255)";
                 }
                 isOk = true;
             }
             else if (type == typeof(Boolean))
             {
-                SqlType = "bit";
+                SqlType = DbType.Boolean;
+                SqlTypeTxt = "bit";
                 isOk = true;
             }
             else if (type == typeof(DateTime))
             {
-                // TODO change it to use real Date
-                SqlType = "varchar(255)";
+                SqlType = DbType.DateTime;
+                SqlTypeTxt = "datetime";
                 isOk = true;
             }
             else if (type.IsEnum)
             {
-                SqlType = "varchar(255)";
+                SqlType = DbType.String;
+                SqlTypeTxt = "varchar(255)";
                 isOk = true;
             }
             else if (IsTypeUsable(type))
             {
+                SqlType = DbType.Int32;
                 link = TableMemberInfoLink.Simple;
                 TableLinkedType = type;
-                SqlType = "int";
+                SqlTypeTxt = "int";
                 isOk = true;
             }
             else
@@ -259,7 +243,8 @@ namespace AventusSharp.Data.Storage.Default
             }
             return isOk;
         }
-        private void PrepareAttributesForSQL()
+
+        protected void PrepareAttributesForSQL()
         {
             List<object> attributes = GetCustomAttributes(false);
             foreach (object attribute in attributes)
@@ -279,7 +264,7 @@ namespace AventusSharp.Data.Storage.Default
             }
 
         }
-        private bool IsTypeUsable(Type type)
+        protected bool IsTypeUsable(Type type)
         {
             if (type == null)
             {
@@ -287,7 +272,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return type.GetInterfaces().Contains(typeof(IStorable));
         }
-        private Type IsListTypeUsable(Type type)
+        protected Type IsListTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))
             {
@@ -299,7 +284,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return null;
         }
-        private Type IsDictionaryTypeUsable(Type type)
+        protected Type IsDictionaryTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IDictionary)))
             {
@@ -323,7 +308,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// Interface for Type
         /// </summary>
-        public Type Type
+        public virtual Type Type
         {
             get
             {
@@ -341,7 +326,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// Interface for Name
         /// </summary>
-        public string Name
+        public virtual string Name
         {
             get
             {
@@ -357,7 +342,7 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public T GetCustomAttribute<T>() where T : Attribute
+        public virtual T GetCustomAttribute<T>() where T : Attribute
         {
             return memberInfo.GetCustomAttribute<T>();
         }
@@ -366,7 +351,7 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="inherit"></param>
         /// <returns></returns>
-        public List<object> GetCustomAttributes(bool inherit)
+        public virtual List<object> GetCustomAttributes(bool inherit)
         {
             try
             {
@@ -387,21 +372,30 @@ namespace AventusSharp.Data.Storage.Default
             return new List<object>();
 
         }
+
         /// <summary>
         /// Interface for GetValue
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public object GetValue(object obj)
+        public virtual object GetValue(object obj)
         {
-            if (memberInfo is FieldInfo fieldInfo)
+            try
             {
-                return fieldInfo.GetValue(obj);
-            }
-            else if (memberInfo is PropertyInfo propertyInfo)
-            {
-                return propertyInfo.GetValue(obj);
+                MemberInfo member = GetRealMemmber(obj);
+                if (member is FieldInfo fieldInfo)
+                {
+                    return fieldInfo.GetValue(obj);
+                }
+                else if (member is PropertyInfo propertyInfo)
+                {
+                    return propertyInfo.GetValue(obj);
 
+                }
+            }
+            catch (Exception e)
+            {
+                LogError.getInstance().WriteLine(e);
             }
             return null;
 
@@ -411,22 +405,30 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="obj"></param>
         /// <param name="value"></param>
-        public void SetValue(object obj, object value)
+        public virtual void SetValue(object obj, object value)
         {
-            if (memberInfo is FieldInfo fieldInfo)
+            try
             {
-                fieldInfo.SetValue(obj, value);
-            }
-            else if (memberInfo is PropertyInfo propertyInfo)
-            {
-                propertyInfo.SetValue(obj, value);
+                MemberInfo member = GetRealMemmber(obj);
+                if (member is FieldInfo fieldInfo)
+                {
+                    fieldInfo.SetValue(obj, value);
+                }
+                else if (member is PropertyInfo propertyInfo)
+                {
+                    propertyInfo.SetValue(obj, value);
 
+                }
+            }
+            catch (Exception e)
+            {
+                LogError.getInstance().WriteLine(e);
             }
         }
         /// <summary>
         /// Interface for ReflectedType
         /// </summary>
-        public Type ReflectedType
+        public virtual Type ReflectedType
         {
             get
             {
@@ -442,6 +444,28 @@ namespace AventusSharp.Data.Storage.Default
 
             }
         }
+
+        /// <summary>
+        /// Avoid Getting a member with generic param
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        protected MemberInfo GetRealMemmber(object obj)
+        {
+            MemberInfo member = memberInfo;
+            if (TableInfo.IsAbstract)
+            {
+                Type typeToUse = obj.GetType();
+                if (!memberInfoByType.ContainsKey(typeToUse))
+                {
+                    MemberInfo[] members = typeToUse.GetMember(member.Name);
+                    memberInfoByType.Add(typeToUse, members[0]);
+                }
+                member = memberInfoByType[typeToUse];
+            }
+            return member;
+        }
+
         #endregion
 
         public override string ToString()

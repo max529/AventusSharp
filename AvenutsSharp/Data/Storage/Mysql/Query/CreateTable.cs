@@ -26,7 +26,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             {
                 if (member.link != TableMemberInfoLink.Multiple)
                 {
-                    string schemaProp = "\t`" + member.SqlName + "` " + member.SqlType;
+                    string schemaProp = "\t`" + member.SqlName + "` " + member.SqlTypeTxt;
                     if (!member.IsNullable)
                     {
                         schemaProp += " NOT NULL";

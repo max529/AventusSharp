@@ -1,6 +1,6 @@
-﻿using AventusSharp.Data;
+﻿using AventusSharp.Attributes;
+using AventusSharp.Data;
 using AvenutsSharp.Attributes;
-using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -13,6 +13,7 @@ namespace TestConsole.cs.Data
 
         public string lastname { get; set; }
 
+        [Nullable]
         public Location location { get; set; }
         
         [NotInDB]

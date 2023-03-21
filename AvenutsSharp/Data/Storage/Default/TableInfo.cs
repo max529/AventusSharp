@@ -67,6 +67,23 @@ namespace AventusSharp.Data.Storage.Default
 
         }
 
+        public void AddTypeMember()
+        {
+            CustomTableMemberInfo typeMember = new CustomTableMemberInfo("__type", this);
+            typeMember.DefineSQLInformation(new SQLInformation()
+            {
+                SqlName = "__type",
+                SqlType = System.Data.DbType.String,
+                SqlTypeTxt = "varchar(255)",
+            });
+            typeMember.DefineGetValue(delegate (object obj)
+            {
+                return obj.GetType().FullName;
+            });
+
+            members.Insert(0, typeMember);
+        }
+
         private void LoadMembers(Type type)
         {
             foreach (FieldInfo field in type.GetFields())

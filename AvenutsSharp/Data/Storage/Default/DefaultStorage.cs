@@ -78,6 +78,7 @@ namespace AventusSharp.Data.Storage.Default
         }
         protected abstract DbConnection getConnection();
         public abstract DbCommand CreateCmd(string sql);
+        public abstract DbParameter GetDbParameter();
         private void Close()
         {
             connection.Close();
@@ -221,7 +222,10 @@ namespace AventusSharp.Data.Storage.Default
                             }
                             res.Add(temp);
                         }
-                        Close();
+                        if (!keepConnectionOpen)
+                        {
+                            Close();
+                        }
                         mutex.ReleaseMutex();
                         return res;
                     }
@@ -238,7 +242,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return new List<Dictionary<string, string>>();
         }
-        public List<Dictionary<string, string>> Query(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public List<Dictionary<string, string>> Query(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
@@ -256,15 +260,16 @@ namespace AventusSharp.Data.Storage.Default
                 using (DbTransaction transaction = connection.BeginTransaction())
                 {
                     command.Transaction = transaction;
-
+                    command.Connection = connection;
                     try
                     {
-                        foreach (Dictionary<string, string> parameters in dataParameters)
+                        foreach (Dictionary<string, object> parameters in dataParameters)
                         {
-                            foreach (KeyValuePair<string, string> parameter in parameters)
+                            foreach (KeyValuePair<string, object> parameter in parameters)
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
+
 
                             using (IDataReader reader = command.ExecuteReader())
                             {
@@ -293,6 +298,7 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     catch (Exception e)
                     {
+                        LogError.getInstance().WriteLine(e);
                         transaction.Rollback();
                     }
                 }
@@ -310,7 +316,7 @@ namespace AventusSharp.Data.Storage.Default
                     Close();
                 }
                 mutex.ReleaseMutex();
-                Console.WriteLine(e);
+                LogError.getInstance().WriteLine(e);
             }
             return result;
         }
@@ -343,9 +349,9 @@ namespace AventusSharp.Data.Storage.Default
         }
         public void AddPyramid(PyramidInfo pyramid)
         {
-            AddPyramidLoop(pyramid);
+            AddPyramidLoop(pyramid, null, null, false);
         }
-        private void AddPyramidLoop(PyramidInfo pyramid, TableInfo parent = null, List<TableMemberInfo> membersToAdd = null)
+        private void AddPyramidLoop(PyramidInfo pyramid, TableInfo parent, List<TableMemberInfo> membersToAdd, bool typeMemberCreated)
         {
             TableInfo classInfo = new TableInfo(pyramid);
             if (pyramid.isForceInherit)
@@ -357,13 +363,16 @@ namespace AventusSharp.Data.Storage.Default
                 membersToAdd.AddRange(classInfo.members);
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    AddPyramidLoop(child, parent, membersToAdd);
+                    AddPyramidLoop(child, parent, membersToAdd, typeMemberCreated);
                 }
             }
             else
             {
+
                 if (membersToAdd != null)
                 {
+                    // merge parent members
+                    // force created and updated date to the end
                     TableMemberInfo createdDate = null;
                     TableMemberInfo updatedDate = null;
                     foreach (TableMemberInfo memberInfo in membersToAdd.ToList())
@@ -392,6 +401,11 @@ namespace AventusSharp.Data.Storage.Default
                         }
                     }
                 }
+                if (classInfo.IsAbstract && !typeMemberCreated)
+                {
+                    classInfo.AddTypeMember();
+                    typeMemberCreated = true;
+                }
                 allTableInfos[pyramid.type] = classInfo;
                 if (pyramid.aliasType != null)
                 {
@@ -410,7 +424,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    AddPyramidLoop(child, classInfo);
+                    AddPyramidLoop(child, classInfo, null, typeMemberCreated);
                 }
             }
 

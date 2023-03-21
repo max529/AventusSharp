@@ -91,6 +91,10 @@ namespace AventusSharp.Data.Storage.Mysql
             command.CommandText = sql;
             return command;
         }
+        public override DbParameter GetDbParameter()
+        {
+            return new MySqlParameter();
+        }
 
         internal override StorageAction<MySQLStorage> defineActions()
         {
