@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -19,6 +18,7 @@ namespace AventusSharp.WebSocket
     public class WebSocketConnection
     {
         private static char fileDelimiter = '°';
+        public static bool DisplayMsg { get; set; }
         private HttpContext context;
         private System.Net.WebSockets.WebSocket webSocket;
         private IWebSocketInstance instance;
@@ -67,7 +67,6 @@ namespace AventusSharp.WebSocket
             try
             {
                 result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                LogConsole.getInstance().WriteLine("le socket est prêt pour " + context.Session.Id, "socketReady");
 
                 string msg = "";
 
@@ -146,7 +145,10 @@ namespace AventusSharp.WebSocket
                                 }
                                 else
                                 {
-                                    LogConsole.getInstance().WriteLine("on a reçu sur " + o["channel"], "onMessage");
+                                    if (DisplayMsg)
+                                    {
+                                        Console.WriteLine("on a reçu sur " + o["channel"], "onMessage");
+                                    }
                                     string channel = o["channel"].ToString();
                                     JObject data = new JObject();
                                     if (o.ContainsKey("data") && o["data"] != null)
@@ -165,7 +167,7 @@ namespace AventusSharp.WebSocket
                             }
                             catch (Exception e)
                             {
-                                LogError.getInstance().WriteLine("Error on parse message from socket : " + e.Message, "errorParsingMessage");
+                                Console.WriteLine("Error on parse message from socket : " + e.Message, "errorParsingMessage");
                             }
                             msg = "";
                         }
@@ -179,7 +181,7 @@ namespace AventusSharp.WebSocket
                 if (!websocketHasError)
                 {
                     websocketHasError = true;
-                    LogError.getInstance().WriteLine(e, "errorSocket");
+                    Console.WriteLine(e);
                 }
             }
             instance.removeInstance(this);
@@ -219,7 +221,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine("Error in RouterSocket.send() : " + e.ToString(), "errorSend");
+                Console.WriteLine("Error in RouterSocket.send() : " + e.ToString());
                 this.instance.removeInstance(this);
             }
         }
@@ -235,7 +237,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e, "errorSend");
+                Console.WriteLine(e);
             }
         }
 
@@ -251,7 +253,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e, "errorSend");
+                Console.WriteLine(e);
             }
         }
 

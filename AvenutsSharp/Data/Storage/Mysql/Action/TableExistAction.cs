@@ -10,19 +10,22 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 {
     internal class TableExistAction : TableExistAction<MySQLStorage>
     {
-        public override bool run(TableInfo table)
+        public override ResultWithError<bool> run(TableInfo table)
         {
-            List<Dictionary<string, string>> res = Storage.Query("SELECT COUNT(*) res FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table.SqlTableName + "' and TABLE_SCHEMA = '" + this.Storage.GetDatabaseName() + "'; ");
-            if (res.Count == 1)
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            StorageQueryResult queryResult = Storage.Query("SELECT COUNT(*) nb FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table.SqlTableName + "' and TABLE_SCHEMA = '" + this.Storage.GetDatabaseName() + "'; ");
+            result.Errors.AddRange(queryResult.Errors);
+
+            if (queryResult.Success && queryResult.Result.Count == 1)
             {
-                int nb = int.Parse(res.ElementAt(0)["res"]);
+                int nb = int.Parse(queryResult.Result.ElementAt(0)["nb"]);
                 if (nb == 0)
                 {
-                    return false;
+                    result.Result = false;
                 }
-                return true;
+                result.Result = true;
             }
-            return false;
+            return result;
         }
     }
 }

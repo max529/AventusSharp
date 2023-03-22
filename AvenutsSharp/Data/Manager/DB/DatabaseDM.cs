@@ -14,7 +14,6 @@ namespace AventusSharp.Data.Manager.DB
 
         public override List<X> GetAll<X>()
         {
-            Console.WriteLine("inside");
             return new List<X>();
         }
 
@@ -24,34 +23,44 @@ namespace AventusSharp.Data.Manager.DB
         }
         public override async Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
-            this.storage = this.DefineStorage();
+            storage = DefineStorage();
             if (storage == null)
             {
                 storage = config.defaultStorage;
             }
-            if(storage == null)
+            if (storage == null)
             {
                 return false;
             }
             if (!storage.IsConnectedOneTime)
             {
-                if(!storage.Connect())
+                if (!storage.Connect())
                 {
                     return false;
                 }
             }
             storage.AddPyramid(pyramid);
             return await base.SetConfiguration(pyramid, config);
-            
+
         }
-        protected override async Task<bool> Initialize()
+        protected override Task<bool> Initialize()
         {
             storage.CreateLinks();
-            storage.CreateTable(pyramidInfo);
-            return true;
+            VoidWithError result = storage.CreateTable(pyramidInfo);
+            if (result.Success)
+            {
+                return Task.FromResult(true);
+            }
+
+            foreach(DataError error in result.Errors)
+            {
+                error.Print();
+            }
+            return Task.FromResult(false);
         }
 
-        public override List<X> Create<X>(List<X> values)
+
+        public override ResultWithError<List<X>> CreateWithError<X>(List<X> values)
         {
             return storage.Create(values);
         }

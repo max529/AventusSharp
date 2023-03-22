@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -65,7 +64,7 @@ namespace AventusSharp.WebSocket
                         dataToUse = dataToUse[prop];
                         if (dataToUse == null)
                         {
-                            LogError.getInstance().WriteLine("Can't find path " + propPath + " in your data");
+                            Console.WriteLine("Can't find path " + propPath + " in your data");
                             return default(T);
                         }
                     }
@@ -74,7 +73,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                Console.WriteLine(e);
             }
             return default(T);
         }

@@ -15,8 +15,10 @@ namespace AventusSharp.Data.Storage.Mysql.Action
         private static Dictionary<TableInfo, string> queryByTable = new Dictionary<TableInfo, string>();
         private static Dictionary<TableInfo, List<DbParameter>> parametersByTable = new Dictionary<TableInfo, List<DbParameter>>();
         private static Dictionary<TableInfo, Func<IList, List<Dictionary<string, object>>>> paramsFctByTable = new Dictionary<TableInfo, Func<IList, List<Dictionary<string, object>>>>();
-        public override List<X> run<X>(TableInfo table, List<X> data)
+        public override ResultWithError<List<X>> run<X>(TableInfo table, List<X> data)
         {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Result = new List<X>();
 
             if (!queryByTable.ContainsKey(table))
             {
@@ -31,18 +33,24 @@ namespace AventusSharp.Data.Storage.Mysql.Action
                 cmd.Parameters.Add(parameter);
             }
 
-            List<Dictionary<string, string>> allIds = Storage.Query(cmd, paramsFctByTable[table](data));
-            if (allIds.Count == data.Count)
+            StorageQueryResult queryResult = Storage.Query(cmd, paramsFctByTable[table](data));
+            result.Errors.AddRange(queryResult.Errors);
+            if (queryResult.Success)
             {
-                for (int i = 0; i < allIds.Count; i++)
+                if (queryResult.Result.Count == data.Count)
                 {
-                    data[i].id = int.Parse(allIds[i]["id"]);
+                    for (int i = 0; i < queryResult.Result.Count; i++)
+                    {
+                        data[i].id = int.Parse(queryResult.Result[i]["id"]);
+                    }
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Everythink seems to be ok but number of ids returned != nb element created"));
                 }
             }
 
-
-
-            throw new NotImplementedException();
+            return result;
         }
 
         private void createQuery(TableInfo table)

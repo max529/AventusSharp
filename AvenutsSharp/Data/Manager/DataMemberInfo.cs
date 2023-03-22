@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using AventusSharp.Tools;
+﻿using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -84,7 +83,7 @@ namespace AventusSharp.Data.Manager
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                new DataError(DataErrorCode.UnknowError, e).Print();
             }
             return new List<object>();
 

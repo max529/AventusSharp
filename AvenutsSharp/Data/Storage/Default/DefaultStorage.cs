@@ -1,6 +1,5 @@
 ﻿using AventusSharp.Attributes;
 using AventusSharp.Data.Storage.Default.Action;
-using AventusSharp.Log;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -22,6 +21,18 @@ namespace AventusSharp.Data.Storage.Default
         public bool keepConnectionOpen;
         public bool addCreatedAndUpdatedDate = true;
     }
+
+    public class StorageQueryResult : StorageExecutResult
+    {
+        public List<Dictionary<string, string>> Result { get; set; } = new List<Dictionary<string, string>>();
+    }
+    public class StorageExecutResult
+    {
+        public bool Success { get => Errors.Count == 0; }
+
+        public List<DataError> Errors = new List<DataError>();
+    }
+
     public abstract class DefaultStorage<T> : IStorage where T : IStorage
     {
         protected string host;
@@ -81,19 +92,31 @@ namespace AventusSharp.Data.Storage.Default
         public abstract DbParameter GetDbParameter();
         private void Close()
         {
-            connection.Close();
+            try
+            {
+                if (connection != null)
+                {
+                    connection.Close();
+                }
+            }
+            catch (Exception e)
+            {
+                new DataError(DataErrorCode.UnknowError, e.Message).Print();
+            }
         }
 
-        public bool Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
 
             mutex.WaitOne();
+            StorageExecutResult result = new StorageExecutResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
             {
                 if (!Connect())
                 {
                     mutex.ReleaseMutex();
-                    return false;
+                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
+                    return result;
                 }
             }
 
@@ -101,39 +124,47 @@ namespace AventusSharp.Data.Storage.Default
             {
                 if (sql != "")
                 {
-                    using (DbCommand command = CreateCmd(sql))
+                    using (DbTransaction transaction = connection.BeginTransaction())
                     {
-                        command.ExecuteNonQuery();
+                        try
+                        {
+                            using (DbCommand command = CreateCmd(sql))
+                            {
+                                command.Transaction = transaction;
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (Exception e)
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
+                            transaction.Rollback();
+                        }
                     }
                 }
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                return true;
             }
             catch (Exception e)
             {
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                Console.WriteLine(e);
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
             }
-            return false;
+            if (!keepConnectionOpen)
+            {
+                Close();
+            }
+            mutex.ReleaseMutex();
+            return result;
         }
-
-        public bool Execute(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
+            StorageExecutResult result = new StorageExecutResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
             {
                 if (!Connect())
                 {
                     mutex.ReleaseMutex();
-                    return false;
+                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
+                    return result;
                 }
             }
 
@@ -142,7 +173,7 @@ namespace AventusSharp.Data.Storage.Default
                 using (DbTransaction transaction = connection.BeginTransaction())
                 {
                     command.Transaction = transaction;
-
+                    command.Connection = connection;
                     try
                     {
                         foreach (Dictionary<string, string> parameters in dataParameters)
@@ -151,109 +182,108 @@ namespace AventusSharp.Data.Storage.Default
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
-
-                            if (command.ExecuteNonQuery() != -1)
-                            {
-                                // TODO get error
-                                throw new InvalidProgramException();
-                            }
+                            command.ExecuteNonQuery();
                         }
                         transaction.Commit();
                     }
                     catch (Exception e)
                     {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
                         transaction.Rollback();
                     }
                 }
-
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                return true;
             }
             catch (Exception e)
             {
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                Console.WriteLine(e);
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
             }
-            return false;
+            if (!keepConnectionOpen)
+            {
+                Close();
+            }
+            mutex.ReleaseMutex();
+            return result;
         }
-        public List<Dictionary<string, string>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
+            StorageQueryResult result = new StorageQueryResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
             {
                 if (!Connect())
                 {
                     mutex.ReleaseMutex();
-                    return new List<Dictionary<string, string>>();
+                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
+                    return result;
                 }
             }
 
             try
             {
-                using (DbCommand command = CreateCmd(sql))
+                using (DbTransaction transaction = connection.BeginTransaction())
                 {
-                    using (IDataReader reader = command.ExecuteReader())
+                    try
                     {
-                        List<Dictionary<string, string>> res = new List<Dictionary<string, string>>();
-                        while (reader.Read())
+                        using (DbCommand command = CreateCmd(sql))
                         {
-                            Dictionary<string, string> temp = new Dictionary<string, string>();
-                            for (int i = 0; i < reader.FieldCount; i++)
+                            command.Transaction = transaction;
+                            using (IDataReader reader = command.ExecuteReader())
                             {
-                                if (!temp.ContainsKey(reader.GetName(i)))
+                                while (reader.Read())
                                 {
-                                    if (reader[reader.GetName(i)] != null)
+                                    Dictionary<string, string> temp = new Dictionary<string, string>();
+                                    for (int i = 0; i < reader.FieldCount; i++)
                                     {
-                                        temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                        if (!temp.ContainsKey(reader.GetName(i)))
+                                        {
+                                            if (reader[reader.GetName(i)] != null)
+                                            {
+                                                temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                            }
+                                            else
+                                            {
+                                                temp.Add(reader.GetName(i), "");
+                                            }
+                                        }
                                     }
-                                    else
-                                    {
-                                        temp.Add(reader.GetName(i), "");
-                                    }
+                                    result.Result.Add(temp);
                                 }
+
                             }
-                            res.Add(temp);
+                            transaction.Commit();
                         }
-                        if (!keepConnectionOpen)
-                        {
-                            Close();
-                        }
-                        mutex.ReleaseMutex();
-                        return res;
+                    }
+                    catch (Exception e)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
+                        transaction.Rollback();
                     }
                 }
             }
             catch (Exception e)
             {
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                Console.WriteLine(e);
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
             }
-            return new List<Dictionary<string, string>>();
+            if (!keepConnectionOpen)
+            {
+                Close();
+            }
+            mutex.ReleaseMutex();
+            return result;
         }
-        public List<Dictionary<string, string>> Query(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
+            StorageQueryResult result = new StorageQueryResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
             {
                 if (!Connect())
                 {
                     mutex.ReleaseMutex();
-                    return new List<Dictionary<string, string>>();
+                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
+                    return result;
                 }
             }
-            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
 
             try
             {
@@ -290,7 +320,7 @@ namespace AventusSharp.Data.Storage.Default
                                             }
                                         }
                                     }
-                                    result.Add(temp);
+                                    result.Result.Add(temp);
                                 }
                             }
                         }
@@ -298,26 +328,20 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     catch (Exception e)
                     {
-                        LogError.getInstance().WriteLine(e);
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
                         transaction.Rollback();
                     }
                 }
-
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
             }
             catch (Exception e)
             {
-                if (!keepConnectionOpen)
-                {
-                    Close();
-                }
-                mutex.ReleaseMutex();
-                LogError.getInstance().WriteLine(e);
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
             }
+            if (!keepConnectionOpen)
+            {
+                Close();
+            }
+            mutex.ReleaseMutex();
             return result;
         }
 
@@ -437,42 +461,49 @@ namespace AventusSharp.Data.Storage.Default
         internal abstract StorageAction<T> defineActions();
 
         #region Table
-        public void CreateTable(PyramidInfo pyramid)
+
+        public VoidWithError CreateTable(PyramidInfo pyramid)
         {
+            VoidWithError result = new VoidWithError();
             if (!pyramid.isForceInherit)
             {
                 if (allTableInfos.ContainsKey(pyramid.type))
                 {
-                    CreateTable(allTableInfos[pyramid.type]);
+                    VoidWithError resultTemp = CreateTable(allTableInfos[pyramid.type]);
+                    result.Errors.AddRange(resultTemp.Errors);
                 }
                 else
                 {
-                    LogError.getInstance().WriteLine("Can't find the type " + pyramid.type);
+                    result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + pyramid.type));
                 }
             }
             else
             {
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    CreateTable(child);
+                    VoidWithError resultTemp = CreateTable(child);
+                    result.Errors.AddRange(resultTemp.Errors);
                 }
             }
+            return result;
         }
-        public void CreateTable(TableInfo table)
+        public VoidWithError CreateTable(TableInfo table)
         {
-            Actions._CreateTable.run(table);
+            return Actions._CreateTable.run(table);
         }
 
-        public bool TableExist(PyramidInfo pyramid)
+        public ResultWithError<bool> TableExist(PyramidInfo pyramid)
         {
             if (allTableInfos.ContainsKey(pyramid.type))
             {
                 return TableExist(allTableInfos[pyramid.type]);
             }
-            LogError.getInstance().WriteLine("Can't find the type " + pyramid.type);
-            return false;
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + pyramid.type));
+            result.Result = false;
+            return result;
         }
-        public bool TableExist(TableInfo table)
+        public ResultWithError<bool> TableExist(TableInfo table)
         {
             return Actions._TableExist.run(table);
         }
@@ -483,20 +514,22 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region Insert
-        public List<X> Create<X>(List<X> values) where X : IStorable
+        public ResultWithError<List<X>> Create<X>(List<X> values) where X : IStorable
         {
             Type type = typeof(X);
             if (allTableInfos.ContainsKey(type))
             {
-                return Insert(allTableInfos[type], values);
+                return Create(allTableInfos[type], values);
             }
-            LogError.getInstance().WriteLine("Can't find the type " + type);
-            return new List<X>();
+
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
         }
 
-        public List<X> Insert<X>(TableInfo pyramid, List<X> values) where X : IStorable
+        public ResultWithError<List<X>> Create<X>(TableInfo pyramid, List<X> values) where X : IStorable
         {
-            return Actions._Insert.run(pyramid, values);
+            return Actions._Create.run(pyramid, values);
         }
 
         #endregion

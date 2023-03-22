@@ -8,6 +8,6 @@ namespace AventusSharp.Data.Storage.Default.Action
 {
     internal abstract class CreateTableAction<T> : GenericAction<T> where T : IStorage
     {
-        public abstract void run(TableInfo table);
+        public abstract VoidWithError run(TableInfo table);
     }
 }

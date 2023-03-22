@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using AventusSharp.Data.Manager;
+﻿using AventusSharp.Data.Manager;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -53,12 +52,12 @@ namespace AventusSharp.Data
                     }
                     else
                     {
-                        LogError.getInstance().WriteLine("Default DM must have only one generic type");
+                        new DataError(DataErrorCode.DefaultDMGenericType, "Default DM (" + type.Name + ") must have only one generic type").Print();
                     }
                 }
                 else
                 {
-                    LogError.getInstance().WriteLine("Default DM must be generic with one generic type");
+                    new DataError(DataErrorCode.DefaultDMGenericType, "Default DM (" + type.Name + ") must be generic with one generic type").Print();
                 }
                 return false;
             }
@@ -131,23 +130,15 @@ namespace AventusSharp.Data
                 {
                     return;
                 }
-                //LogConsole.getInstance().WriteLine("-------------------");
-                //foreach (ManagerInformation info in managerInformations)
-                //{
-                //    if (info.CanBeInit(false))
-                //    {
-                //        Console.WriteLine(info.ToString());
-                //    }
-                //}
             }
-            
+
             private bool GetAllManagers()
             {
                 Dictionary<Type, ManagerInformation> managerInformations = new Dictionary<Type, ManagerInformation>();
                 bool monitor = this.config.log.monitorManagerAnalyze;
                 if (monitor)
                 {
-                    LogConsole.getInstance().Write("*********** Analyze managers **********\r\n", log: true);
+                    Console.WriteLine("*********** Analyze managers **********");
                 }
                 Stopwatch time = null;
                 List<Type> managerTypes = new List<Type>();
@@ -196,7 +187,7 @@ namespace AventusSharp.Data
                     managerInformations.Add(managerType, info);
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write(managerType.Name + "\r\n", log: true);
+                        Console.WriteLine(managerType.Name);
                     }
 
 
@@ -209,7 +200,7 @@ namespace AventusSharp.Data
                         }
                         else
                         {
-                            LogError.getInstance().WriteLine("type " + manualDependance.Name + " is not storable, so you can't add it inside manual dependances of manager " + manager.Name);
+                            new DataError(DataErrorCode.TypeNotStorable, "type " + manualDependance.Name + " is not storable, so you can't add it inside manual dependances of manager " + manager.Name).Print();
                         }
                     }
 
@@ -248,7 +239,7 @@ namespace AventusSharp.Data
                 bool monitor = this.config.log.monitorDataDependances;
                 if (monitor)
                 {
-                    LogConsole.getInstance().Write("*********** Calculate data dependances **********\r\n", log: true);
+                    Console.WriteLine("*********** Calculate data dependances **********");
                 }
                 List<Type> dataTypes = new List<Type>();
                 foreach (Assembly assembly in this.config.searchingAssemblies)
@@ -294,7 +285,7 @@ namespace AventusSharp.Data
                 {
                     if (!dataType.IsAbstract && !dataType.IsInterface)
                     {
-                        LogError.getInstance().WriteLine("You class generic " + info.Name + " must be set as abstract");
+                        new DataError(DataErrorCode.GenericNotAbstract, "You class generic " + info.Name + " must be set as abstract").Print();
                         return false;
                     }
                     Type interfaceType = GetTypeForGenericClass(dataType);
@@ -314,7 +305,7 @@ namespace AventusSharp.Data
                 }
                 else if (dataType.IsAbstract && dataType.IsClass)
                 {
-                    LogError.getInstance().WriteLine("How did you do that for " + dataType.Name);
+                    new DataError(DataErrorCode.UnknowError, "How did you do that for " + dataType.Name).Print();
                 }
 
                 // load parent
@@ -330,7 +321,7 @@ namespace AventusSharp.Data
                 }
                 else
                 {
-                    LogError.getInstance().WriteLine("A parent must be abstract and generic " + parentType.Name);
+                    new DataError(DataErrorCode.ParentNotAbstract, "A parent must be abstract and generic " + parentType.Name).Print();
                 }
 
                 //load current interface
@@ -367,7 +358,7 @@ namespace AventusSharp.Data
 
                 if (this.config.log.monitorDataDependances)
                 {
-                    LogConsole.getInstance().Write(info.ToString(), log: true);
+                    Console.WriteLine(info.ToString());
                 }
                 return true;
             }
@@ -379,7 +370,7 @@ namespace AventusSharp.Data
                 orderedData = new List<DataInformation>();
                 if (monitor)
                 {
-                    LogConsole.getInstance().Write("*********** Data ordering **********\r\n", log: true);
+                    Console.WriteLine("*********** Data ordering **********");
                 }
                 foreach (DataInformation info in infos)
                 {
@@ -394,7 +385,7 @@ namespace AventusSharp.Data
                     }
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write("Data " + info.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms\r\n", log: true);
+                        Console.WriteLine("Data " + info.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
                         time = null;
                     }
@@ -403,12 +394,12 @@ namespace AventusSharp.Data
                 {
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write("*********** Data ordered **********\r\n", log: true);
+                        Console.WriteLine("*********** Data ordered **********");
                     }
                     int i = 1;
                     foreach (DataInformation dataInfo in orderedData)
                     {
-                        LogConsole.getInstance().Write(i + ". " + dataInfo.Name + " - " + dataInfo.managerInfo.manager.Name + "\r\n", log: true);
+                        Console.WriteLine(i + ". " + dataInfo.Name + " - " + dataInfo.managerInfo.manager.Name);
                         i++;
                     }
                 }
@@ -437,8 +428,9 @@ namespace AventusSharp.Data
                         // self referencing no error needed
                         return -1;
                     }
-                    LogError.getInstance().WriteLine("Infinite loop found for Data " + dataInformation.Name);
-                    LogError.getInstance().WriteLine("Elements in loop : \r\n\t- " + string.Join("\r\n\t- ", waitingData.Select(d => d.Name)) + "\r\n\t- " + dataInformation.Name);
+                    string msgError = "Infinite loop found for Data " + dataInformation.Name + "\n";
+                    msgError += "Elements in loop : \r\n\t - " + string.Join("\r\n\t - ", waitingData.Select(d => d.Name)) + "\r\n\t - " + dataInformation.Name;
+                    new DataError(DataErrorCode.InfiniteLoop, msgError).Print();
                     return -2;
                 }
 
@@ -474,7 +466,7 @@ namespace AventusSharp.Data
 
                     if (orderedData.Contains(dataInformation))
                     {
-                        LogError.getInstance().WriteLine("Double dependance found for Data " + dataInformation.Name);
+                        new DataError(DataErrorCode.SelfReferecingDependance, "Self referencing dependances found for Data " + dataInformation.Name).Print();
                         return -2;
                     }
                     orderedData.Insert(insertIndex, dataInformation);
@@ -482,7 +474,7 @@ namespace AventusSharp.Data
                 }
                 catch (Exception e)
                 {
-                    LogError.getInstance().WriteLine(e);
+                    new DataError(DataErrorCode.UnknowError, e).Print();
                 }
                 return orderedData.Count;
             }
@@ -565,7 +557,7 @@ namespace AventusSharp.Data
                 orderedManager = new List<ManagerInformation>();
                 if (monitor)
                 {
-                    LogConsole.getInstance().Write("*********** Manager ordering **********\r\n", log: true);
+                    Console.WriteLine("*********** Manager ordering **********");
                 }
                 foreach (ManagerInformation info in managerInformations)
                 {
@@ -580,7 +572,7 @@ namespace AventusSharp.Data
                     }
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write("Manager " + info.manager.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms\r\n", log: true);
+                        Console.WriteLine("Manager " + info.manager.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
                         time = null;
                     }
@@ -589,12 +581,12 @@ namespace AventusSharp.Data
                 {
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write("*********** Manager ordered **********\r\n", log: true);
+                        Console.WriteLine("*********** Manager ordered **********");
                     }
                     int i = 1;
                     foreach (ManagerInformation managerInfo in orderedManager)
                     {
-                        LogConsole.getInstance().Write(i + ". " + managerInfo.manager.Name + "\r\n", log: true);
+                        Console.WriteLine(i + ". " + managerInfo.manager.Name);
                         i++;
                     }
                 }
@@ -614,8 +606,9 @@ namespace AventusSharp.Data
                         // self referencing no error needed
                         return -1;
                     }
-                    LogError.getInstance().WriteLine("Infinite loop found for Manager " + managerInformation.manager.Name);
-                    LogError.getInstance().WriteLine("Elements in loop : \r\n\t- " + string.Join("\r\n\t- ", waitingData.Select(d => d.manager.Name)) + "\r\n\t- " + managerInformation.manager.Name);
+                    string msgError = "Infinite loop found for Manager " + managerInformation.manager.Name + "\n";
+                    msgError += "Elements in loop : \r\n\t- " + string.Join("\r\n\t- ", waitingData.Select(d => d.manager.Name)) + "\r\n\t- " + managerInformation.manager.Name;
+                    new DataError(DataErrorCode.InfiniteLoop, msgError).Print();
                     return -2;
                 }
 
@@ -651,7 +644,7 @@ namespace AventusSharp.Data
 
                     if (orderedManager.Contains(managerInformation))
                     {
-                        LogError.getInstance().WriteLine("Double dependance found for Manager " + managerInformation.manager.Name);
+                        new DataError(DataErrorCode.SelfReferecingDependance, "Self referencing dependance found for Manager " + managerInformation.manager.Name).Print();
                         return -2;
                     }
                     orderedManager.Insert(insertIndex, managerInformation);
@@ -659,7 +652,7 @@ namespace AventusSharp.Data
                 }
                 catch (Exception e)
                 {
-                    LogError.getInstance().WriteLine(e);
+                    new DataError(DataErrorCode.UnknowError, e).Print();
                 }
                 return orderedManager.Count;
             }
@@ -668,7 +661,7 @@ namespace AventusSharp.Data
                 bool monitor = this.config.log.monitorManagerInit;
                 if (monitor)
                 {
-                    LogConsole.getInstance().Write("*********** Init managers **********\r\n", log: true);
+                    Console.WriteLine("*********** Init managers **********");
                 }
                 Stopwatch time = null;
                 List<IGenericDM> genericDMs = new List<IGenericDM>();
@@ -706,7 +699,7 @@ namespace AventusSharp.Data
                     }
                     if (monitor)
                     {
-                        LogConsole.getInstance().Write("Manager " + dm.Name + " init in " + time.ElapsedMilliseconds + "ms\r\n", log: true);
+                        Console.WriteLine("Manager " + dm.Name + " init in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
                         time = null;
                     }
@@ -732,7 +725,8 @@ namespace AventusSharp.Data
                             }
                             else
                             {
-                                LogError.getInstance().WriteLine("You can't use the constraint " + constraint.Name + " inside class " + dataInformation.Name + " because interface is still referencing by " + aliasUsed[constraint] + ". You must create an interface for this abstract type.");
+                                string msgError = "You can't use the constraint " + constraint.Name + " inside class " + dataInformation.Name + " because interface is still referencing by " + aliasUsed[constraint] + ". You must create an interface for this abstract type.";
+                                throw new DataError(DataErrorCode.InterfaceNotUnique, msgError).GetException();
                             }
                         }
                         else if (pair.Value.Contains("*parent"))
@@ -767,12 +761,12 @@ namespace AventusSharp.Data
                             }
                             else
                             {
-                                LogError.getInstance().WriteLine("Somthing went wrong when creating pyramid but I don't know why");
+                                throw new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why").GetException();
                             }
                         }
                         else
                         {
-                            LogError.getInstance().WriteLine("Somthing went wrong when creating pyramid but I don't know why");
+                            throw new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why").GetException();
                         }
                     }
                     pyramidFloors[dataInformation.data] = info;
@@ -789,10 +783,18 @@ namespace AventusSharp.Data
                 // at this point data inforamtion is ordered but it's a mix of class, abstract class and interface
                 foreach (DataInformation dataInformation in managerInformation.GetDataInformation())
                 {
-                    PyramidInfo info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
-                    if (root == null)
+                    try
                     {
-                        root = info;
+                        PyramidInfo info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
+                        if (root == null)
+                        {
+                            root = info;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        return null;
                     }
                 }
                 return root;
@@ -870,12 +872,14 @@ namespace AventusSharp.Data
 
                     if (resultType.Count == 0)
                     {
-                        LogError.getInstance().WriteLine("You need to define a constraint IStorable for the type " + tp.Name + " of the class " + dataType.Name);
+                        string msgError = "You need to define a constraint IStorable for the type " + tp.Name + " of the class " + dataType.Name;
+                        new DataError(DataErrorCode.TypeNotStorable, msgError).Print();
                         return null;
                     }
                     else if (resultType.Count > 1)
                     {
-                        LogError.getInstance().WriteLine("Too many constraints IStorable (" + string.Join(", ", resultType.Select(p => p.Name)) + ") for the type " + tp.Name + " of the class " + dataType.Name);
+                        string msgError = "Too many constraints IStorable (" + string.Join(", ", resultType.Select(p => p.Name)) + ") for the type " + tp.Name + " of the class " + dataType.Name;
+                        new DataError(DataErrorCode.TypeTooMuchStorable, msgError).Print();
                         return null;
                     }
                     else
@@ -914,8 +918,8 @@ namespace AventusSharp.Data
                         }
                         catch (Exception e)
                         {
-                            LogError.getInstance().WriteLine(e);
-                            LogError.getInstance().WriteLine(args[i].ToString() + " on constrinat " + type.Name + " on type " + type.Name);
+                            new DataError(DataErrorCode.UnknowError, e).Print();
+                            new DataError(DataErrorCode.UnknowError, args[i].ToString() + " on constraint " + type.Name + " on type " + type.Name).Print();
                         }
                     }
                     result = type.GetGenericTypeDefinition().MakeGenericType(typesToUse);
@@ -1024,7 +1028,8 @@ namespace AventusSharp.Data
                 {
                     if (!dataInformations.ContainsKey(typeof(IStorable)) || dataInformations.Count != 2)
                     {
-                        LogError.getInstance().WriteLine("Can't init " + manager.Name+ " because only contains ForceInehrit elements");
+                        string msgError = "Can't init " + manager.Name + " because only contains ForceInehrit elements";
+                        new DataError(DataErrorCode.DMOnlyForceInherit, msgError).Print();
                     }
                 }
                 return false;

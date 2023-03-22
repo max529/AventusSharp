@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -112,7 +111,6 @@ namespace AventusSharp.WebSocket
             else
             {
                 context.Response.StatusCode = 302;
-                LogError.getInstance().WriteLine("Not allowed", "errorSocketNotAllowed");
                 webSocket.Abort();
             }
         }
@@ -169,7 +167,7 @@ namespace AventusSharp.WebSocket
                 }
                 catch (Exception e)
                 {
-                    LogError.getInstance().WriteLine(e);
+                    Console.WriteLine(e);
                 }
             }
         }
@@ -215,7 +213,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+               Console.WriteLine(e);
             }
             return emitted;
         }
@@ -232,7 +230,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                Console.WriteLine(e);
             }
             return new List<WebSocketConnection>();
 
@@ -250,7 +248,7 @@ namespace AventusSharp.WebSocket
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                Console.WriteLine(e);
             }
             return new List<WebSocketConnection>();
         }

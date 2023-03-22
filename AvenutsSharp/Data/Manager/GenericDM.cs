@@ -15,19 +15,20 @@ namespace AventusSharp.Data.Manager
     {
         private static Dictionary<Type, IGenericDM> dico = new Dictionary<Type, IGenericDM>();
 
+
         public static IGenericDM Get<U>() where U : IStorable
         {
             if (dico.ContainsKey(typeof(U)))
             {
                 return dico[typeof(U)];
             }
-            throw new Exception("Can't found a data manger for type " + typeof(U).Name);
+            throw new DataError(DataErrorCode.DMNotExist, "Can't found a data manger for type " + typeof(U).Name).GetException();
         }
         public static void Set(Type type, IGenericDM manager)
         {
             if (dico.ContainsKey(type))
             {
-                throw new Exception("A manager already exists for type " + type.Name);
+                throw new DataError(DataErrorCode.DMAlreadyExist, "A manager already exists for type " + type.Name).GetException();
             }
             dico[type] = manager;
         }
@@ -64,7 +65,7 @@ namespace AventusSharp.Data.Manager
         }
         public string Name
         {
-            get => this.GetType().Name.Split('`')[0] + "<" + typeof(U).Name.Split('`')[0] + ">";
+            get => GetType().Name.Split('`')[0] + "<" + typeof(U).Name.Split('`')[0] + ">";
         }
         public bool isInit { get; protected set; }
         #endregion
@@ -131,7 +132,7 @@ namespace AventusSharp.Data.Manager
         protected abstract Task<bool> Initialize();
 
 
-        #region get
+        #region Get
 
         public abstract List<X> GetAll<X>() where X : U;
         public List<U> GetAll()
@@ -144,30 +145,69 @@ namespace AventusSharp.Data.Manager
         }
         #endregion
 
-        #region insert
-        public abstract List<X> Create<X>(List<X> values) where X : U;
+        #region Create
 
-        public X Create<X>(X value) where X : U
+        #region List
+        public abstract ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U;
+        ResultWithError<List<X>> IGenericDM.CreateWithError<X>(List<X> values)
         {
-            List<X> result = Create(new List<X>() { value });
-            if (result.Count > 0)
+            return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { values });
+        }
+        public List<X> Create<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = CreateWithError(values);
+            if (result.Success)
             {
-                return result[0];
+                return result.Result;
             }
-            return default;
+            return new List<X>();
         }
-
-        X IGenericDM.Create<X>(X value)
-        {
-            return InvokeMethod<X, X>(new object[] { value });
-        }
-
         List<X> IGenericDM.Create<X>(List<X> values)
         {
             return InvokeMethod<List<X>, X>(new object[] { values });
         }
         #endregion
 
+        #region Item
+        public ResultWithError<X> CreateWithError<X>(X value) where X : U
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            ResultWithError<List<X>> resultList = CreateWithError(new List<X>() { value });
+            result.Errors = resultList.Errors;
+            if (resultList.Result.Count > 0)
+            {
+                result.Result = resultList.Result[0];
+            }
+            else
+            {
+                result.Result = default;
+            }
+            return result;
+        }
+        ResultWithError<X> IGenericDM.CreateWithError<X>(X value)
+        {
+            return InvokeMethod<ResultWithError<X>, X>(new object[] { value });
+        }
+
+        public X Create<X>(X value) where X : U
+        {
+            ResultWithError<X> result = CreateWithError(value);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return default;
+        }
+        X IGenericDM.Create<X>(X value)
+        {
+            return InvokeMethod<X, X>(new object[] { value });
+        }
+        #endregion
+
+        #endregion
+
+
+        #region Utils
         protected X InvokeMethod<X, Y>(object[] parameters = null, [CallerMemberName] string name = "")
         {
             if (parameters == null)
@@ -192,7 +232,8 @@ namespace AventusSharp.Data.Manager
                     }
                 }
             }
-            throw new NullReferenceException();
+
+            throw new DataError(DataErrorCode.MethodNotFound, "The method " + name + "(" + string.Join(", ", parameters.Select(p => p.GetType().Name)) + ") can't be found").GetException();
         }
         private bool IsSameParameters(ParameterInfo[] parameterInfos, List<Type> types)
         {
@@ -209,6 +250,7 @@ namespace AventusSharp.Data.Manager
             }
             return false;
         }
+        #endregion
 
     }
 }

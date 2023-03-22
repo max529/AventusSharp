@@ -1,5 +1,4 @@
 ﻿using AventusSharp.Attributes;
-using AventusSharp.Log;
 using AventusSharp.Tools;
 using AvenutsSharp.Attributes;
 using System;
@@ -367,7 +366,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                new DataError(DataErrorCode.UnknowError, e).Print();
             }
             return new List<object>();
 
@@ -395,7 +394,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                new DataError(DataErrorCode.UnknowError, e).Print();
             }
             return null;
 
@@ -422,7 +421,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             catch (Exception e)
             {
-                LogError.getInstance().WriteLine(e);
+                new DataError(DataErrorCode.UnknowError, e).Print();
             }
         }
         /// <summary>

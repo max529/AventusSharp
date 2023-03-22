@@ -1,5 +1,4 @@
-﻿using AventusSharp.Log;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -82,16 +81,15 @@ namespace AventusSharp.WebSocket
                         context.Response.StatusCode = 404;
                         if (enableError)
                         {
-                            LogError.getInstance().WriteLine("no router found for " + newPath, "errorSocketNotFound");
-                            string listRouter = String.Join(", ", routers.Keys.ToList());
-                            LogError.getInstance().WriteLine("List " + listRouter, "errorSocketNotFound");
+                            Console.WriteLine("no router found for " + newPath);
+                            string listRouter = string.Join(", ", routers.Keys.ToList());
+                            Console.WriteLine("List " + listRouter);
                         }
                     }
                 }
                 else
                 {
                     context.Response.StatusCode = 400;
-                    LogError.getInstance().WriteLine("pas un websocket", "errorNotWebSocket");
                 }
             }
             else

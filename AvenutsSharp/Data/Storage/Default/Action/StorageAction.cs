@@ -12,8 +12,8 @@ namespace AventusSharp.Data.Storage.Default.Action
         protected abstract TableExistAction<T> TableExist { get; }
         public CreateTableAction<T> _CreateTable { get; }
         protected abstract CreateTableAction<T> CreateTable { get; }
-        public CreateAction<T> _Insert { get; }
-        protected abstract CreateAction<T> Insert { get; }
+        public CreateAction<T> _Create { get; }
+        protected abstract CreateAction<T> Create { get; }
 
         public StorageAction(T Storage)
         {
@@ -23,8 +23,8 @@ namespace AventusSharp.Data.Storage.Default.Action
             _CreateTable = CreateTable;
             _CreateTable.Storage = Storage;
 
-            _Insert = Insert;
-            _Insert.Storage = Storage;
+            _Create = Create;
+            _Create.Storage = Storage;
         }
     }
 }

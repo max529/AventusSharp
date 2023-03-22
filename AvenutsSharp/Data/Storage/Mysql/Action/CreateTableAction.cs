@@ -11,27 +11,34 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 {
     internal class CreateTableAction : CreateTableAction<MySQLStorage>
     {
-        public override void run(TableInfo table)
+        public override VoidWithError run(TableInfo table)
         {
-            if (!Storage.TableExist(table))
+            VoidWithError result = new VoidWithError();
+            ResultWithError<bool> tableExist = Storage.TableExist(table);
+            result.Errors.AddRange(tableExist.Errors);
+            if (tableExist.Success && !tableExist.Result)
             {
                 string sql = CreateTable.GetQuery(Storage, table);
-                Storage.Execute(sql);
+                StorageExecutResult resultTemp = Storage.Execute(sql);
+                result.Errors.AddRange(resultTemp.Errors);
 
                 // create intermediate table
                 List<TableMemberInfo> members = table.members.Where
-                    (f => f.link ==  TableMemberInfoLink.Multiple).ToList();
+                    (f => f.link == TableMemberInfoLink.Multiple).ToList();
 
                 foreach (TableMemberInfo member in members)
                 {
                     sql = CreateIntermediateTable.GetQuery(member);
-                    Storage.Execute(sql);
+                    StorageExecutResult resultTempInter = Storage.Execute(sql);
+                    result.Errors.AddRange(resultTempInter.Errors);
                 }
             }
             foreach (TableInfo child in table.Children)
             {
-                run(child);
+                VoidWithError resultTemp = run(child);
+                result.Errors.AddRange(resultTemp.Errors);
             }
+            return result;
         }
     }
 }
