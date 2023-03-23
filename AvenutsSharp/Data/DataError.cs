@@ -25,6 +25,7 @@ namespace AventusSharp.Data
         StorageDisconnected,
         TypeNotExistInsideStorage,
         UnknowError,
+        NoItemProvided,
     }
     public class DataError : GenericError<DataErrorCode>
     {
