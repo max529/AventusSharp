@@ -63,18 +63,18 @@ namespace AventusSharp.Data
             }
             return true;
         }
-        public static async Task Register(DataManagerConfig config)
+        public static async Task<bool> Register(DataManagerConfig config)
         {
             if (!registerDone)
             {
                 if (!DefineTypeDM(config.defaultDM))
                 {
-                    return;
+                    return false;
                 }
                 registerDone = true;
-                await new DataInit(config).Init();
+                return await new DataInit(config).Init();
             }
-
+            return false;
         }
 
 
@@ -104,32 +104,33 @@ namespace AventusSharp.Data
                     storableMembersInfo.Add(new DataMemberInfo(property));
                 }
             }
-            public async Task Init()
+            public async Task<bool> Init()
             {
                 if (!GetAllManagers())
                 {
-                    return;
+                    return false;
                 }
                 if (!CalculateDataDependances())
                 {
-                    return;
+                    return false;
                 }
                 if (!OrderData())
                 {
-                    return;
+                    return false;
                 }
                 if (!MergeManager())
                 {
-                    return;
+                    return false;
                 }
                 if (!OrderedManager())
                 {
-                    return;
+                    return false;
                 }
                 if (!await InitManager())
                 {
-                    return;
+                    return false;
                 }
+                return true;
             }
 
             private bool GetAllManagers()

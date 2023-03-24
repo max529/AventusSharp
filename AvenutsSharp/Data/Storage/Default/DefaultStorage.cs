@@ -90,7 +90,7 @@ namespace AventusSharp.Data.Storage.Default
         protected abstract DbConnection getConnection();
         public abstract DbCommand CreateCmd(string sql);
         public abstract DbParameter GetDbParameter();
-        private void Close()
+        public void Close()
         {
             try
             {

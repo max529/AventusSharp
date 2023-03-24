@@ -54,7 +54,19 @@ namespace AventusSharp.Data.Storage.Default
         public virtual object GetSqlValue(object obj)
         {
             // TODO maybe check constraint here
-            return GetValue(obj);
+            if (link == TableMemberInfoLink.None)
+            {
+                return GetValue(obj);
+            }
+            else if (link == TableMemberInfoLink.Simple)
+            {
+                object elementRef = GetValue(obj);
+                if(elementRef is IStorable storableLink)
+                {
+                    return storableLink.id;
+                }
+            }
+            return null;
         }
 
         public virtual void SetSqlValue(object obj, string value)
