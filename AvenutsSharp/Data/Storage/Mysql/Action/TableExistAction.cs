@@ -13,17 +13,14 @@ namespace AventusSharp.Data.Storage.Mysql.Action
         public override ResultWithError<bool> run(TableInfo table)
         {
             ResultWithError<bool> result = new ResultWithError<bool>();
-            StorageQueryResult queryResult = Storage.Query("SELECT COUNT(*) nb FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table.SqlTableName + "' and TABLE_SCHEMA = '" + this.Storage.GetDatabaseName() + "'; ");
+            string sql = "SELECT COUNT(*) nb FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table.SqlTableName + "' and TABLE_SCHEMA = '" + this.Storage.GetDatabaseName() + "'; ";
+            StorageQueryResult queryResult = Storage.Query(sql);
             result.Errors.AddRange(queryResult.Errors);
 
             if (queryResult.Success && queryResult.Result.Count == 1)
             {
                 int nb = int.Parse(queryResult.Result.ElementAt(0)["nb"]);
-                if (nb == 0)
-                {
-                    result.Result = false;
-                }
-                result.Result = true;
+                result.Result = (nb != 0);
             }
             return result;
         }

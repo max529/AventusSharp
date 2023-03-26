@@ -42,7 +42,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                         primaryConstraint.Add("`" + member.SqlName + "`");
                     }
 
-                    if (member.link == TableMemberInfoLink.Simple)
+                    if (member.link == TableMemberInfoLink.Simple || member.link == TableMemberInfoLink.Parent)
                     {
                         if (member.TableLinked != null)
                         {
@@ -94,7 +94,6 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             }
             sql += ")";
 
-            Console.WriteLine(sql);
             return sql;
         }
 

@@ -26,6 +26,8 @@ namespace AventusSharp.Data
         TypeNotExistInsideStorage,
         UnknowError,
         NoItemProvided,
+        NoTransactionInProgress,
+        WrongType
     }
     public class DataError : GenericError<DataErrorCode>
     {

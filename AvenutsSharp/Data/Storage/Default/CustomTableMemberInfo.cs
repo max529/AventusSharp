@@ -62,7 +62,6 @@ namespace AventusSharp.Data.Storage.Default
         {
             IsAutoIncrement = information.IsAutoIncrement;
             IsNullable = information.IsNullable;
-            IsParentLink = information.IsParentLink;
             IsPrimary = information.IsPrimary;
             link = information.link;
             SqlName = information.SqlName;

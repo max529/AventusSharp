@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Storage.Default.Action
 {
-    public abstract class GenericAction<T> where T : IStorage
+    internal abstract class GetByIdAction<T> : GenericAction<T> where T : IStorage
     {
-        public T Storage { get; set; }
+        public abstract ResultWithError<X> run<X>(TableInfo table, int id) where X : IStorable;
     }
 }

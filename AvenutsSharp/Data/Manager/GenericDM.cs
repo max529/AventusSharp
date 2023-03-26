@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -33,7 +34,7 @@ namespace AventusSharp.Data.Manager
             dico[type] = manager;
         }
     }
-    public abstract class GenericDataManager<T, U> : IGenericDM<U> where T : IGenericDM<U>, new() where U : IStorable
+    public abstract class GenericDM<T, U> : IGenericDM<U> where T : IGenericDM<U>, new() where U : IStorable
     {
         #region singleton
         private static readonly Mutex mutexGetInstance = new Mutex();
@@ -75,9 +76,11 @@ namespace AventusSharp.Data.Manager
         protected Type rootType { get; set; }
         protected DataManagerConfig config { get; set; }
 
-        protected GenericDataManager()
+        protected GenericDM()
         {
         }
+
+        #region Config
         public virtual Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
             pyramidInfo = pyramid;
@@ -125,34 +128,134 @@ namespace AventusSharp.Data.Manager
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                new DataError(DataErrorCode.UnknowError, e).Print();
             }
             return false;
         }
         protected abstract Task<bool> Initialize();
-
+        #endregion
 
         #region Get
 
-        public abstract List<X> GetAll<X>() where X : U;
-        public List<U> GetAll()
+        #region GetAll
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public abstract ResultWithError<List<X>> GetAllWithError<X>() where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<List<X>> IGenericDM.GetAllWithError<X>()
         {
-            return this.GetAll<U>();
+            return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { });
         }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public List<X> GetAll<X>() where X : U
+        {
+            ResultWithError<List<X>> result = GetAllWithError<X>();
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return new List<X>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         List<X> IGenericDM.GetAll<X>()
         {
-            return InvokeMethod<List<X>, X>();
+            return InvokeMethod<List<X>, X>(new object[] { });
         }
+
+        #endregion
+
+        #region GetById
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public abstract ResultWithError<X> GetByIdWithError<X>(int id) where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<X> IGenericDM.GetByIdWithError<X>(int id)
+        {
+            return InvokeMethod<ResultWithError<X>, X>(new object[] { id });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public X GetById<X>(int id) where X : U
+        {
+            ResultWithError<X> result = GetByIdWithError<X>(id);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return default;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        X IGenericDM.GetById<X>(int id)
+        {
+            return InvokeMethod<X, X>(new object[] { id });
+        }
+        #endregion
+
+        #region Where
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public abstract ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<List<X>> IGenericDM.WhereWithError<X>(Expression<Func<X, bool>> func)
+        {
+            return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { func });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public List<X> Where<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            ResultWithError<List<X>> result = WhereWithError(func);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return new List<X>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        List<X> IGenericDM.Where<X>(Expression<Func<X, bool>> func)
+        {
+            return InvokeMethod<List<X>, X>(new object[] { func });
+        }
+        #endregion
+
         #endregion
 
         #region Create
 
         #region List
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public abstract ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         ResultWithError<List<X>> IGenericDM.CreateWithError<X>(List<X> values)
         {
             return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { values });
         }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public List<X> Create<X>(List<X> values) where X : U
         {
             ResultWithError<List<X>> result = CreateWithError(values);
@@ -162,6 +265,9 @@ namespace AventusSharp.Data.Manager
             }
             return new List<X>();
         }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         List<X> IGenericDM.Create<X>(List<X> values)
         {
             return InvokeMethod<List<X>, X>(new object[] { values });
@@ -169,6 +275,9 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region Item
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public ResultWithError<X> CreateWithError<X>(X value) where X : U
         {
             ResultWithError<X> result = new ResultWithError<X>();
@@ -184,11 +293,16 @@ namespace AventusSharp.Data.Manager
             }
             return result;
         }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         ResultWithError<X> IGenericDM.CreateWithError<X>(X value)
         {
             return InvokeMethod<ResultWithError<X>, X>(new object[] { value });
         }
-
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public X Create<X>(X value) where X : U
         {
             ResultWithError<X> result = CreateWithError(value);
@@ -198,6 +312,9 @@ namespace AventusSharp.Data.Manager
             }
             return default;
         }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         X IGenericDM.Create<X>(X value)
         {
             return InvokeMethod<X, X>(new object[] { value });
@@ -206,6 +323,173 @@ namespace AventusSharp.Data.Manager
 
         #endregion
 
+        #region Update
+
+        #region List
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public abstract ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<List<X>> IGenericDM.UpdateWithError<X>(List<X> values)
+        {
+            return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { values });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public List<X> Update<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = UpdateWithError(values);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return new List<X>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        List<X> IGenericDM.Update<X>(List<X> values)
+        {
+            return InvokeMethod<List<X>, X>(new object[] { values });
+        }
+        #endregion
+
+        #region Item
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithError<X> UpdateWithError<X>(X value) where X : U
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            ResultWithError<List<X>> resultList = UpdateWithError(new List<X>() { value });
+            result.Errors = resultList.Errors;
+            if (resultList.Result.Count > 0)
+            {
+                result.Result = resultList.Result[0];
+            }
+            else
+            {
+                result.Result = default;
+            }
+            return result;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<X> IGenericDM.UpdateWithError<X>(X value)
+        {
+            return InvokeMethod<ResultWithError<X>, X>(new object[] { value });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public X Update<X>(X value) where X : U
+        {
+            ResultWithError<X> result = UpdateWithError(value);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return default;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        X IGenericDM.Update<X>(X value)
+        {
+            return InvokeMethod<X, X>(new object[] { value });
+        }
+        #endregion
+
+        #endregion
+
+        #region Delete
+
+        #region List
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public abstract ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : U;
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<List<X>> IGenericDM.DeleteWithError<X>(List<X> values)
+        {
+            return InvokeMethod<ResultWithError<List<X>>, X>(new object[] { values });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public List<X> Delete<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = DeleteWithError(values);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return new List<X>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        List<X> IGenericDM.Delete<X>(List<X> values)
+        {
+            return InvokeMethod<List<X>, X>(new object[] { values });
+        }
+        #endregion
+
+        #region Item
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithError<X> DeleteWithError<X>(X value) where X : U
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            ResultWithError<List<X>> resultList = DeleteWithError(new List<X>() { value });
+            result.Errors = resultList.Errors;
+            if (resultList.Result.Count > 0)
+            {
+                result.Result = resultList.Result[0];
+            }
+            else
+            {
+                result.Result = default;
+            }
+            return result;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        ResultWithError<X> IGenericDM.DeleteWithError<X>(X value)
+        {
+            return InvokeMethod<ResultWithError<X>, X>(new object[] { value });
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public X Delete<X>(X value) where X : U
+        {
+            ResultWithError<X> result = DeleteWithError(value);
+            if (result.Success)
+            {
+                return result.Result;
+            }
+            return default;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        X IGenericDM.Delete<X>(X value)
+        {
+            return InvokeMethod<X, X>(new object[] { value });
+        }
+        #endregion
+
+        #endregion
 
         #region Utils
         protected X InvokeMethod<X, Y>(object[] parameters = null, [CallerMemberName] string name = "")
@@ -225,10 +509,17 @@ namespace AventusSharp.Data.Manager
             {
                 if (method.Name == name && method.IsGenericMethod)
                 {
-                    MethodInfo methodType = method.MakeGenericMethod(typeof(Y));
-                    if (IsSameParameters(methodType.GetParameters(), types))
+                    try
                     {
-                        return (X)methodType.Invoke(this, parameters);
+                        MethodInfo methodType = method.MakeGenericMethod(typeof(Y));
+                        if (IsSameParameters(methodType.GetParameters(), types))
+                        {
+                            return (X)methodType.Invoke(this, parameters);
+                        }
+                    }
+                    catch
+                    {
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code
                     }
                 }
             }
@@ -241,7 +532,15 @@ namespace AventusSharp.Data.Manager
             {
                 for (int i = 0; i < parameterInfos.Length; i++)
                 {
-                    if (parameterInfos[i].ParameterType != types[i])
+                    Type paramType = parameterInfos[i].ParameterType;
+                    if (paramType.IsInterface)
+                    {
+                        if (!types[i].GetInterfaces().Contains(paramType))
+                        {
+                            return false;
+                        }
+                    }
+                    else if (parameterInfos[i].ParameterType != types[i])
                     {
                         return false;
                     }

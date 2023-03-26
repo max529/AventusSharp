@@ -15,16 +15,19 @@ namespace TestConsole.cs
     {
         static void Main(string[] args)
         {
+            MySQLStorage storage = new MySQLStorage(new StorageCredentials()
+            {
+                host = "localhost",
+                database = "aventus",
+                username = "max",
+                password = "pass$1234",
+                keepConnectionOpen = true,
+            });
+            storage.Connect();
+            storage.ResetStorage();
             DataMainManager.Register(new DataManagerConfig()
             {
-                defaultStorage = new MySQLStorage(new StorageCredentials()
-                {
-                    host = "localhost",
-                    database = "aventus",
-                    username = "max",
-                    password = "pass$1234",
-                    keepConnectionOpen = true,
-                }),
+                defaultStorage = storage,
                 defaultDM = typeof(DatabaseDMSimple<>),
                 log = new DataManagerConfigLog()
                 {
@@ -34,21 +37,27 @@ namespace TestConsole.cs
 
             Console.ReadLine();
 
-            // Person.GetAll();
-            // Storable<IAnimal>.GetAll();
-            // Cat.GetAll();
-            // Storable<Cat>.GetAll();
 
-            // AnimalManager.getInstance().GetAll();
+            //Person.Create(new Person() { firstname = "Maxime", lastname = "Bétrisey" });
+
+            //new Person()
+            //{
+            //    firstname = "Test",
+            //    lastname = "test"
+            //}.Create();
 
 
-            Person.Create(new Person() { firstname = "Maxime", lastname = "Bétrisey" });
+            //Cat felix = new Cat();
+            //felix.name = "felix";
+            //felix.Create();
 
-            new Person()
-            {
-                firstname = "Test",
-                lastname = "test"
-            }.Create();
+            Dog medor = new Dog();
+            medor.name = "medor";
+            Animal<IAnimal>.Create(medor);
+            
+            return;
+
+            //Storable<IAnimal>.Create(new List<IAnimal>() { felix, medor });
         }
     }
 }

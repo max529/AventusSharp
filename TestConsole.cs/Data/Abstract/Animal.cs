@@ -5,7 +5,7 @@ using System.Text;
 
 namespace TestConsole.cs.Data.Abstract
 {
-    public interface IAnimal : IStorable
+    public interface IAnimal : IStorable, ITest
     {
         string name { get; set; }
     }

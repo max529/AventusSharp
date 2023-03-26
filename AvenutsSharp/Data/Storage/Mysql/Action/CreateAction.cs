@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
+using AventusSharp.Tools;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,30 +13,49 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 {
     internal class CreateAction : CreateAction<MySQLStorage>
     {
-        private static Dictionary<TableInfo, string> queryByTable = new Dictionary<TableInfo, string>();
-        private static Dictionary<TableInfo, List<DbParameter>> parametersByTable = new Dictionary<TableInfo, List<DbParameter>>();
-        private static Dictionary<TableInfo, Func<IList, List<Dictionary<string, object>>>> paramsFctByTable = new Dictionary<TableInfo, Func<IList, List<Dictionary<string, object>>>>();
+        private class CreateQueryInfo
+        {
+            public string sql { get; set; }
+            public List<DbParameter> parameters { get; set; }
+            public Func<IList, List<Dictionary<string, object>>> getParams { get; set; }
+
+            public bool isRoot { get; set; }
+        }
+        private static Dictionary<TableInfo, CreateQueryInfo> createInfo = new Dictionary<TableInfo, CreateQueryInfo>();
+
         public override ResultWithError<List<X>> run<X>(TableInfo table, List<X> data)
         {
+            OrderData(table, data);
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
             result.Result = new List<X>();
 
-            if (!queryByTable.ContainsKey(table))
+            if (table.Parent != null)
             {
-                this.createQuery(table);
+                ResultWithError<List<X>> resultTemp = run(table.Parent, data);
+                result.Errors.AddRange(resultTemp.Errors);
+                if (!result.Success)
+                {
+                    return result;
+                }
             }
 
-            DbCommand cmd = Storage.CreateCmd(queryByTable[table]);
+            if (!createInfo.ContainsKey(table))
+            {
+                createQuery(table);
+            }
+
+            DbCommand cmd = Storage.CreateCmd(createInfo[table].sql);
 
 
-            foreach (DbParameter parameter in parametersByTable[table])
+            foreach (DbParameter parameter in createInfo[table].parameters)
             {
                 cmd.Parameters.Add(parameter);
             }
 
-            StorageQueryResult queryResult = Storage.Query(cmd, paramsFctByTable[table](data));
+            StorageQueryResult queryResult = Storage.Query(cmd, createInfo[table].getParams(data));
+            cmd.Dispose();
             result.Errors.AddRange(queryResult.Errors);
-            if (queryResult.Success)
+            if (queryResult.Success && createInfo[table].isRoot)
             {
                 if (queryResult.Result.Count == data.Count)
                 {
@@ -53,47 +73,100 @@ namespace AventusSharp.Data.Storage.Mysql.Action
             return result;
         }
 
-        private void createQuery(TableInfo table)
+        private ResultWithError<Dictionary<TableInfo, IList>> OrderData(TableInfo table, IList data)
         {
-            string sql = "INSERT INTO " + table.SqlTableName + " ($fields) VALUES ($values); SELECT last_insert_id() as id;";
-            List<string> members = new List<string>();
-            List<string> parameters = new List<string>();
-            List<DbParameter> parametersSQL = new List<DbParameter>();
-            Dictionary<string, TableMemberInfo> memberByParameters = new Dictionary<string, TableMemberInfo>();
-            TableMemberInfo createdDate = null;
-            TableMemberInfo updatedDate = null;
+            ResultWithError<Dictionary<TableInfo, IList>> result = new ResultWithError<Dictionary<TableInfo, IList>>();
+            result.Result = new Dictionary<TableInfo, IList>();
+            if (table.IsAbstract)
+            {
+                Dictionary<Type, TableInfo> loadedType = new Dictionary<Type, TableInfo>();
+                foreach(object item in data)
+                {
+                    Type type = item.GetType();
+                    if (!loadedType.ContainsKey(type))
+                    {
+                        TableInfo tableInfo = Storage.getTableInfo(type);
+                        if(tableInfo == null)
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "this must be impossible"));
+                            return result;
+                        }
+                        else
+                        {
+                            loadedType.Add(type, tableInfo);
+                            Type newListType = typeof(List<>).MakeGenericType(type);
+                            IList newList = (IList)TypeTools.CreateNewObj(newListType);
+                            result.Result.Add(tableInfo, newList);
+                        }
+                    }
+                    result.Result[loadedType[type]].Add(item);
+                }
+            }
+            else
+            {
+                result.Result.Add(table, data);
+            }
+            return result;
+        }
+
+        #region prepare query
+
+        private class CreateQueryInfoTemp
+        {
+            public List<string> members = new List<string>();
+            public List<string> parameters = new List<string>();
+            public List<DbParameter> parametersSQL = new List<DbParameter>();
+            public Dictionary<string, TableMemberInfo> memberByParameters = new Dictionary<string, TableMemberInfo>();
+            public TableMemberInfo createdDate = null;
+            public TableMemberInfo updatedDate = null;
+
+        }
+
+        private void loadMembers(TableInfo table, CreateQueryInfoTemp createInfo)
+        {
             foreach (TableMemberInfo member in table.members)
             {
                 if (member.IsAutoIncrement)
                 {
                     continue;
                 }
-                if (member.link == TableMemberInfoLink.None || member.link == TableMemberInfoLink.Simple)
+                List<TableMemberInfoLink> allowedInfo = new List<TableMemberInfoLink>() { TableMemberInfoLink.None, TableMemberInfoLink.Simple, TableMemberInfoLink.Parent };
+                if (allowedInfo.Contains(member.link))
                 {
                     string paramName = "@" + member.SqlName;
-                    members.Add("" + member.SqlName + "");
-                    parameters.Add(paramName);
+                    createInfo.members.Add("" + member.SqlName + "");
+                    createInfo.parameters.Add(paramName);
                     if (member.SqlName == "createdDate")
                     {
-                        createdDate = member;
+                        createInfo.createdDate = member;
                     }
                     else if (member.SqlName == "updatedDate")
                     {
-                        updatedDate = member;
+                        createInfo.updatedDate = member;
                     }
                     else
                     {
-                        memberByParameters.Add(paramName, member);
+                        createInfo.memberByParameters.Add(paramName, member);
                     }
 
                     DbParameter parameter = Storage.GetDbParameter();
                     parameter.ParameterName = paramName;
                     parameter.DbType = member.SqlType;
-                    parametersSQL.Add(parameter);
+                    createInfo.parametersSQL.Add(parameter);
                 }
             }
-            sql = sql.Replace("$fields", string.Join(",", members));
-            sql = sql.Replace("$values", string.Join(",", parameters));
+        }
+
+        private void createQuery(TableInfo table)
+        {
+            string sql = "INSERT INTO " + table.SqlTableName + " ($fields) VALUES ($values); SELECT last_insert_id() as id;";
+
+            CreateQueryInfoTemp createInfoTemp = new CreateQueryInfoTemp();
+
+            loadMembers(table, createInfoTemp);
+
+            sql = sql.Replace("$fields", string.Join(",", createInfoTemp.members));
+            sql = sql.Replace("$values", string.Join(",", createInfoTemp.parameters));
 
             Func<IList, List<Dictionary<string, object>>> func = delegate (IList data)
             {
@@ -101,17 +174,17 @@ namespace AventusSharp.Data.Storage.Mysql.Action
                 foreach (object item in data)
                 {
                     Dictionary<string, object> line = new Dictionary<string, object>();
-                    foreach (KeyValuePair<string, TableMemberInfo> param in memberByParameters)
+                    foreach (KeyValuePair<string, TableMemberInfo> param in createInfoTemp.memberByParameters)
                     {
                         line.Add(param.Key, param.Value.GetSqlValue(item));
                     }
 
                     DateTime now = DateTime.Now;
-                    if (createdDate != null)
+                    if (createInfoTemp.createdDate != null)
                     {
                         line.Add("@createdDate", now);
                     }
-                    if (updatedDate != null)
+                    if (createInfoTemp.updatedDate != null)
                     {
                         line.Add("@updatedDate", now);
                     }
@@ -121,11 +194,19 @@ namespace AventusSharp.Data.Storage.Mysql.Action
                 return result;
             };
 
+            Console.WriteLine(sql);
 
+            CreateQueryInfo infoFinal = new CreateQueryInfo()
+            {
+                sql = sql,
+                getParams = func,
+                parameters = createInfoTemp.parametersSQL,
+                isRoot = (table.Parent == null)
+            };
 
-            paramsFctByTable[table] = func;
-            queryByTable[table] = sql;
-            parametersByTable[table] = parametersSQL;
+            createInfo[table] = infoFinal;
         }
+
+        #endregion
     }
 }

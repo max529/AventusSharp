@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -44,6 +45,7 @@ namespace AventusSharp.Data.Storage.Default
         protected DbConnection connection;
         private Mutex mutex;
         private bool linksCreated;
+        private DbTransaction transaction;
         public bool IsConnectedOneTime { get; protected set; }
 
         private Dictionary<Type, TableInfo> allTableInfos = new Dictionary<Type, TableInfo>();
@@ -67,9 +69,15 @@ namespace AventusSharp.Data.Storage.Default
             addCreatedAndUpdatedDate = info.addCreatedAndUpdatedDate;
             mutex = new Mutex();
         }
+
         #region connection
-        public virtual bool Connect()
+        public bool Connect()
         {
+            return ConnetWithError().Success;
+        }
+        public virtual ResultWithError<bool> ConnetWithError()
+        {
+            ResultWithError<bool> result = new ResultWithError<bool>();
             try
             {
                 connection = getConnection();
@@ -78,15 +86,17 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     connection.Close();
                 }
-                this.IsConnectedOneTime = true;
-                return true;
+                IsConnectedOneTime = true;
+                result.Result = true;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                return false;
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
             }
+            return result;
         }
+
+        public abstract ResultWithError<bool> ResetStorage();
         protected abstract DbConnection getConnection();
         public abstract DbCommand CreateCmd(string sql);
         public abstract DbParameter GetDbParameter();
@@ -94,9 +104,22 @@ namespace AventusSharp.Data.Storage.Default
         {
             try
             {
+                if (transaction != null)
+                {
+                    transaction.Rollback();
+                    transaction.Dispose();
+                }
+            }
+            catch (Exception e)
+            {
+                new DataError(DataErrorCode.UnknowError, e.Message).Print();
+            }
+            try
+            {
                 if (connection != null)
                 {
                     connection.Close();
+                    connection.Dispose();
                 }
             }
             catch (Exception e)
@@ -107,54 +130,12 @@ namespace AventusSharp.Data.Storage.Default
 
         public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-
-            mutex.WaitOne();
-            StorageExecutResult result = new StorageExecutResult();
-            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
-            {
-                if (!Connect())
-                {
-                    mutex.ReleaseMutex();
-                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
-                    return result;
-                }
-            }
-
-            try
-            {
-                if (sql != "")
-                {
-                    using (DbTransaction transaction = connection.BeginTransaction())
-                    {
-                        try
-                        {
-                            using (DbCommand command = CreateCmd(sql))
-                            {
-                                command.Transaction = transaction;
-                                command.ExecuteNonQuery();
-                            }
-                            transaction.Commit();
-                        }
-                        catch (Exception e)
-                        {
-                            result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-                            transaction.Rollback();
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-            }
-            if (!keepConnectionOpen)
-            {
-                Close();
-            }
-            mutex.ReleaseMutex();
+            DbCommand command = CreateCmd(sql);
+            StorageExecutResult result = Execute(command, null, callerPath, callerNo);
+            command.Dispose();
             return result;
         }
-        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, string>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             mutex.WaitOne();
             StorageExecutResult result = new StorageExecutResult();
@@ -170,28 +151,55 @@ namespace AventusSharp.Data.Storage.Default
 
             try
             {
-                using (DbTransaction transaction = connection.BeginTransaction())
+                bool isNewTransaction = false;
+                DbTransaction transaction = this.transaction;
+                if (transaction == null)
                 {
-                    command.Transaction = transaction;
-                    command.Connection = connection;
-                    try
+                    ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
+                    result.Errors.AddRange(resultTransaction.Errors);
+                    if (!result.Success)
                     {
-                        foreach (Dictionary<string, string> parameters in dataParameters)
+                        return result;
+                    }
+                    transaction = resultTransaction.Result;
+                    isNewTransaction = true;
+                }
+
+                command.Transaction = transaction;
+                command.Connection = connection;
+                try
+                {
+                    if (dataParameters != null)
+                    {
+                        foreach (Dictionary<string, object> parameters in dataParameters)
                         {
-                            foreach (KeyValuePair<string, string> parameter in parameters)
+                            foreach (KeyValuePair<string, object> parameter in parameters)
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
                             command.ExecuteNonQuery();
                         }
-                        transaction.Commit();
                     }
-                    catch (Exception e)
+                    else
                     {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-                        transaction.Rollback();
+                        command.ExecuteNonQuery();
+                    }
+                    if (isNewTransaction)
+                    {
+                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
+                        result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
+                catch (Exception e)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
+                    if (isNewTransaction)
+                    {
+                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
+                        result.Errors.AddRange(transactionResult.Errors);
+                    }
+                }
+
             }
             catch (Exception e)
             {
@@ -206,69 +214,9 @@ namespace AventusSharp.Data.Storage.Default
         }
         public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            mutex.WaitOne();
-            StorageQueryResult result = new StorageQueryResult();
-            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
-            {
-                if (!Connect())
-                {
-                    mutex.ReleaseMutex();
-                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name, " can't connect to the database"));
-                    return result;
-                }
-            }
-
-            try
-            {
-                using (DbTransaction transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        using (DbCommand command = CreateCmd(sql))
-                        {
-                            command.Transaction = transaction;
-                            using (IDataReader reader = command.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    Dictionary<string, string> temp = new Dictionary<string, string>();
-                                    for (int i = 0; i < reader.FieldCount; i++)
-                                    {
-                                        if (!temp.ContainsKey(reader.GetName(i)))
-                                        {
-                                            if (reader[reader.GetName(i)] != null)
-                                            {
-                                                temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
-                                            }
-                                            else
-                                            {
-                                                temp.Add(reader.GetName(i), "");
-                                            }
-                                        }
-                                    }
-                                    result.Result.Add(temp);
-                                }
-
-                            }
-                            transaction.Commit();
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-                        transaction.Rollback();
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-            }
-            if (!keepConnectionOpen)
-            {
-                Close();
-            }
-            mutex.ReleaseMutex();
+            DbCommand command = CreateCmd(sql);
+            StorageQueryResult result = Query(command, null, callerPath, callerNo);
+            command.Dispose();
             return result;
         }
         public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
@@ -287,11 +235,26 @@ namespace AventusSharp.Data.Storage.Default
 
             try
             {
-                using (DbTransaction transaction = connection.BeginTransaction())
+
+                bool isNewTransaction = false;
+                DbTransaction transaction = this.transaction;
+                if (transaction == null)
                 {
-                    command.Transaction = transaction;
-                    command.Connection = connection;
-                    try
+                    ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
+                    result.Errors.AddRange(resultTransaction.Errors);
+                    if (!result.Success)
+                    {
+                        return result;
+                    }
+                    transaction = resultTransaction.Result;
+                    isNewTransaction = true;
+                }
+
+                command.Transaction = transaction;
+                command.Connection = connection;
+                try
+                {
+                    if (dataParameters != null)
                     {
                         foreach (Dictionary<string, object> parameters in dataParameters)
                         {
@@ -324,12 +287,46 @@ namespace AventusSharp.Data.Storage.Default
                                 }
                             }
                         }
-                        transaction.Commit();
                     }
-                    catch (Exception e)
+                    else
                     {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
-                        transaction.Rollback();
+                        using (IDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                Dictionary<string, string> temp = new Dictionary<string, string>();
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    if (!temp.ContainsKey(reader.GetName(i)))
+                                    {
+                                        if (reader[reader.GetName(i)] != null)
+                                        {
+                                            temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                        }
+                                        else
+                                        {
+                                            temp.Add(reader.GetName(i), "");
+                                        }
+                                    }
+                                }
+                                result.Result.Add(temp);
+                            }
+                        }
+                    }
+
+                    if (isNewTransaction)
+                    {
+                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
+                        result.Errors.AddRange(transactionResult.Errors);
+                    }
+                }
+                catch (Exception e)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message));
+                    if (isNewTransaction)
+                    {
+                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
+                        result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
             }
@@ -345,8 +342,89 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-
-
+        public ResultWithError<DbTransaction> BeginTransaction()
+        {
+            ResultWithError<DbTransaction> result = new ResultWithError<DbTransaction>();
+            try
+            {
+                if (transaction == null)
+                {
+                    transaction = connection.BeginTransaction();
+                }
+                result.Result = transaction;
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+            }
+            return result;
+        }
+        public ResultWithError<bool> CommitTransaction()
+        {
+            return CommitTransaction(transaction);
+        }
+        public ResultWithError<bool> CommitTransaction(DbTransaction transaction)
+        {
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            lock (transaction)
+            {
+                if (transaction == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NoTransactionInProgress, "There is no transation to commit"));
+                }
+                else
+                {
+                    try
+                    {
+                        transaction.Commit();
+                        result.Result = true;
+                        transaction.Dispose();
+                        if (transaction == this.transaction)
+                        {
+                            this.transaction = null;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                    }
+                }
+            }
+            return result;
+        }
+        public ResultWithError<bool> RollbackTransaction()
+        {
+            return RollbackTransaction(transaction);
+        }
+        public ResultWithError<bool> RollbackTransaction(DbTransaction transaction)
+        {
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            lock (transaction)
+            {
+                if (transaction == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NoTransactionInProgress, "There is no transation to rollback"));
+                }
+                else
+                {
+                    try
+                    {
+                        transaction.Rollback();
+                        result.Result = true;
+                        transaction.Dispose();
+                        if (transaction == this.transaction)
+                        {
+                            this.transaction = null;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                    }
+                }
+            }
+            return result;
+        }
         #endregion
 
         #region init
@@ -511,9 +589,69 @@ namespace AventusSharp.Data.Storage.Default
 
         #region Get
 
+        #region GetAll
+        public ResultWithError<List<X>> GetAll<X>() where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return GetAll<X>(allTableInfos[type]);
+            }
+
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
+        }
+
+        public ResultWithError<List<X>> GetAll<X>(TableInfo pyramid) where X : IStorable
+        {
+            return Actions._GetAll.run<X>(pyramid);
+        }
         #endregion
 
-        #region Insert
+        #region GetById
+        public ResultWithError<X> GetById<X>(int id) where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return GetById<X>(allTableInfos[type], id);
+            }
+
+            ResultWithError<X> result = new ResultWithError<X>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
+        }
+
+        public ResultWithError<X> GetById<X>(TableInfo pyramid, int id) where X : IStorable
+        {
+            return Actions._GetById.run<X>(pyramid, id);
+        }
+        #endregion
+
+        #region Where
+        public ResultWithError<List<X>> Where<X>(Expression<Func<X, bool>> func) where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return Where<X>(allTableInfos[type], func);
+            }
+
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
+        }
+
+        public ResultWithError<List<X>> Where<X>(TableInfo pyramid, Expression<Func<X, bool>> func) where X : IStorable
+        {
+            return Actions._Where.run<X>(pyramid, func);
+        }
+        #endregion
+
+        #endregion
+
+        #region Create
         public ResultWithError<List<X>> Create<X>(List<X> values) where X : IStorable
         {
             Type type = typeof(X);
@@ -529,17 +667,75 @@ namespace AventusSharp.Data.Storage.Default
 
         public ResultWithError<List<X>> Create<X>(TableInfo pyramid, List<X> values) where X : IStorable
         {
-            return Actions._Create.run(pyramid, values);
+            ResultWithError<DbTransaction> transactionResult = BeginTransaction();
+            if (!transactionResult.Success)
+            {
+                ResultWithError<List<X>> resultError = new ResultWithError<List<X>>();
+                resultError.Result = new List<X>();
+                resultError.Errors = transactionResult.Errors;
+                return resultError;
+            }
+            ResultWithError<List<X>> resultTemp = Actions._Create.run(pyramid, values);
+            if (resultTemp.Success)
+            {
+                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result);
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            else
+            {
+                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result);
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            if (!resultTemp.Success)
+            {
+                foreach (DataError error in resultTemp.Errors)
+                {
+                    error.Print();
+                }
+            }
+            return resultTemp;
         }
 
         #endregion
 
         #region Update
+        public ResultWithError<List<X>> Update<X>(List<X> values) where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return Update(allTableInfos[type], values);
+            }
 
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
+        }
+
+        public ResultWithError<List<X>> Update<X>(TableInfo pyramid, List<X> values) where X : IStorable
+        {
+            return Actions._Update.run(pyramid, values);
+        }
         #endregion
 
         #region Delete
+        public ResultWithError<List<X>> Delete<X>(List<X> values) where X : IStorable
+        {
+            Type type = typeof(X);
+            if (allTableInfos.ContainsKey(type))
+            {
+                return Delete(allTableInfos[type], values);
+            }
 
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
+            return result;
+        }
+
+        public ResultWithError<List<X>> Delete<X>(TableInfo pyramid, List<X> values) where X : IStorable
+        {
+            return Actions._Delete.run(pyramid, values);
+        }
         #endregion
 
         #endregion

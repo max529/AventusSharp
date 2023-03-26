@@ -29,8 +29,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return connection;
         }
 
-        public override bool Connect()
+        public override ResultWithError<bool> ConnetWithError()
         {
+            ResultWithError<bool> result = new ResultWithError<bool>();
             try
             {
                 IsConnectedOneTime = true;
@@ -40,7 +41,8 @@ namespace AventusSharp.Data.Storage.Mysql
                 {
                     connection.Close();
                 }
-                return true;
+                IsConnectedOneTime = true;
+                result.Result = true;
             }
             catch (Exception e)
             {
@@ -71,17 +73,23 @@ namespace AventusSharp.Data.Storage.Mysql
                             {
                                 connection.Close();
                             }
-                            return true;
+                            IsConnectedOneTime = true;
+                            result.Result = true;
                         }
                         catch (Exception e2)
                         {
-                            Console.WriteLine(e2);
+                            result.Errors.Add(new DataError(DataErrorCode.UnknowError, e2));
                         }
                     }
 
                 }
-                return false;
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
             }
+
+            return result;
         }
 
         public override DbCommand CreateCmd(string sql)
@@ -99,6 +107,35 @@ namespace AventusSharp.Data.Storage.Mysql
         internal override StorageAction<MySQLStorage> defineActions()
         {
             return new MySQLAction(this);
+        }
+
+        public override ResultWithError<bool> ResetStorage()
+        {
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            string sql = "SELECT concat('DROP TABLE IF EXISTS `', table_name, '`;') as query FROM information_schema.tables WHERE table_schema = '" + this.database + "'; ";
+            StorageQueryResult queryResult = Query(sql);
+            if (!queryResult.Success)
+            {
+                result.Errors.AddRange(queryResult.Errors);
+                return result;
+            }
+
+            string dropAllCmd = "SET FOREIGN_KEY_CHECKS = 0;";
+            foreach(Dictionary<string, string> line in queryResult.Result)
+            {
+                dropAllCmd += line["query"];
+            }
+            dropAllCmd += "SET FOREIGN_KEY_CHECKS = 1;";
+
+            StorageExecutResult executeResult = Execute(dropAllCmd);
+            if (!executeResult.Success)
+            {
+                result.Errors.AddRange(executeResult.Errors);
+                return result;
+            }
+
+            result.Result = true;
+            return result;
         }
     }
 }

@@ -15,6 +15,7 @@ namespace AventusSharp.Data.Storage.Default
     {
         None,
         Simple,
+        Parent,
         Multiple,
     }
     public class TableMemberInfo
@@ -46,7 +47,6 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsPrimary { get; protected set; }
         public bool IsAutoIncrement { get; protected set; }
         public bool IsNullable { get; protected set; }
-        public bool IsParentLink { get; protected set; }
         public string SqlTypeTxt { get; protected set; }
         public DbType SqlType { get; protected set; }
         public string SqlName { get; protected set; }
@@ -54,7 +54,7 @@ namespace AventusSharp.Data.Storage.Default
         public virtual object GetSqlValue(object obj)
         {
             // TODO maybe check constraint here
-            if (link == TableMemberInfoLink.None)
+            if (link == TableMemberInfoLink.None || link == TableMemberInfoLink.Parent)
             {
                 return GetValue(obj);
             }
@@ -140,12 +140,11 @@ namespace AventusSharp.Data.Storage.Default
         {
             TableMemberInfo parentLink = new TableMemberInfo(memberInfo, TableInfo);
             parentLink.PrepareForSQL();
-            parentLink.link = TableMemberInfoLink.Simple;
+            parentLink.link = TableMemberInfoLink.Parent;
             parentLink.TableLinked = parentTable;
             parentLink.IsPrimary = true;
             parentLink.IsAutoIncrement = false;
             parentLink.IsNullable = false;
-            parentLink.IsParentLink = true;
             return parentLink;
         }
         public bool PrepareForSQL()
@@ -173,7 +172,9 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     else
                     {
-                        Console.WriteLine("Can't use type " + attr.type.FullName + " as foreign key");
+                        string errorTxt = "Can't use type " + attr.type.FullName + " as foreign key inside " + TableInfo.SqlTableName;
+                        new DataError(DataErrorCode.TypeNotStorable, errorTxt).Print();
+                        return false;
                     }
                 }
                 isOk = true;
