@@ -36,28 +36,73 @@ namespace TestConsole.cs
             }).Wait();
 
             Console.ReadLine();
+            #region Creation
+            Console.WriteLine("Creation ");
+
+            Person maxime = new Person() { firstname = "Maxime", lastname = "Bétrisey" };
+            Person benjamin = new Person() { firstname = "Benjamin", lastname = "Bétrisey" };
+            Person.Create(maxime);
+            benjamin.Create();
 
 
-            //Person.Create(new Person() { firstname = "Maxime", lastname = "Bétrisey" });
-
-            //new Person()
-            //{
-            //    firstname = "Test",
-            //    lastname = "test"
-            //}.Create();
-
-
-            //Cat felix = new Cat();
-            //felix.name = "felix";
-            //felix.Create();
+            Cat felix = new Cat();
+            felix.name = "felix";
+            felix.Create();
 
             Dog medor = new Dog();
             medor.name = "medor";
             Animal<IAnimal>.Create(medor);
-            
-            return;
 
-            //Storable<IAnimal>.Create(new List<IAnimal>() { felix, medor });
+            Cat filou = new Cat();
+            filou.name = "filou";
+
+            Dog snoopy = new Dog();
+            snoopy.name = "snoopy";
+
+            Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
+            
+            Console.WriteLine("Creation done");
+            #endregion
+
+            Console.ReadLine();
+
+            #region Update
+            Console.WriteLine("Update");
+            
+            maxime.firstname += "2";
+            Person.Update(maxime);
+
+            benjamin.firstname += "2";
+            benjamin.Update();
+
+
+            felix.name += "2";
+            felix.Update();
+            medor.name += "2";
+            Animal<IAnimal>.Update(medor);
+
+            filou.name += "2";
+            snoopy.name += "2";
+            Storable<IAnimal>.Update(new List<IAnimal>() { filou, snoopy });
+
+            Console.WriteLine("Update done");
+            #endregion
+
+            Console.ReadLine();
+
+            #region Delete
+            Console.WriteLine("Delete");
+
+            Person.Delete(maxime);
+            benjamin.Delete();
+
+            felix.Delete();
+            Animal<IAnimal>.Delete(medor);
+
+            Storable<IAnimal>.Delete(new List<IAnimal>() { filou, snoopy });
+
+            Console.WriteLine("Delete done");
+            #endregion
         }
     }
 }

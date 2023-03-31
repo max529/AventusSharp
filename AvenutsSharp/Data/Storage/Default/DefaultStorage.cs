@@ -1,6 +1,8 @@
 ﻿using AventusSharp.Attributes;
 using AventusSharp.Data.Storage.Default.Action;
+using AventusSharp.Tools;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -667,33 +669,10 @@ namespace AventusSharp.Data.Storage.Default
 
         public ResultWithError<List<X>> Create<X>(TableInfo pyramid, List<X> values) where X : IStorable
         {
-            ResultWithError<DbTransaction> transactionResult = BeginTransaction();
-            if (!transactionResult.Success)
+            return RunInsideTransaction(new List<X>(), delegate ()
             {
-                ResultWithError<List<X>> resultError = new ResultWithError<List<X>>();
-                resultError.Result = new List<X>();
-                resultError.Errors = transactionResult.Errors;
-                return resultError;
-            }
-            ResultWithError<List<X>> resultTemp = Actions._Create.run(pyramid, values);
-            if (resultTemp.Success)
-            {
-                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result);
-                resultTemp.Errors.AddRange(commitResult.Errors);
-            }
-            else
-            {
-                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result);
-                resultTemp.Errors.AddRange(commitResult.Errors);
-            }
-            if (!resultTemp.Success)
-            {
-                foreach (DataError error in resultTemp.Errors)
-                {
-                    error.Print();
-                }
-            }
-            return resultTemp;
+                return Actions._Create.run(pyramid, values);
+            });
         }
 
         #endregion
@@ -714,7 +693,10 @@ namespace AventusSharp.Data.Storage.Default
 
         public ResultWithError<List<X>> Update<X>(TableInfo pyramid, List<X> values) where X : IStorable
         {
-            return Actions._Update.run(pyramid, values);
+            return RunInsideTransaction(new List<X>(), delegate ()
+            {
+                return Actions._Update.run(pyramid, values);
+            });
         }
         #endregion
 
@@ -734,9 +716,95 @@ namespace AventusSharp.Data.Storage.Default
 
         public ResultWithError<List<X>> Delete<X>(TableInfo pyramid, List<X> values) where X : IStorable
         {
-            return Actions._Delete.run(pyramid, values);
+            return RunInsideTransaction(new List<X>(), delegate ()
+            {
+                return Actions._Delete.run(pyramid, values);
+            });
         }
         #endregion
+
+        #endregion
+
+        #region Tools
+        /// <summary>
+        /// Order data but type
+        /// </summary>
+        /// <param name="table"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public ResultWithError<Dictionary<TableInfo, IList>> GroupDataByType(TableInfo table, IList data)
+        {
+            ResultWithError<Dictionary<TableInfo, IList>> result = new ResultWithError<Dictionary<TableInfo, IList>>();
+            result.Result = new Dictionary<TableInfo, IList>();
+            if (table.IsAbstract)
+            {
+                Dictionary<Type, TableInfo> loadedType = new Dictionary<Type, TableInfo>();
+                foreach (object item in data)
+                {
+                    Type type = item.GetType();
+                    if (!loadedType.ContainsKey(type))
+                    {
+                        TableInfo tableInfo = getTableInfo(type);
+                        if (tableInfo == null)
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "this must be impossible"));
+                            return result;
+                        }
+                        else
+                        {
+                            loadedType.Add(type, tableInfo);
+                            Type newListType = typeof(List<>).MakeGenericType(type);
+                            IList newList = TypeTools.CreateNewObj<IList>(newListType);
+                            result.Result.Add(tableInfo, newList);
+                        }
+                    }
+                    result.Result[loadedType[type]].Add(item);
+                }
+            }
+            else
+            {
+                result.Result.Add(table, data);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Run a function inside a transaction that ll be commit if no error otherwise rollback
+        /// </summary>
+        /// <typeparam name="Y"></typeparam>
+        /// <param name="defaultValue"></param>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        protected ResultWithError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithError<Y>> action)
+        {
+            ResultWithError<DbTransaction> transactionResult = BeginTransaction();
+            if (!transactionResult.Success)
+            {
+                ResultWithError<Y> resultError = new ResultWithError<Y>();
+                resultError.Result = defaultValue;
+                resultError.Errors = transactionResult.Errors;
+                return resultError;
+            }
+            ResultWithError<Y> resultTemp = action();
+            if (resultTemp.Success)
+            {
+                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result);
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            else
+            {
+                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result);
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            if (!resultTemp.Success)
+            {
+                foreach (DataError error in resultTemp.Errors)
+                {
+                    error.Print();
+                }
+            }
+            return resultTemp;
+        }
 
         #endregion
     }

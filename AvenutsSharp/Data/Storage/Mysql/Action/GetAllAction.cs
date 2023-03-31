@@ -12,32 +12,34 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 {
     internal class GetAllAction : GetAllAction<MySQLStorage>
     {
-        private static Dictionary<TableInfo, string> queryByTable = new Dictionary<TableInfo, string>();
-        private static Dictionary<TableInfo, List<DbParameter>> parametersByTable = new Dictionary<TableInfo, List<DbParameter>>();
         public override ResultWithError<List<X>> run<X>(TableInfo table)
         {
+            // create a query for all the hierarchy
+
+            // query for animal
+            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
+            // left outer join dog on animal.id = dog.id
+            // left outer join felin on animal.id = felin.id
+            // left outer join cat on felin.id = cat.id
+
+            // query for felin
+            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
+            // inner join felin on animal.id = felin.id
+            // left outer join cat on felin.id = cat.id
+
+            // query for cat
+            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
+            // inner join felin on animal.id = felin.id
+            // inner join cat on felin.id = cat.id
+
+            // query for dog
+            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
+            // inner join dog on animal.id = dog.id
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
             result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Not implemented"));
             return result;
-
-           // ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-            result.Result = new List<X>();
-
-            if (!queryByTable.ContainsKey(table))
-            {
-                getAllQuery(table);
-            }
-
-            return result;
         }
 
-        private void getAllQuery(TableInfo table)
-        {
-            string sql = "SELECT $fields FROM " + table.SqlTableName;
-
-            foreach (TableMemberInfo member in table.members)
-            {
-            }
-        }
+        
     }
 }

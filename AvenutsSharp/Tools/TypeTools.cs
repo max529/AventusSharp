@@ -56,7 +56,11 @@ namespace AventusSharp.Tools
             object newObj = createFunc();
             return newObj;
         }
-        public static T CreateNewObj<T>()
+        public static T CreateNewObj<T>(Type type)
+        {
+            return (T)CreateNewObj(type);
+        }
+        public static T CreateNewObj<T>() where T : new()
         {
             return (T)CreateNewObj(typeof(T));
         }
