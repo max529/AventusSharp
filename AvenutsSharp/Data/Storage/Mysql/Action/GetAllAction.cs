@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
+using AventusSharp.Data.Storage.Mysql.Query;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +15,10 @@ namespace AventusSharp.Data.Storage.Mysql.Action
     {
         public override ResultWithError<List<X>> run<X>(TableInfo table)
         {
+
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+
+            GetAllQueryInfo info = GetAll.GetQueryInfo(table, Storage);
             // create a query for all the hierarchy
 
             // query for animal
