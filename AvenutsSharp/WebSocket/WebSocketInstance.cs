@@ -21,7 +21,7 @@ namespace AventusSharp.WebSocket
         private Dictionary<string, Func<WebSocketData, Task>> routes = new Dictionary<string, Func<WebSocketData, Task>>();
         private List<Func<WebSocketData, Task>> middlewares;
         private List<WebSocketConnection> connections;
-        private static WriteTypeJsonConverter converter;
+        private static WriteTypeJsonConverter converter = new WriteTypeJsonConverter();
         private static Dictionary<Type, IWebSocketInstance> instances = new Dictionary<Type, IWebSocketInstance>();
        
         /// <summary>
@@ -31,13 +31,12 @@ namespace AventusSharp.WebSocket
         {
             middlewares = new List<Func<WebSocketData, Task>>();
             connections = new List<WebSocketConnection>();
-            converter = new WriteTypeJsonConverter();
         }
         /// <summary>
         /// Get instance of socket
         /// </summary>
         /// <returns></returns>
-        public static T getInstance()
+        public static T? getInstance()
         {
             Type type = typeof(T);
             if (!instances.ContainsKey(type))
@@ -48,7 +47,7 @@ namespace AventusSharp.WebSocket
             {
                 return casted;
             }
-            return default(T);
+            return default;
         }
 
         /// <summary>
@@ -188,7 +187,7 @@ namespace AventusSharp.WebSocket
         /// <param name="connectionsToAvoid"></param>
         /// <param name="idsUser"></param>
         /// <returns></returns>
-        private List<WebSocketConnection> _broadcast(string eventName, JObject o, List<WebSocketConnection> connectionsToAvoid = null)
+        private List<WebSocketConnection> _broadcast(string eventName, JObject o, List<WebSocketConnection>? connectionsToAvoid = null)
         {
             List<WebSocketConnection> emitted = new List<WebSocketConnection>();
             try
@@ -220,7 +219,7 @@ namespace AventusSharp.WebSocket
 
         #region instance
 
-        public List<WebSocketConnection> broadcast(string eventName, object obj, List<WebSocketConnection> connectionToAvoid = null)
+        public List<WebSocketConnection> broadcast(string eventName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
         {
             try
             {
@@ -236,7 +235,7 @@ namespace AventusSharp.WebSocket
 
             
         }
-        public List<WebSocketConnection> broadcast(string eventName, string keyName, object obj, List<WebSocketConnection> connectionToAvoid = null)
+        public List<WebSocketConnection> broadcast(string eventName, string keyName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
         {
             try
             {

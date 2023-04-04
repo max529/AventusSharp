@@ -12,8 +12,15 @@ namespace AventusSharp.Data.Storage.Mysql.Query
     internal class UpdateQueryInfo
     {
         public string sql { get; set; }
-        public List<DbParameter> parameters { get; set; }
-        public Func<IList, List<Dictionary<string, object>>> getParams { get; set; }
+        public List<DbParameter>? parameters { get; set; }
+        public Func<IList, List<Dictionary<string, object?>>>? getParams { get; set; }
+
+        public UpdateQueryInfo(string sql, List<DbParameter>? parameters, Func<IList, List<Dictionary<string, object?>>>? getParams)
+        {
+            this.sql = sql;
+            this.parameters = parameters;
+            this.getParams = getParams;
+        }
     }
     internal class Update
     {
@@ -25,7 +32,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             public List<string> conditions = new List<string>();
             public List<DbParameter> parametersSQL = new List<DbParameter>();
             public Dictionary<string, TableMemberInfo> memberByParameters = new Dictionary<string, TableMemberInfo>();
-            public TableMemberInfo updatedDate = null;
+            public TableMemberInfo? updatedDate = null;
         }
 
         public static UpdateQueryInfo GetQueryInfo(TableInfo tableInfo, MySQLStorage storage)
@@ -61,7 +68,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                         info.fields.Add(member.SqlName + "=" + paramName);
                         info.updatedDate = member;
                     }
-                    else if(member.SqlName != "createdDate")
+                    else if (member.SqlName != "createdDate")
                     {
                         info.fields.Add(member.SqlName + "=" + paramName);
                         info.memberByParameters.Add(paramName, member);
@@ -86,12 +93,11 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 
             if (infoTemp.fields.Count == 0)
             {
-                UpdateQueryInfo infoFinal = new UpdateQueryInfo()
-                {
-                    sql = "",
-                    getParams = null,
-                    parameters = null,
-                };
+                UpdateQueryInfo infoFinal = new UpdateQueryInfo(
+                    sql: "",
+                    getParams :null,
+                    parameters: null
+                );
 
                 queriesInfo[table] = infoFinal;
             }
@@ -100,12 +106,12 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                 sql = sql.Replace("$fields", string.Join(",", infoTemp.fields));
                 sql = sql.Replace("$condition", string.Join(" AND ", infoTemp.conditions));
 
-                Func<IList, List<Dictionary<string, object>>> func = delegate (IList data)
+                Func<IList, List<Dictionary<string, object?>>> func = delegate (IList data)
                 {
-                    List<Dictionary<string, object>> result = new List<Dictionary<string, object>>();
+                    List<Dictionary<string, object?>> result = new List<Dictionary<string, object?>>();
                     foreach (object item in data)
                     {
-                        Dictionary<string, object> line = new Dictionary<string, object>();
+                        Dictionary<string, object?> line = new Dictionary<string, object?>();
                         foreach (KeyValuePair<string, TableMemberInfo> param in infoTemp.memberByParameters)
                         {
                             line.Add(param.Key, param.Value.GetSqlValue(item));
@@ -122,12 +128,12 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 
                 Console.WriteLine(sql);
 
-                UpdateQueryInfo infoFinal = new UpdateQueryInfo()
-                {
-                    sql = sql,
-                    getParams = func,
-                    parameters = infoTemp.parametersSQL,
-                };
+                UpdateQueryInfo infoFinal = new UpdateQueryInfo(
+                   sql: sql,
+                   getParams: func,
+                   parameters: infoTemp.parametersSQL
+               );
+                
 
                 queriesInfo[table] = infoFinal;
             }

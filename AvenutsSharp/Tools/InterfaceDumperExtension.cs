@@ -18,7 +18,7 @@ namespace AventusSharp.Tools
             HashSet<Type> allInterfaces = new HashSet<Type>(@type.GetInterfaces());
 
             //Type one step down the hierarchy
-            Type baseType = @type.BaseType;
+            Type? baseType = @type.BaseType;
 
             //If it is not null, it might implement some other interfaces
             if (baseType != null)

@@ -11,7 +11,7 @@ namespace AventusSharp.Data
         public bool Success { get => Errors.Count == 0; }
 
         public List<DataError> Errors = new List<DataError>();
-        public T Result { get; set; } = default(T);
+        public T? Result { get; set; } = default(T);
     }
     public class VoidWithError
     {

@@ -23,11 +23,14 @@ namespace AventusSharp.Data
         DMAlreadyExist,
         MethodNotFound,
         StorageDisconnected,
+        StorageNotFound,
+        NoConnectionInsideStorage,
         TypeNotExistInsideStorage,
         UnknowError,
         NoItemProvided,
         NoTransactionInProgress,
-        WrongType
+        WrongType,
+        NoTypeIdentifierFoundInsideQuery
     }
     public class DataError : GenericError<DataErrorCode>
     {

@@ -23,6 +23,14 @@ namespace AventusSharp.Data.Storage.Default
         public string database;
         public bool keepConnectionOpen;
         public bool addCreatedAndUpdatedDate = true;
+
+        public StorageCredentials(string host, string username, string password, string database)
+        {
+            this.host = host;
+            this.username = username;
+            this.password = password;
+            this.database = database;
+        }
     }
 
     public class StorageQueryResult : StorageExecutResult
@@ -44,14 +52,14 @@ namespace AventusSharp.Data.Storage.Default
         protected string database;
         protected bool keepConnectionOpen;
         protected bool addCreatedAndUpdatedDate;
-        protected DbConnection connection;
+        protected DbConnection? connection;
         private Mutex mutex;
         private bool linksCreated;
-        private DbTransaction transaction;
+        private DbTransaction? transaction;
         public bool IsConnectedOneTime { get; protected set; }
 
         private Dictionary<Type, TableInfo> allTableInfos = new Dictionary<Type, TableInfo>();
-        public TableInfo getTableInfo(Type type)
+        public TableInfo? getTableInfo(Type type)
         {
             if (allTableInfos.ContainsKey(type))
             {
@@ -70,6 +78,7 @@ namespace AventusSharp.Data.Storage.Default
             keepConnectionOpen = info.keepConnectionOpen;
             addCreatedAndUpdatedDate = info.addCreatedAndUpdatedDate;
             mutex = new Mutex();
+            Actions = defineActions();
         }
 
         #region connection
@@ -100,7 +109,7 @@ namespace AventusSharp.Data.Storage.Default
 
         public abstract ResultWithError<bool> ResetStorage();
         protected abstract DbConnection getConnection();
-        public abstract DbCommand CreateCmd(string sql);
+        public abstract ResultWithError<DbCommand> CreateCmd(string sql);
         public abstract DbParameter GetDbParameter();
         public void Close()
         {
@@ -132,13 +141,25 @@ namespace AventusSharp.Data.Storage.Default
 
         public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            DbCommand command = CreateCmd(sql);
-            StorageExecutResult result = Execute(command, null, callerPath, callerNo);
-            command.Dispose();
-            return result;
+            ResultWithError<DbCommand> commandResult = CreateCmd(sql);
+            if(commandResult.Result != null)
+            {
+                StorageExecutResult result = Execute(commandResult.Result, null, callerPath, callerNo);
+                commandResult.Result.Dispose();
+                return result;
+            }
+            StorageExecutResult noCommand = new StorageExecutResult();
+            noCommand.Errors.AddRange(commandResult.Errors);
+            return noCommand;
         }
-        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
+            if (connection == null)
+            {
+                StorageQueryResult noConn = new StorageQueryResult();
+                noConn.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                return noConn;
+            }
             mutex.WaitOne();
             StorageExecutResult result = new StorageExecutResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
@@ -154,7 +175,7 @@ namespace AventusSharp.Data.Storage.Default
             try
             {
                 bool isNewTransaction = false;
-                DbTransaction transaction = this.transaction;
+                DbTransaction? transaction = this.transaction;
                 if (transaction == null)
                 {
                     ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
@@ -173,9 +194,9 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     if (dataParameters != null)
                     {
-                        foreach (Dictionary<string, object> parameters in dataParameters)
+                        foreach (Dictionary<string, object?> parameters in dataParameters)
                         {
-                            foreach (KeyValuePair<string, object> parameter in parameters)
+                            foreach (KeyValuePair<string, object?> parameter in parameters)
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
@@ -216,13 +237,25 @@ namespace AventusSharp.Data.Storage.Default
         }
         public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            DbCommand command = CreateCmd(sql);
-            StorageQueryResult result = Query(command, null, callerPath, callerNo);
-            command.Dispose();
-            return result;
+            ResultWithError<DbCommand> commandResult = CreateCmd(sql);
+            if (commandResult.Result != null)
+            {
+                StorageQueryResult result = Query(commandResult.Result, null, callerPath, callerNo);
+                commandResult.Result.Dispose();
+                return result;
+            }
+            StorageQueryResult noCommand = new StorageQueryResult();
+            noCommand.Errors.AddRange(commandResult.Errors);
+            return noCommand;
         }
-        public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object>> dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
+            if(connection == null)
+            {
+                StorageQueryResult noConn = new StorageQueryResult();
+                noConn.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                return noConn;
+            }
             mutex.WaitOne();
             StorageQueryResult result = new StorageQueryResult();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
@@ -239,7 +272,7 @@ namespace AventusSharp.Data.Storage.Default
             {
 
                 bool isNewTransaction = false;
-                DbTransaction transaction = this.transaction;
+                DbTransaction? transaction = this.transaction;
                 if (transaction == null)
                 {
                     ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
@@ -258,9 +291,9 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     if (dataParameters != null)
                     {
-                        foreach (Dictionary<string, object> parameters in dataParameters)
+                        foreach (Dictionary<string, object?> parameters in dataParameters)
                         {
-                            foreach (KeyValuePair<string, object> parameter in parameters)
+                            foreach (KeyValuePair<string, object?> parameter in parameters)
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
@@ -277,7 +310,12 @@ namespace AventusSharp.Data.Storage.Default
                                         {
                                             if (reader[reader.GetName(i)] != null)
                                             {
-                                                temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                                string? valueString = reader[reader.GetName(i)].ToString();
+                                                if(valueString == null)
+                                                {
+                                                    valueString = "";
+                                                }
+                                                temp.Add(reader.GetName(i), valueString);
                                             }
                                             else
                                             {
@@ -303,7 +341,12 @@ namespace AventusSharp.Data.Storage.Default
                                     {
                                         if (reader[reader.GetName(i)] != null)
                                         {
-                                            temp.Add(reader.GetName(i), reader[reader.GetName(i)].ToString());
+                                            string? valueString = reader[reader.GetName(i)].ToString();
+                                            if(valueString == null)
+                                            {
+                                                valueString = "";
+                                            }
+                                            temp.Add(reader.GetName(i), valueString);
                                         }
                                         else
                                         {
@@ -347,6 +390,11 @@ namespace AventusSharp.Data.Storage.Default
         public ResultWithError<DbTransaction> BeginTransaction()
         {
             ResultWithError<DbTransaction> result = new ResultWithError<DbTransaction>();
+            if (connection == null)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                return result;
+            }
             try
             {
                 if (transaction == null)
@@ -365,9 +413,14 @@ namespace AventusSharp.Data.Storage.Default
         {
             return CommitTransaction(transaction);
         }
-        public ResultWithError<bool> CommitTransaction(DbTransaction transaction)
+        public ResultWithError<bool> CommitTransaction(DbTransaction? transaction)
         {
             ResultWithError<bool> result = new ResultWithError<bool>();
+            if (transaction == null)
+            {
+                result.Result = true;
+                return result;
+            }
             lock (transaction)
             {
                 if (transaction == null)
@@ -398,9 +451,14 @@ namespace AventusSharp.Data.Storage.Default
         {
             return RollbackTransaction(transaction);
         }
-        public ResultWithError<bool> RollbackTransaction(DbTransaction transaction)
+        public ResultWithError<bool> RollbackTransaction(DbTransaction? transaction)
         {
             ResultWithError<bool> result = new ResultWithError<bool>();
+            if (transaction == null)
+            {
+                result.Result = true;
+                return result;
+            }
             lock (transaction)
             {
                 if (transaction == null)
@@ -434,13 +492,12 @@ namespace AventusSharp.Data.Storage.Default
         {
             if (!linksCreated)
             {
-                Actions = defineActions();
                 linksCreated = true;
                 foreach (TableInfo info in allTableInfos.Values.ToList())
                 {
                     foreach (TableMemberInfo memberInfo in info.members.ToList())
                     {
-                        if (memberInfo.link != TableMemberInfoLink.None && memberInfo.TableLinked == null)
+                        if (memberInfo.link != TableMemberInfoLink.None && memberInfo.TableLinked == null && memberInfo.TableLinkedType != null)
                         {
                             if (allTableInfos.ContainsKey(memberInfo.TableLinkedType))
                             {
@@ -455,7 +512,7 @@ namespace AventusSharp.Data.Storage.Default
         {
             AddPyramidLoop(pyramid, null, null, false);
         }
-        private void AddPyramidLoop(PyramidInfo pyramid, TableInfo parent, List<TableMemberInfo> membersToAdd, bool typeMemberCreated)
+        private void AddPyramidLoop(PyramidInfo pyramid, TableInfo? parent, List<TableMemberInfo>? membersToAdd, bool typeMemberCreated)
         {
             TableInfo classInfo = new TableInfo(pyramid);
             if (pyramid.isForceInherit)
@@ -477,8 +534,8 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     // merge parent members
                     // force created and updated date to the end
-                    TableMemberInfo createdDate = null;
-                    TableMemberInfo updatedDate = null;
+                    TableMemberInfo? createdDate = null;
+                    TableMemberInfo? updatedDate = null;
                     foreach (TableMemberInfo memberInfo in membersToAdd.ToList())
                     {
                         if (memberInfo.Name == "createdDate")
@@ -744,7 +801,7 @@ namespace AventusSharp.Data.Storage.Default
                     Type type = item.GetType();
                     if (!loadedType.ContainsKey(type))
                     {
-                        TableInfo tableInfo = getTableInfo(type);
+                        TableInfo? tableInfo = getTableInfo(type);
                         if (tableInfo == null)
                         {
                             result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "this must be impossible"));

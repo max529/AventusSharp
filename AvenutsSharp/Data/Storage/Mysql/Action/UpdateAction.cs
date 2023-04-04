@@ -21,7 +21,7 @@ namespace AventusSharp.Data.Storage.Mysql.Action
             // group data by type
             ResultWithError<Dictionary<TableInfo, IList>> orderedData = Storage.GroupDataByType(table, data);
             result.Errors.AddRange(orderedData.Errors);
-            if (!result.Success)
+            if (!result.Success || orderedData.Result == null)
             {
                 return result;
             }
@@ -56,16 +56,27 @@ namespace AventusSharp.Data.Storage.Mysql.Action
             // if sql == "" it means no fields can be updated inside this class
             if (info.sql != "")
             {
-                DbCommand cmd = Storage.CreateCmd(info.sql);
-
-                foreach (DbParameter parameter in info.parameters)
+                List<DbParameter>? parameters = info.parameters;
+                Func<IList, List<Dictionary<string, object?>>>? getParams = info.getParams;
+                if (parameters != null && getParams != null)
                 {
-                    cmd.Parameters.Add(parameter);
-                }
+                    ResultWithError<DbCommand> cmdResult = Storage.CreateCmd(info.sql);
+                    result.Errors.AddRange(cmdResult.Errors);
+                    if (!result.Success || cmdResult.Result == null)
+                    {
+                        return result;
+                    }
+                    DbCommand cmd = cmdResult.Result;
 
-                StorageExecutResult queryResult = Storage.Execute(cmd, info.getParams(data));
-                cmd.Dispose();
-                result.Errors.AddRange(queryResult.Errors);
+                    foreach (DbParameter parameter in parameters)
+                    {
+                        cmd.Parameters.Add(parameter);
+                    }
+
+                    StorageExecutResult queryResult = Storage.Execute(cmd, getParams(data));
+                    cmd.Dispose();
+                    result.Errors.AddRange(queryResult.Errors);
+                }
             }
 
             // load parent

@@ -13,9 +13,17 @@ namespace AventusSharp.Data.Storage.Mysql.Query
     {
         public string sql { get; set; }
         public List<DbParameter> parameters { get; set; }
-        public Func<IList, List<Dictionary<string, object>>> getParams { get; set; }
+        public Func<IList, List<Dictionary<string, object?>>> getParams { get; set; }
 
         public bool isRoot { get; set; }
+
+        public CreateQueryInfo(string sql, List<DbParameter> parameters, Func<IList, List<Dictionary<string, object?>>> getParams, bool isRoot)
+        {
+            this.sql = sql;
+            this.parameters = parameters;
+            this.getParams = getParams;
+            this.isRoot = isRoot;
+        }
     }
     internal class Create
     {
@@ -28,8 +36,8 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             public List<string> parameters = new List<string>();
             public List<DbParameter> parametersSQL = new List<DbParameter>();
             public Dictionary<string, TableMemberInfo> memberByParameters = new Dictionary<string, TableMemberInfo>();
-            public TableMemberInfo createdDate = null;
-            public TableMemberInfo updatedDate = null;
+            public TableMemberInfo? createdDate = null;
+            public TableMemberInfo? updatedDate = null;
 
         }
 
@@ -80,7 +88,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
         private static void createQueryInfo(TableInfo table, MySQLStorage storage)
         {
             string sql = "INSERT INTO " + table.SqlTableName + " ($fields) VALUES ($values);";
-            if(table.Parent == null)
+            if (table.Parent == null)
             {
                 sql += " SELECT last_insert_id() as id;";
             }
@@ -91,12 +99,12 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             sql = sql.Replace("$fields", string.Join(",", createInfoTemp.members));
             sql = sql.Replace("$values", string.Join(",", createInfoTemp.parameters));
 
-            Func<IList, List<Dictionary<string, object>>> func = delegate (IList data)
+            Func<IList, List<Dictionary<string, object?>>> func = delegate (IList data)
             {
-                List<Dictionary<string, object>> result = new List<Dictionary<string, object>>();
+                List<Dictionary<string, object?>> result = new List<Dictionary<string, object?>>();
                 foreach (object item in data)
                 {
-                    Dictionary<string, object> line = new Dictionary<string, object>();
+                    Dictionary<string, object?> line = new Dictionary<string, object?>();
                     foreach (KeyValuePair<string, TableMemberInfo> param in createInfoTemp.memberByParameters)
                     {
                         line.Add(param.Key, param.Value.GetSqlValue(item));
@@ -119,13 +127,12 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 
             Console.WriteLine(sql);
 
-            CreateQueryInfo infoFinal = new CreateQueryInfo()
-            {
-                sql = sql,
-                getParams = func,
-                parameters = createInfoTemp.parametersSQL,
-                isRoot = (table.Parent == null)
-            };
+            CreateQueryInfo infoFinal = new CreateQueryInfo(
+                sql: sql,
+                getParams: func,
+                parameters: createInfoTemp.parametersSQL,
+                isRoot: (table.Parent == null)
+            );
 
             createInfo[table] = infoFinal;
         }

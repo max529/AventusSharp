@@ -13,7 +13,14 @@ namespace AventusSharp.Data.Storage.Mysql.Query
     {
         public string sql { get; set; }
         public List<DbParameter> parameters { get; set; }
-        public Func<IList, List<Dictionary<string, object>>> getParams { get; set; }
+        public Func<IList, List<Dictionary<string, object?>>> getParams { get; set; }
+
+        public DeleteQueryInfo(string sql, List<DbParameter> parameters, Func<IList, List<Dictionary<string, object?>>> getParams)
+        {
+            this.sql = sql;
+            this.parameters = parameters;
+            this.getParams = getParams;
+        }
     }
     internal class Delete
     {
@@ -65,12 +72,12 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 
             sql = sql.Replace("$condition", string.Join(" AND ", infoTemp.conditions));
 
-            Func<IList, List<Dictionary<string, object>>> func = delegate (IList data)
+            Func<IList, List<Dictionary<string, object?>>> func = delegate (IList data)
             {
-                List<Dictionary<string, object>> result = new List<Dictionary<string, object>>();
+                List<Dictionary<string, object?>> result = new List<Dictionary<string, object?>>();
                 foreach (object item in data)
                 {
-                    Dictionary<string, object> line = new Dictionary<string, object>();
+                    Dictionary<string, object?> line = new Dictionary<string, object?>();
                     foreach (KeyValuePair<string, TableMemberInfo> param in infoTemp.memberByParameters)
                     {
                         line.Add(param.Key, param.Value.GetSqlValue(item));
@@ -83,12 +90,11 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 
             Console.WriteLine(sql);
 
-            DeleteQueryInfo infoFinal = new DeleteQueryInfo()
-            {
-                sql = sql,
-                getParams = func,
-                parameters = infoTemp.parametersSQL,
-            };
+            DeleteQueryInfo infoFinal = new DeleteQueryInfo(
+                sql: sql,
+                getParams: func,
+                parameters: infoTemp.parametersSQL
+            );
 
             queriesInfo[table] = infoFinal;
         }

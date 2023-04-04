@@ -83,7 +83,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static T Create(T value)
+        public static T? Create(T value)
         {
             if (value != null)
             {
@@ -169,7 +169,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static T Update(T value)
+        public static T? Update(T value)
         {
             if (value != null)
             {
@@ -255,7 +255,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static T Delete(T value)
+        public static T? Delete(T value)
         {
             if (value != null)
             {

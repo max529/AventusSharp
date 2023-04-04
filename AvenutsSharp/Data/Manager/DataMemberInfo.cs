@@ -24,7 +24,7 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// Interface for Type
         /// </summary>
-        public Type Type
+        public Type? Type
         {
             get
             {
@@ -58,7 +58,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public T GetCustomAttribute<T>() where T : Attribute
+        public T? GetCustomAttribute<T>() where T : Attribute
         {
             return memberInfo.GetCustomAttribute<T>();
         }
@@ -93,7 +93,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public object GetValue(object obj)
+        public object? GetValue(object obj)
         {
             if (memberInfo is FieldInfo fieldInfo)
             {
@@ -127,7 +127,7 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// Interface for ReflectedType
         /// </summary>
-        public Type ReflectedType
+        public Type? ReflectedType
         {
             get
             {
@@ -153,12 +153,17 @@ namespace AventusSharp.Data.Manager
             {
                 attrs = "- " + string.Join(", ", attributes.Select(a => "[" + a.GetType().Name + "]"));
             }
-            string type = Type.Name;
-            if (!TypeTools.primitiveType.Contains(Type))
+            Type? type = Type;
+            if (type != null)
             {
-                type += " - " + Type.Assembly.GetName().Name;
+                string typeTxt = type.Name;
+                if (!TypeTools.primitiveType.Contains(type))
+                {
+                    typeTxt += " - " + type.Assembly.GetName().Name;
+                }
+                return Name + " (" + type + ") " + attrs;
             }
-            return Name + " (" + type + ") " + attrs;
+            return Name + " (NULL)";
         }
     }
 }

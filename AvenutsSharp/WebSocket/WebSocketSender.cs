@@ -9,9 +9,9 @@ namespace AventusSharp.WebSocket
         string defineName();
         Type getBody();
         Task send(WebSocketConnection connection, string uid = "");
-        void broadcast(IWebSocketInstance instance, List<WebSocketConnection> connectionToAvoid = null);
+        void broadcast(IWebSocketInstance instance, List<WebSocketConnection>? connectionToAvoid = null);
     }
-    public abstract class WebSocketSender<T, U> : IWebSocketSender where T : IWebSocketSender, new() where U : new()
+    public abstract class WebSocketSender<T, U> : IWebSocketSender where T : IWebSocketSender, new() where U : notnull, new()
     {
         protected U body = new U();
         public abstract string defineName();
@@ -23,7 +23,7 @@ namespace AventusSharp.WebSocket
         {
             await connection.send(defineName(), body, uid);
         }
-        public void broadcast(IWebSocketInstance instance, List<WebSocketConnection> connectionToAvoid = null)
+        public void broadcast(IWebSocketInstance instance, List<WebSocketConnection>? connectionToAvoid = null)
         {
             instance.broadcast(defineName(), body, connectionToAvoid);
         }

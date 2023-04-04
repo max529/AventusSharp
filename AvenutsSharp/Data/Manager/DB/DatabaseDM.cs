@@ -11,10 +11,22 @@ namespace AventusSharp.Data.Manager.DB
     public class DatabaseDMSimple<T> : DatabaseDM<DatabaseDMSimple<T>, T> where T : IStorable { }
     public class DatabaseDM<T, U> : GenericDM<T, U> where T : IGenericDM<U>, new() where U : IStorable
     {
-        protected IStorage storage;
+        protected IStorage? storage;
+
+        protected IStorage Storage
+        {
+            get
+            {
+                if(storage != null)
+                {
+                    return storage;
+                }
+                throw new DataError(DataErrorCode.StorageNotFound, "You must define a storage inside your DM " + GetType().Name).GetException();
+            }
+        }
 
         #region Config
-        protected virtual IStorage DefineStorage()
+        protected virtual IStorage? DefineStorage()
         {
             return null;
         }
@@ -42,56 +54,63 @@ namespace AventusSharp.Data.Manager.DB
         }
         protected override Task<bool> Initialize()
         {
-            storage.CreateLinks();
-            VoidWithError result = storage.CreateTable(pyramidInfo);
-            if (result.Success)
+            if (storage != null)
             {
-                return Task.FromResult(true);
-            }
+                storage.CreateLinks();
+                VoidWithError result = storage.CreateTable(pyramidInfo);
+                if (result.Success)
+                {
+                    return Task.FromResult(true);
+                }
 
-            foreach(DataError error in result.Errors)
-            {
-                error.Print();
+                foreach (DataError error in result.Errors)
+                {
+                    error.Print();
+                }
+                return Task.FromResult(false);
             }
+            new DataError(DataErrorCode.StorageNotFound, "You must define a storage inside your DM " + GetType().Name).Print();
             return Task.FromResult(false);
         }
+
+
         #endregion
 
         #region Get
         public override ResultWithError<List<X>> GetAllWithError<X>()
         {
-            return storage.GetAll<X>();
+            return Storage.GetAll<X>();
         }
 
         public override ResultWithError<X> GetByIdWithError<X>(int id)
         {
-            return storage.GetById<X>(id);
+            return Storage.GetById<X>(id);
         }
 
         public override ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func)
         {
-            return storage.Where(func);
+            return Storage.Where(func);
         }
         #endregion
 
         #region Create
         public override ResultWithError<List<X>> CreateWithError<X>(List<X> values)
         {
-            return storage.Create(values);
+            return Storage.Create(values);
         }
         #endregion
 
         #region Update
         public override ResultWithError<List<X>> UpdateWithError<X>(List<X> values)
         {
-            return storage.Update(values);
+            return Storage.Update(values);
         }
         #endregion
 
         #region Delete
         public override ResultWithError<List<X>> DeleteWithError<X>(List<X> values)
         {
-            return storage.Delete(values);
+            return Storage.Delete(values);
         }
         #endregion
 

@@ -26,9 +26,10 @@ namespace AventusSharp.Data.Storage.Mysql.Action
                 List<TableMemberInfo> members = table.members.Where
                     (f => f.link == TableMemberInfoLink.Multiple).ToList();
 
+                string? intermediateQuery = null;
                 foreach (TableMemberInfo member in members)
                 {
-                    sql = CreateIntermediateTable.GetQuery(member);
+                    intermediateQuery = CreateIntermediateTable.GetQuery(member);
                     StorageExecutResult resultTempInter = Storage.Execute(sql);
                     result.Errors.AddRange(resultTempInter.Errors);
                 }

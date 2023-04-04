@@ -51,11 +51,11 @@ namespace AventusSharp.WebSocket
         /// <typeparam name="T"></typeparam>
         /// <param name="propPath">Path where to find data</param>
         /// <returns></returns>
-        public T getData<T>(string propPath = "")
+        public T? getData<T>(string propPath = "")
         {
             try
             {
-                JToken dataToUse = data;
+                JToken? dataToUse = data;
                 string[] props = propPath.Split(".");
                 foreach (string prop in props)
                 {

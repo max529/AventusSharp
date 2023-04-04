@@ -10,12 +10,20 @@ namespace AventusSharp.Data.Storage.Mysql.Query
 {
     internal class CreateIntermediateTable
     {
-        public static string GetQuery(TableMemberInfo memberInfo)
+        public static string? GetQuery(TableMemberInfo memberInfo)
         {
             TableInfo instance = memberInfo.TableInfo;
-            TableInfo link = memberInfo.TableLinked;
+            TableInfo? link = memberInfo.TableLinked;
+            if(link == null)
+            {
+                return null;
+            }
 
-            string intermediateTableName = Utils.GetIntermediateTablename(memberInfo);
+            string? intermediateTableName = Utils.GetIntermediateTablename(memberInfo);
+            if(intermediateTableName == null)
+            {
+                return null;
+            }
 
             List<string> schema = new List<string>();
             List<string> primaryConstraint = new List<string>();

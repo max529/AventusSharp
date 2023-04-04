@@ -7,7 +7,7 @@ namespace AventusSharp.WebSocket.precast
     
     public class ErrorAnswer : WebSocketSender<ErrorAnswer, ErrorAnswer.Body>, IWebSocketSenderPrecast
     {
-        private string channel;
+        private string channel = "";
         public ErrorAnswer() { }
         public ErrorAnswer(string channel, string message)
         {
@@ -25,7 +25,7 @@ namespace AventusSharp.WebSocket.precast
 
         public class Body
         {
-            public string message;
+            public string message = "";
         }
     }
 }

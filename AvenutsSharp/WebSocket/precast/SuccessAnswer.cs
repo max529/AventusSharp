@@ -6,7 +6,7 @@ namespace AventusSharp.WebSocket.precast
 {
     public class SuccessAnswer : WebSocketSender<SuccessAnswer, SuccessAnswer.Body>, IWebSocketSenderPrecast
     {
-        private string channel;
+        private string channel = "";
         public SuccessAnswer() { }
         public SuccessAnswer(string channel)
         {
@@ -25,9 +25,9 @@ namespace AventusSharp.WebSocket.precast
         }
 
     }
-    public class SuccessAnswer<T> : WebSocketSender<SuccessAnswer<T>, SuccessAnswer<T>.Body>, IWebSocketSenderPrecast
+    public class SuccessAnswer<T> : WebSocketSender<SuccessAnswer<T>, SuccessAnswer<T>.Body>, IWebSocketSenderPrecast where T : notnull
     {
-        private string channel;
+        private string channel = "";
         public SuccessAnswer() { }
         public SuccessAnswer(string channel, T data)
         {
@@ -44,13 +44,13 @@ namespace AventusSharp.WebSocket.precast
         }
         public class Body
         {
-            public T data;
+            public T? data;
         }
 
     }
     public class SuccessAnswerList<T> : WebSocketSender<SuccessAnswerList<T>, SuccessAnswerList<T>.Body>, IWebSocketSenderPrecast
     {
-        private string channel;
+        private string channel = "";
         public SuccessAnswerList() { }
         public SuccessAnswerList(string channel, List<T> data)
         {
@@ -73,7 +73,7 @@ namespace AventusSharp.WebSocket.precast
     }
     public class SuccessAnswerDico<T> : WebSocketSender<SuccessAnswerDico<T>, SuccessAnswerDico<T>.Body>, IWebSocketSenderPrecast
     {
-        private string channel;
+        private string channel = "";
         public SuccessAnswerDico() { }
         public SuccessAnswerDico(string channel, Dictionary<int, T> data)
         {

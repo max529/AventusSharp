@@ -5,6 +5,7 @@ using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Mysql;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TestConsole.cs.Data;
 using TestConsole.cs.Data.Abstract;
 using TestConsole.cs.Logic;
@@ -15,17 +16,18 @@ namespace TestConsole.cs
     {
         static void Main(string[] args)
         {
-            MySQLStorage storage = new MySQLStorage(new StorageCredentials()
+            MySQLStorage storage = new MySQLStorage(new StorageCredentials(
+                host: "localhost",
+                database: "aventus",
+                username: "max",
+                password: "pass$1234"
+            )
             {
-                host = "localhost",
-                database = "aventus",
-                username = "max",
-                password = "pass$1234",
                 keepConnectionOpen = true,
             });
             storage.Connect();
             storage.ResetStorage();
-            DataMainManager.Register(new DataManagerConfig()
+            Task<bool> registeringProcess = DataMainManager.Register(new DataManagerConfig()
             {
                 defaultStorage = storage,
                 defaultDM = typeof(DatabaseDMSimple<>),
@@ -33,7 +35,17 @@ namespace TestConsole.cs
                 {
                     monitorManagerInit = true,
                 }
-            }).Wait();
+            });
+
+            registeringProcess.Wait();
+            if (!registeringProcess.Result)
+            {
+                Console.WriteLine("something went wrong during loading");
+                return;
+            }
+
+
+
 
             Console.ReadLine();
             #region Creation
@@ -60,15 +72,48 @@ namespace TestConsole.cs
             snoopy.name = "snoopy";
 
             Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
-            
+
             Console.WriteLine("Creation done");
+            #endregion
+
+            #region GetAll
+            Console.WriteLine("GetAll");
+            List<Person> people = Person.GetAll();
+            Console.WriteLine("");
+            foreach (Person p in people)
+            {
+                Console.WriteLine("I found person " + p.id + " named " + p.firstname + " " + p.lastname);
+            }
+            Console.WriteLine("");
+            Console.WriteLine("");
+            List<IAnimal> animals = Animal<IAnimal>.GetAll();
+            foreach (IAnimal a in animals)
+            {
+                Console.WriteLine("I found " + a.GetType().Name + " " + a.id + " named " + a.name);
+            }
+            Console.WriteLine("");
+            Console.WriteLine("");
+            List<IFelin> felins = Felin<IFelin>.GetAll();
+            foreach (IFelin f in felins)
+            {
+                Console.WriteLine("I found " + f.GetType().Name + " " + f.id + " named " + f.name);
+            }
+            Console.WriteLine("");
+            Console.WriteLine("");
+            List<Dog> dogs = Dog.GetAll();
+            foreach (Dog d in dogs)
+            {
+                Console.WriteLine("I found a dog " + d.id + " named " + d.name);
+            }
+            Console.WriteLine("");
+            Console.WriteLine("GetAll done");
             #endregion
 
             Console.ReadLine();
 
             #region Update
             Console.WriteLine("Update");
-            
+
             maxime.firstname += "2";
             Person.Update(maxime);
 

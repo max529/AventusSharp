@@ -22,7 +22,7 @@ namespace AventusSharp.Data.Storage.Mysql.Action
             // group data by type
             ResultWithError<Dictionary<TableInfo, IList>> orderedData = Storage.GroupDataByType(table, data);
             result.Errors.AddRange(orderedData.Errors);
-            if (!result.Success)
+            if (!result.Success || orderedData.Result == null)
             {
                 return result;
             }
@@ -39,11 +39,11 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 
             // No error
             result.Result = data;
-          
+
             return result;
         }
 
-       
+
 
         /// <summary>
         /// Insert data by type
@@ -67,7 +67,13 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 
             CreateQueryInfo info = Create.GetQueryInfo(table, Storage);
 
-            DbCommand cmd = Storage.CreateCmd(info.sql);
+            ResultWithError<DbCommand> cmdResult = Storage.CreateCmd(info.sql);
+            result.Errors.AddRange(cmdResult.Errors);
+            if(!result.Success || cmdResult.Result == null)
+            {
+                return result;
+            }
+            DbCommand cmd = cmdResult.Result;
             foreach (DbParameter parameter in info.parameters)
             {
                 cmd.Parameters.Add(parameter);

@@ -34,8 +34,16 @@ namespace AventusSharp.WebSocket
                 {
                     continue;
                 }
-                MethodInfo getInstance = instanceType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                IWebSocketInstance instance = (IWebSocketInstance)getInstance.Invoke(null, null);
+                MethodInfo? getInstance = instanceType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (getInstance == null)
+                {
+                    continue;
+                }
+                IWebSocketInstance? instance = (IWebSocketInstance?)getInstance.Invoke(null, null);
+                if (instance == null)
+                {
+                    continue;
+                }
                 routers.Add(instance.getSocketName(), instance);
             }
 
@@ -43,15 +51,27 @@ namespace AventusSharp.WebSocket
 
             foreach (Type routeType in routes)
             {
-                MethodInfo getInstance = routeType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                IWebSocketReceiver instance = (IWebSocketReceiver)getInstance.Invoke(null, null);
+                MethodInfo? getInstance = routeType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (getInstance == null)
+                {
+                    continue;
+                }
+                IWebSocketReceiver? instance = (IWebSocketReceiver?)getInstance.Invoke(null, null);
+                if (instance == null)
+                {
+                    continue;
+                }
                 instance.init();
             }
         }
 
         public static void register()
         {
-            register(Assembly.GetEntryAssembly());
+            Assembly? entry = Assembly.GetEntryAssembly();
+            if (entry != null)
+            {
+                register(entry);
+            }
         }
 
 

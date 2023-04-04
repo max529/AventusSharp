@@ -11,6 +11,7 @@ namespace AventusSharp.Data.Storage.Default
 {
     public class TableInfo
     {
+        public static string TypeIdentifierName = "__type";
         public static string GetSQLTableName(Type type)
         {
             return type.Name.Split('`')[0];
@@ -24,7 +25,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// The class parent, for heritance
         /// </summary>
-        public TableInfo Parent { get; internal set; }
+        public TableInfo? Parent { get; internal set; }
 
         /// <summary>
         /// The class children, for heritance
@@ -48,6 +49,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <remarks></remarks>
         public List<TableMemberInfo> members { get; private set; } = new List<TableMemberInfo>();
 
+
         /// <summary>
         /// List of primaries members for this class only
         /// </summary>
@@ -69,16 +71,16 @@ namespace AventusSharp.Data.Storage.Default
 
         public void AddTypeMember()
         {
-            CustomTableMemberInfo typeMember = new CustomTableMemberInfo("__type", this);
+            CustomTableMemberInfo typeMember = new CustomTableMemberInfo(TypeIdentifierName, this);
             typeMember.DefineSQLInformation(new SQLInformation()
             {
-                SqlName = "__type",
+                SqlName = TypeIdentifierName,
                 SqlType = System.Data.DbType.String,
                 SqlTypeTxt = "varchar(255)",
             });
             typeMember.DefineGetValue(delegate (object obj)
             {
-                return obj.GetType().FullName;
+                return obj.GetType().AssemblyQualifiedName;
             });
 
             members.Insert(0, typeMember);

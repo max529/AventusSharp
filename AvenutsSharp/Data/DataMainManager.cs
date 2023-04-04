@@ -14,11 +14,20 @@ namespace AventusSharp.Data
 {
     public class DataManagerConfig
     {
-        public List<Assembly> searchingAssemblies = new List<Assembly>() { Assembly.GetEntryAssembly() };
-        public IStorage defaultStorage;
+        public List<Assembly> searchingAssemblies = new List<Assembly>() { };
+        public IStorage? defaultStorage;
         public Type defaultDM = typeof(DummyDM<>);
         public bool createExternalData = false;
         public DataManagerConfigLog log = new DataManagerConfigLog();
+
+        public DataManagerConfig()
+        {
+            Assembly? assembly = Assembly.GetEntryAssembly();
+            if (assembly != null)
+            {
+                searchingAssemblies.Add(assembly);
+            }
+        }
     }
     public class DataManagerConfigLog
     {
@@ -33,7 +42,7 @@ namespace AventusSharp.Data
     public static class DataMainManager
     {
         private static bool registerDone = false;
-        static internal Type DefaultDMType { get; private set; }
+        static internal Type? DefaultDMType { get; private set; }
         public static bool DefineDefaultDM<T>() where T : IGenericDM
         {
             return DefineTypeDM(typeof(T));
@@ -91,8 +100,8 @@ namespace AventusSharp.Data
             public DataInit(DataManagerConfig config)
             {
                 this.config = config;
-                Assembly baseAssembly = Assembly.GetAssembly(typeof(DataInit));
-                if (!config.searchingAssemblies.Contains(baseAssembly))
+                Assembly? baseAssembly = Assembly.GetAssembly(typeof(DataInit));
+                if (baseAssembly != null && !config.searchingAssemblies.Contains(baseAssembly))
                 {
                     config.searchingAssemblies.Insert(0, baseAssembly);
                 }
@@ -141,7 +150,7 @@ namespace AventusSharp.Data
                 {
                     Console.WriteLine("*********** Analyze managers **********");
                 }
-                Stopwatch time = null;
+                Stopwatch? time = null;
                 List<Type> managerTypes = new List<Type>();
 
                 foreach (Assembly assembly in this.config.searchingAssemblies)
@@ -170,11 +179,19 @@ namespace AventusSharp.Data
                         time.Restart();
                     }
 
-                    MethodInfo getInstance = managerType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                    IGenericDM manager = (IGenericDM)getInstance.Invoke(null, null);
-                    ManagerInformation info = new ManagerInformation()
+                    MethodInfo? getInstance = managerType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                    if (getInstance == null)
                     {
-                        manager = manager,
+                        new DataError(DataErrorCode.MethodNotFound, "Manager " + managerType.Name + " doesn't have a getInstance function").Print();
+                        return false;
+                    }
+                    IGenericDM? manager = (IGenericDM?)getInstance.Invoke(null, null);
+                    if (manager == null)
+                    {
+                        continue;
+                    }
+                    ManagerInformation info = new ManagerInformation(manager)
+                    {
                         dependances = new Dictionary<Type, List<string>>(),
                     };
 
@@ -211,9 +228,9 @@ namespace AventusSharp.Data
                 this.managerInformations = managerInformations.Values.ToList();
                 return true;
             }
-            private void AddDataDependance(Type typeFrom, Type typeDependance, string name)
+            private void AddDataDependance(Type typeFrom, Type? typeDependance, string name)
             {
-                if (typeDependance == typeof(Object))
+                if (typeDependance == null || typeDependance == typeof(Object))
                 {
                     return;
                 }
@@ -275,7 +292,7 @@ namespace AventusSharp.Data
                 dataInformations.Add(dataType, info);
 
                 // set Data info inside Manager info
-                ManagerInformation managerInfo = GetManager(info);
+                ManagerInformation? managerInfo = GetManager(info);
                 if (managerInfo == null)
                 {
                     return false;
@@ -289,7 +306,7 @@ namespace AventusSharp.Data
                         new DataError(DataErrorCode.GenericNotAbstract, "You class generic " + info.Name + " must be set as abstract").Print();
                         return false;
                     }
-                    Type interfaceType = GetTypeForGenericClass(dataType);
+                    Type? interfaceType = GetTypeForGenericClass(dataType);
                     if (interfaceType != null)
                     {
                         AddDataDependance(dataType, interfaceType, "*constraint");
@@ -310,7 +327,7 @@ namespace AventusSharp.Data
                 }
 
                 // load parent
-                Type parentType = dataType.BaseType;
+                Type? parentType = dataType.BaseType;
                 if (parentType == null || parentType == typeof(Object)) { }
                 else if (parentType.IsInterface)
                 {
@@ -367,7 +384,7 @@ namespace AventusSharp.Data
             {
                 bool monitor = this.config.log.monitorDataOrdering;
                 List<DataInformation> infos = dataInformations.Values.ToList();
-                Stopwatch time = null;
+                Stopwatch? time = null;
                 orderedData = new List<DataInformation>();
                 if (monitor)
                 {
@@ -384,7 +401,7 @@ namespace AventusSharp.Data
                     {
                         return false;
                     }
-                    if (monitor)
+                    if (monitor && time != null)
                     {
                         Console.WriteLine("Data " + info.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
@@ -415,7 +432,7 @@ namespace AventusSharp.Data
             }
 
 
-            private int OrderDataLoop(DataInformation dataInformation, List<DataInformation> waitingData = null)
+            private int OrderDataLoop(DataInformation dataInformation, List<DataInformation>? waitingData = null)
             {
                 if (waitingData == null)
                 {
@@ -554,7 +571,7 @@ namespace AventusSharp.Data
             private bool OrderedManager()
             {
                 bool monitor = this.config.log.monitorManagerOrdering;
-                Stopwatch time = null;
+                Stopwatch? time = null;
                 orderedManager = new List<ManagerInformation>();
                 if (monitor)
                 {
@@ -571,7 +588,7 @@ namespace AventusSharp.Data
                     {
                         return false;
                     }
-                    if (monitor)
+                    if (time != null)
                     {
                         Console.WriteLine("Manager " + info.manager.Name + " ordering loop in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
@@ -593,7 +610,7 @@ namespace AventusSharp.Data
                 }
                 return true;
             }
-            private int OrderManagerLoop(ManagerInformation managerInformation, List<ManagerInformation> waitingData = null)
+            private int OrderManagerLoop(ManagerInformation managerInformation, List<ManagerInformation>? waitingData = null)
             {
                 if (waitingData == null)
                 {
@@ -629,15 +646,19 @@ namespace AventusSharp.Data
                     {
                         if (dataInformations.ContainsKey(dependanceType))
                         {
-                            int insertIndexTemp = OrderManagerLoop(dataInformations[dependanceType].managerInfo, waitingData);
-                            if (insertIndexTemp == -2)
+                            ManagerInformation? managerInfo = dataInformations[dependanceType].managerInfo;
+                            if (managerInfo != null)
                             {
-                                // its an error
-                                return -2;
-                            }
-                            if (insertIndexTemp >= 0 && insertIndexTemp > insertIndex)
-                            {
-                                insertIndex = insertIndexTemp;
+                                int insertIndexTemp = OrderManagerLoop(managerInfo, waitingData);
+                                if (insertIndexTemp == -2)
+                                {
+                                    // its an error
+                                    return -2;
+                                }
+                                if (insertIndexTemp >= 0 && insertIndexTemp > insertIndex)
+                                {
+                                    insertIndex = insertIndexTemp;
+                                }
                             }
                         }
                     }
@@ -664,7 +685,7 @@ namespace AventusSharp.Data
                 {
                     Console.WriteLine("*********** Init managers **********");
                 }
-                Stopwatch time = null;
+                Stopwatch? time = null;
                 List<IGenericDM> genericDMs = new List<IGenericDM>();
                 foreach (ManagerInformation managerInformation in orderedManager)
                 {
@@ -676,7 +697,7 @@ namespace AventusSharp.Data
                     if (!genericDMs.Contains(manager))
                     {
                         genericDMs.Add(manager);
-                        PyramidInfo pyramid = CreatePyramid(managerInformation);
+                        PyramidInfo? pyramid = CreatePyramid(managerInformation);
                         if (pyramid == null)
                         {
                             return false;
@@ -698,7 +719,7 @@ namespace AventusSharp.Data
                     {
                         return false;
                     }
-                    if (monitor)
+                    if (time != null)
                     {
                         Console.WriteLine("Manager " + dm.Name + " init in " + time.ElapsedMilliseconds + "ms");
                         time.Stop();
@@ -708,13 +729,13 @@ namespace AventusSharp.Data
                 return true;
             }
 
-            private PyramidInfo CreatePyramidStep(DataInformation dataInformation, Dictionary<Type, PyramidInfo> pyramidFloors, Dictionary<Type, string> aliasUsed)
+            private PyramidInfo? CreatePyramidStep(DataInformation dataInformation, Dictionary<Type, PyramidInfo> pyramidFloors, Dictionary<Type, string> aliasUsed)
             {
                 if (!dataInformation.data.IsInterface)
                 {
-                    Type constraint = null;
-                    Type parent = null;
-                    PyramidInfo result;
+                    Type? constraint = null;
+                    Type? parent = null;
+                    PyramidInfo? result;
                     foreach (KeyValuePair<Type, List<string>> pair in dataInformation.dependances)
                     {
                         if (pair.Value.Contains("*constraint"))
@@ -735,14 +756,12 @@ namespace AventusSharp.Data
                             parent = pair.Key;
                         }
                     }
-                    PyramidInfo info = new PyramidInfo()
-                    {
-                        type = dataInformation.data,
-                        children = new List<PyramidInfo>(),
-                        memberInfo = dataInformation.membersInfo.Values.ToList(),
-                        aliasType = constraint,
-                        dependances = dataInformation.dependances,
-                    };
+                    PyramidInfo info = new PyramidInfo(
+                        type: dataInformation.data,
+                        memberInfo: dataInformation.membersInfo.Values.ToList()
+                    );
+                    info.dependances = dataInformation.dependances;
+                    info.aliasType = constraint;
                     result = info;
                     if (parent != null)
                     {
@@ -754,11 +773,18 @@ namespace AventusSharp.Data
                         else if (dataInformations.ContainsKey(parent) && dataInformations[parent].IsForceInherit)
                         {
                             result = CreatePyramidStep(dataInformations[parent], pyramidFloors, aliasUsed);
-                            result.isForceInherit = true;
-                            if (pyramidFloors.ContainsKey(parent))
+                            if (result != null)
                             {
-                                info.parent = pyramidFloors[parent];
-                                info.parent.children.Add(info);
+                                result.isForceInherit = true;
+                                if (pyramidFloors.ContainsKey(parent))
+                                {
+                                    info.parent = pyramidFloors[parent];
+                                    info.parent.children.Add(info);
+                                }
+                                else
+                                {
+                                    throw new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why").GetException();
+                                }
                             }
                             else
                             {
@@ -775,9 +801,9 @@ namespace AventusSharp.Data
                 }
                 return null;
             }
-            private PyramidInfo CreatePyramid(ManagerInformation managerInformation)
+            private PyramidInfo? CreatePyramid(ManagerInformation managerInformation)
             {
-                PyramidInfo root = null;
+                PyramidInfo? root = null;
 
                 Dictionary<Type, PyramidInfo> pyramidFloors = new Dictionary<Type, PyramidInfo>();
                 Dictionary<Type, string> aliasUsed = new Dictionary<Type, string>(); // interface type, class name
@@ -786,7 +812,7 @@ namespace AventusSharp.Data
                 {
                     try
                     {
-                        PyramidInfo info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
+                        PyramidInfo? info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
                         if (root == null)
                         {
                             root = info;
@@ -800,9 +826,9 @@ namespace AventusSharp.Data
                 }
                 return root;
             }
-            private ManagerInformation GetManager(DataInformation dataInformation)
+            private ManagerInformation? GetManager(DataInformation dataInformation)
             {
-                Type dataType = dataInformation.data;
+                Type? dataType = dataInformation.data;
                 if (dataType.IsGenericType)
                 {
                     // type must be the interface
@@ -822,13 +848,26 @@ namespace AventusSharp.Data
                     }
                 }
 
-                Type simpleType = DataMainManager.DefaultDMType.MakeGenericType(new Type[] { dataType });
-                MethodInfo getInstance = simpleType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                IGenericDM simpleManager = (IGenericDM)getInstance.Invoke(null, null);
-
-                ManagerInformation info = new ManagerInformation()
+                if (DefaultDMType == null)
                 {
-                    manager = simpleManager,
+                    new DataError(DataErrorCode.DMNotExist, "You must define a default DM").Print();
+                    return null;
+                }
+                Type simpleType = DefaultDMType.MakeGenericType(new Type[] { dataType });
+                MethodInfo? getInstance = simpleType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (getInstance == null)
+                {
+                    new DataError(DataErrorCode.MethodNotFound, "Your default DM doesn't have a method getInstance").Print();
+                    return null;
+                }
+                IGenericDM? simpleManager = (IGenericDM?)getInstance.Invoke(null, null);
+                if (simpleManager == null)
+                {
+                    new DataError(DataErrorCode.DMNotExist, "The methode getInstance inside your default DM doesn't return a Generic DM").Print();
+                    return null;
+                }
+                ManagerInformation info = new ManagerInformation(simpleManager)
+                {
                     dependances = new Dictionary<Type, List<string>>(),
                     IsDummy = true,
                 };
@@ -842,7 +881,7 @@ namespace AventusSharp.Data
             /// </summary>
             /// <param name="dataType"></param>
             /// <returns></returns>
-            private Type GetTypeForGenericClass(Type dataType)
+            private Type? GetTypeForGenericClass(Type dataType)
             {
                 if (dataType.IsGenericType)
                 {
@@ -933,10 +972,12 @@ namespace AventusSharp.Data
 
         private class DataInformation
         {
+#pragma warning disable CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
             public Type data { get; set; }
+#pragma warning restore CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
 
             // set if data is interface
-            public Type genericType { get; set; }
+            public Type? genericType { get; set; }
             public string Name
             {
                 get
@@ -975,7 +1016,10 @@ namespace AventusSharp.Data
             {
                 get => data.GetCustomAttributes(false).ToList().Exists(a => a is ForceInherit);
             }
-            public ManagerInformation managerInfo;
+
+#pragma warning disable CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
+            public ManagerInformation managerInfo { get; set; }
+#pragma warning restore CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
             public Dictionary<Type, List<string>> dependances = new Dictionary<Type, List<string>>();
             public Dictionary<string, DataMemberInfo> membersInfo = new Dictionary<string, DataMemberInfo>();
             public override string ToString()
@@ -1003,7 +1047,7 @@ namespace AventusSharp.Data
 
         private class ManagerInformation
         {
-            public IGenericDM manager;
+            public IGenericDM manager { get; private set; }
             public Dictionary<Type, List<string>> dependances = new Dictionary<Type, List<string>>();
             public Dictionary<Type, DataInformation> dataInformations = new Dictionary<Type, DataInformation>();
 
@@ -1012,6 +1056,11 @@ namespace AventusSharp.Data
                 get; set;
             }
             private Dictionary<Type, Type> interfaceForType = new Dictionary<Type, Type>(); // first is interface
+
+            public ManagerInformation(IGenericDM manager)
+            {
+                this.manager = manager;
+            }
 
             /**
              * Can be init only if there is at least one class not in force inherit
@@ -1117,16 +1166,22 @@ namespace AventusSharp.Data
 
     public class PyramidInfo
     {
-        public PyramidInfo parent;
-        public List<PyramidInfo> children;
+        public PyramidInfo? parent;
+        public List<PyramidInfo> children = new List<PyramidInfo>();
 
         public Type type;
-        public Type aliasType;
-        public List<DataMemberInfo> memberInfo;
+        public Type? aliasType;
+        public List<DataMemberInfo> memberInfo = new List<DataMemberInfo>();
 
         public bool isForceInherit = false;
 
-        public Dictionary<Type, List<string>> dependances;
+        public Dictionary<Type, List<string>> dependances = new Dictionary<Type, List<string>>();
+
+        public PyramidInfo(Type type, List<DataMemberInfo> memberInfo)
+        {
+            this.type = type;
+            this.memberInfo = memberInfo;
+        }
     }
 
 }

@@ -18,7 +18,7 @@ namespace AventusSharp.WebSocket
     {
         #region singleton
         private static Dictionary<Type, IWebSocketReceiver> singletons = new Dictionary<Type, IWebSocketReceiver>();
-        public static T getInstance()
+        public static T? getInstance()
         {
             Type type = typeof(T);
             if (!singletons.ContainsKey(type))
@@ -44,8 +44,11 @@ namespace AventusSharp.WebSocket
             {
                 instance.addRoute(trigger, async delegate (WebSocketData data)
                 {
-                    U item = data.getData<U>();
-                    await onMessage(data, item);
+                    U? item = data.getData<U>();
+                    if (item != null)
+                    {
+                        await onMessage(data, item);
+                    }
                 });
             }
         }
@@ -58,8 +61,16 @@ namespace AventusSharp.WebSocket
         public abstract void defineWebSockets();
         public void setWebSocket<X>() where X : IWebSocketInstance
         {
-            MethodInfo getInstance = typeof(X).GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-            instances.Add((IWebSocketInstance)getInstance.Invoke(null, null));
+            MethodInfo? getInstance = typeof(X).GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            if (getInstance != null)
+            {
+                IWebSocketInstance? instance = (IWebSocketInstance?)getInstance.Invoke(null, null);
+                if (instance != null)
+                {
+                    instances.Add(instance);
+                }
+            }
+            
         }
         public List<IWebSocketInstance> getWebSockets()
         {

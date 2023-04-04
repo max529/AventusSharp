@@ -9,10 +9,14 @@ namespace AventusSharp.Data.Storage.Mysql.Tools
 {
     internal static class Utils
     {
-        public static string GetIntermediateTablename(TableMemberInfo member)
+        public static string? GetIntermediateTablename(TableMemberInfo member)
         {
             TableInfo from = member.TableInfo;
-            TableInfo to = member.TableLinked;
+            TableInfo? to = member.TableLinked;
+            if(to == null)
+            {
+                return null;
+            }
             return from.SqlTableName + "_" + to.SqlTableName + "_" + member.SqlName + "_link";
         }
 

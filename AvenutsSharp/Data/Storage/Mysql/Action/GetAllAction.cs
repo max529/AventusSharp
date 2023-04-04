@@ -1,6 +1,7 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Data.Storage.Mysql.Query;
+using AventusSharp.Tools;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -17,34 +18,82 @@ namespace AventusSharp.Data.Storage.Mysql.Action
         {
 
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-
+            result.Result = new List<X>();
             GetAllQueryInfo info = GetAll.GetQueryInfo(table, Storage);
-            // create a query for all the hierarchy
 
-            // query for animal
-            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
-            // left outer join dog on animal.id = dog.id
-            // left outer join felin on animal.id = felin.id
-            // left outer join cat on felin.id = cat.id
+            ResultWithError<DbCommand> cmdResult = Storage.CreateCmd(info.sql);
+            result.Errors.AddRange(cmdResult.Errors);
+            if (!result.Success || cmdResult.Result == null)
+            {
+                return result;
+            }
+            DbCommand cmd = cmdResult.Result;
+            StorageQueryResult queryResult = Storage.Query(cmd, null);
+            cmd.Dispose();
+            result.Errors.AddRange(queryResult.Errors);
+            if (queryResult.Success)
+            {
+                foreach (Dictionary<string, string> item in queryResult.Result)
+                {
+                    ResultWithError<X> resultObjTemp = createObject<X>(item, info.memberInfos);
+                    result.Errors.AddRange(resultObjTemp.Errors);
+                    if(resultObjTemp.Result != null)
+                    {
+                        result.Result.Add(resultObjTemp.Result);
+                    }
+                }
+            }
 
-            // query for felin
-            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
-            // inner join felin on animal.id = felin.id
-            // left outer join cat on felin.id = cat.id
-
-            // query for cat
-            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
-            // inner join felin on animal.id = felin.id
-            // inner join cat on felin.id = cat.id
-
-            // query for dog
-            // SELECT _type, animal.id, animal.name, animal.createdDate, animal.updatedDate FROM animal
-            // inner join dog on animal.id = dog.id
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-            result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Not implemented"));
             return result;
+
         }
 
-        
+        private ResultWithError<X> createObject<X>(Dictionary<string, string> itemFields, List<TableMemberInfo> memberInfos)
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            Type type = typeof(X);
+            TableInfo? info = Storage.getTableInfo(type);
+            if (info == null)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type.Name));
+                return result;
+            }
+            object o;
+            if (info.IsAbstract)
+            {
+                if (!itemFields.ContainsKey(TableInfo.TypeIdentifierName))
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NoTypeIdentifierFoundInsideQuery, "Can't find the field " + TableInfo.TypeIdentifierName));
+                    return result;
+                }
+
+                Type? typeToCreate = Type.GetType(itemFields[TableInfo.TypeIdentifierName]);
+                if (typeToCreate == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.WrongType, "Can't find the type " + itemFields[TableInfo.TypeIdentifierName]));
+                    return result;
+                }
+
+                o = TypeTools.CreateNewObj(typeToCreate);
+            }
+            else
+            {
+                o = TypeTools.CreateNewObj(type);
+            }
+
+            if (o is X oCasted)
+            {
+                foreach (TableMemberInfo memberInfo in memberInfos)
+                {
+                    if (itemFields.ContainsKey(memberInfo.SqlName))
+                    {
+                        memberInfo.SetSqlValue(o, itemFields[memberInfo.SqlName]);
+                    }
+                }
+                result.Result = oCasted;
+            }
+
+            return result;
+        }
     }
 }

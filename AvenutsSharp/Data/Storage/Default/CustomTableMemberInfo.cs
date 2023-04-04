@@ -11,16 +11,16 @@ namespace AventusSharp.Data.Storage.Default
     public class CustomTableMemberInfo : TableMemberInfo
     {
 
-        private Func<object, object> fctGetValue;
-        private Func<object, object> fctGetSQLValue;
-        private Action<object, object> fctSetValue;
-        private Action<object, object> fctSetSQLValue;
+        private Func<object, object?>? fctGetValue;
+        private Func<object, object?>? fctGetSQLValue;
+        private Action<object, object>? fctSetValue;
+        private Action<object, object>? fctSetSQLValue;
         public CustomTableMemberInfo(string name, TableInfo tableInfo) : base(tableInfo)
         {
             this._Name = name;
         }
 
-        public void DefineGetValue(Func<object, object> fctGetValue)
+        public void DefineGetValue(Func<object, object?> fctGetValue)
         {
             this.fctGetValue = fctGetValue;
         }
@@ -71,7 +71,7 @@ namespace AventusSharp.Data.Storage.Default
             TableLinkedType = information.TableLinkedType;
         }
 
-        public override object GetSqlValue(object obj)
+        public override object? GetSqlValue(object obj)
         {
             if (fctGetSQLValue != null)
             {
@@ -91,13 +91,15 @@ namespace AventusSharp.Data.Storage.Default
 
         public override T GetCustomAttribute<T>()
         {
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
             return null;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
         }
         public override List<object> GetCustomAttributes(bool inherit)
         {
             return new List<object>();
         }
-        public override object GetValue(object obj)
+        public override object? GetValue(object obj)
         {
             if (fctGetValue != null)
             {
@@ -115,11 +117,11 @@ namespace AventusSharp.Data.Storage.Default
         private string _Name;
         public override string Name => _Name;
 
-        private Type _ReflectedType;
-        public override Type ReflectedType => _ReflectedType;
+        private Type? _ReflectedType;
+        public override Type? ReflectedType => _ReflectedType;
 
-        private Type _Type;
-        public override Type Type => _Type;
+        private Type? _Type;
+        public override Type? Type => _Type;
     }
 
     public class SQLInformation
@@ -128,11 +130,11 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsAutoIncrement { get; set; }
         public bool IsNullable { get; set; }
         public bool IsParentLink { get; set; }
-        public string SqlTypeTxt { get; set; }
+        public string SqlTypeTxt { get; set; } = "";
         public DbType SqlType { get; set; }
-        public string SqlName { get; set; }
+        public string SqlName { get; set; } = "";
         public TableMemberInfoLink link { get; set; } = TableMemberInfoLink.None;
-        public TableInfo TableLinked { get; set; }
-        public Type TableLinkedType { get; set; }
+        public TableInfo? TableLinked { get; set; }
+        public Type? TableLinkedType { get; set; }
     }
 }

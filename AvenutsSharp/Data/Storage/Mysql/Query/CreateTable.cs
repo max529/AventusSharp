@@ -72,8 +72,8 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                 {
                     string constraintName = "FK_" + string.Join("_", pri.Value.Select(field => field.SqlName)) + "_" + table.SqlTableName + "_" + primary.Key;
                     constraintName = Utils.CheckConstraint(constraintName);
-                    pri.Value.Select(field => "`" + field.TableLinked.primaries[0].SqlName + "`");
-                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked.primaries[0].SqlName + "`")) + ")";
+                    pri.Value.Select(field => "`" + field.TableLinked?.primaries[0].SqlName + "`");
+                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked?.primaries[0].SqlName + "`")) + ")";
                     foreignConstraint.Add(constraintProp);
                 }
 

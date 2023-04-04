@@ -22,7 +22,7 @@ namespace AventusSharp.WebSocket
         private HttpContext context;
         private System.Net.WebSockets.WebSocket webSocket;
         private IWebSocketInstance instance;
-        private WebSocketReceiveResult result;
+        private WebSocketReceiveResult? result;
         private WriteTypeJsonConverter converter;
         private readonly Dictionary<string, FileBodyElement> filesInProgress = new Dictionary<string, FileBodyElement>();
 
@@ -110,16 +110,21 @@ namespace AventusSharp.WebSocket
                             {
 
                                 JObject o = JObject.Parse(msg);
-                                if (o["channel"].ToString() == "ping")
+                                if (o["channel"]?.ToString() == "ping")
                                 {
                                     _ = send("pong", new JObject());
                                 }
-                                else if (o["channel"].ToString() == "/register_file_upload")
+                                else if (o["channel"]?.ToString() == "/register_file_upload")
                                 {
                                     JObject data = new JObject();
-                                    data = JObject.Parse(o["data"].ToString());
-                                    string filename = data["filename"].ToString();
-                                    string uid = data["uid"].ToString();
+                                    string? dataObjectString = o["data"]?.ToString();
+                                    string? filename = o["filename"]?.ToString();
+                                    string? uid = o["uid"]?.ToString();
+                                    if (dataObjectString == null || filename == null || uid == null)
+                                    {
+                                        return;
+                                    }
+                                    data = JObject.Parse(dataObjectString);
                                     // create temp
                                     string tempFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
                                     if (!Directory.Exists(tempFolder))
@@ -136,12 +141,9 @@ namespace AventusSharp.WebSocket
                                         i++;
                                         filePath = Path.Combine(tempFolder, string.Join(".", splitted));
                                     }
-                                    FileBodyElement fileBody = new FileBodyElement();
-                                    fileBody.stream = new FileStream(filePath, FileMode.Create);
-                                    fileBody.filename = filename;
-                                    fileBody.pathTemp = filePath;
+                                    FileBodyElement fileBody = new FileBodyElement(filename, new FileStream(filePath, FileMode.Create), filePath);
                                     filesInProgress[uid] = fileBody;
-                                    _ = this.send("/register_file_upload/done", new JObject(), o["uid"].ToString());
+                                    _ = this.send("/register_file_upload/done", new JObject(), uid);
                                 }
                                 else
                                 {
@@ -149,15 +151,21 @@ namespace AventusSharp.WebSocket
                                     {
                                         Console.WriteLine("on a reçu sur " + o["channel"], "onMessage");
                                     }
-                                    string channel = o["channel"].ToString();
-                                    JObject data = new JObject();
-                                    if (o.ContainsKey("data") && o["data"] != null)
+                                    string? channel = o["channel"]?.ToString();
+                                    if (channel == null)
                                     {
-                                        data = JObject.Parse(o["data"].ToString());
+                                        return;
                                     }
-                                    if (o.ContainsKey("uid") && o["uid"] != null)
+                                    JObject data = new JObject();
+                                    string? objString = o.ContainsKey("data") ? o["data"]?.ToString() : null;
+                                    if (objString != null)
                                     {
-                                        await instance.route(this, channel, data, o["uid"].ToString());
+                                        data = JObject.Parse(objString);
+                                    }
+                                    string? uid = o.ContainsKey("uid") ? o["data"]?.ToString() : null;
+                                    if (uid != null)
+                                    {
+                                        await instance.route(this, channel, data, uid.ToString());
                                     }
                                     else
                                     {
@@ -195,7 +203,7 @@ namespace AventusSharp.WebSocket
         /// <param name="o">Object to send</param>
         /// <param name="uid">Uid to identify request</param>
         /// <returns></returns>
-        private async Task _send(string eventName, JObject o, string uid = null)
+        private async Task _send(string eventName, JObject o, string? uid = null)
         {
             string data = o.ToString(Newtonsoft.Json.Formatting.None);
             JObject toSend = new JObject();
@@ -226,7 +234,7 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        public async Task send(string eventName, object obj, string uid = null)
+        public async Task send(string eventName, object obj, string? uid = null)
         {
             try
             {
@@ -241,7 +249,7 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        public async Task send(string eventName, string keyName, object obj, string uid = null)
+        public async Task send(string eventName, string keyName, object obj, string? uid = null)
         {
             try
             {
@@ -263,9 +271,16 @@ namespace AventusSharp.WebSocket
 
         private class FileBodyElement
         {
-            public string filename;
-            public FileStream stream;
-            public string pathTemp;
+            public string filename { get; private set; }
+            public FileStream stream { get; private set; }
+            public string pathTemp { get; private set; }
+
+            public FileBodyElement(string filename, FileStream stream, string pathTemp)
+            {
+                this.filename = filename;
+                this.stream = stream;
+                this.pathTemp = pathTemp;
+            }
         }
     }
 

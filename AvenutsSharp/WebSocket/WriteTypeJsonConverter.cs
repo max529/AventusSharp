@@ -41,7 +41,7 @@ namespace AventusSharp.WebSocket
         /// <param name="existingValue"></param>
         /// <param name="serializer"></param>
         /// <returns></returns>
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        public override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
             throw new NotImplementedException("Unnecessary because CanRead is false. The type will skip the converter.");
         }
@@ -51,8 +51,12 @@ namespace AventusSharp.WebSocket
         /// <param name="writer"></param>
         /// <param name="value"></param>
         /// <param name="serializer"></param>
-        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
         {
+            if (value == null)
+            {
+                return;
+            }
             lock (value)
             {
                 Type type = value.GetType();
@@ -68,8 +72,12 @@ namespace AventusSharp.WebSocket
                 }
                 else if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IDictionary)))
                 {
-                    IEnumerable keys = (IEnumerable)type.GetProperty("Keys").GetValue(value, null);
-                    IEnumerable values = (IEnumerable)type.GetProperty("Values").GetValue(value, null);
+                    IEnumerable? keys = (IEnumerable?)type.GetProperty("Keys")?.GetValue(value, null);
+                    IEnumerable? values = (IEnumerable?)type.GetProperty("Values")?.GetValue(value, null);
+                    if(keys == null || values == null)
+                    {
+                        return;
+                    }
                     IEnumerator valueEnumerator = values.GetEnumerator();
                     JObject jo = new JObject();
                     foreach (object key in keys)
@@ -77,7 +85,11 @@ namespace AventusSharp.WebSocket
                         valueEnumerator.MoveNext();
                         if (valueEnumerator.Current != null)
                         {
-                            jo.Add(key.ToString(), JToken.FromObject(valueEnumerator.Current, serializer));
+                            string? keyStr = key.ToString();
+                            if (keyStr != null)
+                            {
+                                jo.Add(keyStr, JToken.FromObject(valueEnumerator.Current, serializer));
+                            }
                         }
                     }
                     jo.WriteTo(writer);
@@ -107,7 +119,7 @@ namespace AventusSharp.WebSocket
                         if (prop.CanRead && prop.GetIndexParameters().Length == 0)
                         {
 
-                            object propVal = prop.GetValue(value, null);
+                            object? propVal = prop.GetValue(value, null);
                             if (propVal != null)
                             {
                                 if (!propToRemove.Contains(prop.Name))
@@ -121,7 +133,7 @@ namespace AventusSharp.WebSocket
                     foreach (FieldInfo prop in type.GetFields())
                     {
 
-                        object propVal = prop.GetValue(value);
+                        object? propVal = prop.GetValue(value);
                         if (propVal != null)
                         {
                             if (!propToRemove.Contains(prop.Name))

@@ -92,12 +92,22 @@ namespace AventusSharp.Data.Storage.Mysql
             return result;
         }
 
-        public override DbCommand CreateCmd(string sql)
+        public override ResultWithError<DbCommand> CreateCmd(string sql)
         {
-            MySqlCommand command = ((MySqlConnection)connection).CreateCommand();
-            command.CommandType = System.Data.CommandType.Text;
-            command.CommandText = sql;
-            return command;
+            ResultWithError<DbCommand> result = new ResultWithError<DbCommand>();
+            MySqlConnection? mySqlConnection = (MySqlConnection?)connection;
+            if (mySqlConnection != null)
+            {
+                MySqlCommand command = mySqlConnection.CreateCommand();
+                command.CommandType = System.Data.CommandType.Text;
+                command.CommandText = sql;
+                result.Result = command;
+            }
+            else
+            {
+                result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+            }
+            return result;
         }
         public override DbParameter GetDbParameter()
         {

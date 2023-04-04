@@ -31,12 +31,15 @@ namespace AventusSharp.WebSocket
         public abstract void defineAnswers();
         public void setAnswer<X>() where X : IWebSocketSender
         {
-            X temp = (X)Activator.CreateInstance(typeof(X));
+            X? temp = (X?)Activator.CreateInstance(typeof(X));
             if (temp is IWebSocketSenderPrecast precast)
             {
                 precast.setBaseChannel(defineTrigger());
             }
-            answers.Add(temp);
+            if (temp != null)
+            {
+                answers.Add(temp);
+            }
         }
 
         public sealed async override Task onMessage(WebSocketData socketData, U message)

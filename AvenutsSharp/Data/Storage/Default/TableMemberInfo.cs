@@ -20,7 +20,7 @@ namespace AventusSharp.Data.Storage.Default
     }
     public class TableMemberInfo
     {
-        protected MemberInfo memberInfo;
+        protected MemberInfo? memberInfo;
         protected Dictionary<Type, MemberInfo> memberInfoByType = new Dictionary<Type, MemberInfo>();
         public readonly TableInfo TableInfo;
         public TableMemberInfo(TableInfo tableInfo)
@@ -37,7 +37,7 @@ namespace AventusSharp.Data.Storage.Default
             memberInfo = propertyInfo;
             TableInfo = tableInfo;
         }
-        public TableMemberInfo(MemberInfo memberInfo, TableInfo tableInfo)
+        public TableMemberInfo(MemberInfo? memberInfo, TableInfo tableInfo)
         {
             this.memberInfo = memberInfo;
             TableInfo = tableInfo;
@@ -47,11 +47,11 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsPrimary { get; protected set; }
         public bool IsAutoIncrement { get; protected set; }
         public bool IsNullable { get; protected set; }
-        public string SqlTypeTxt { get; protected set; }
+        public string SqlTypeTxt { get; protected set; } = "";
         public DbType SqlType { get; protected set; }
-        public string SqlName { get; protected set; }
+        public string SqlName { get; protected set; } = "";
 
-        public virtual object GetSqlValue(object obj)
+        public virtual object? GetSqlValue(object obj)
         {
             // TODO maybe check constraint here
             if (link == TableMemberInfoLink.None || link == TableMemberInfoLink.Parent)
@@ -60,8 +60,8 @@ namespace AventusSharp.Data.Storage.Default
             }
             else if (link == TableMemberInfoLink.Simple)
             {
-                object elementRef = GetValue(obj);
-                if(elementRef is IStorable storableLink)
+                object? elementRef = GetValue(obj);
+                if (elementRef is IStorable storableLink)
                 {
                     return storableLink.id;
                 }
@@ -75,8 +75,12 @@ namespace AventusSharp.Data.Storage.Default
             {
                 return;
             }
-            Type type = Type;
-            if (type == typeof(Int32))
+            Type? type = Type;
+            if (type == null)
+            {
+                return;
+            }
+            if (type == typeof(int))
             {
                 int nb;
                 int.TryParse(value, out nb);
@@ -125,15 +129,24 @@ namespace AventusSharp.Data.Storage.Default
             }
             else
             {
-                SetValue(obj, value);
+                // it's link
+                if (string.IsNullOrEmpty(value))
+                {
+                    SetValue(obj, null);
+                }
+                else
+                {
+                    // TODO load reference field
+                   // SetValue(obj, value);
+                }
             }
 
         }
 
         #region link
         public TableMemberInfoLink link { get; protected set; } = TableMemberInfoLink.None;
-        public TableInfo TableLinked { get; set; }
-        public Type TableLinkedType { get; protected set; }
+        public TableInfo? TableLinked { get; set; }
+        public Type? TableLinkedType { get; protected set; }
 
         #endregion
         public TableMemberInfo TransformForParentLink(TableInfo parentTable)
@@ -149,20 +162,26 @@ namespace AventusSharp.Data.Storage.Default
         }
         public bool PrepareForSQL()
         {
-
-            SqlName = memberInfo.Name;
-            PrepareAttributesForSQL();
+            if (memberInfo != null)
+            {
+                SqlName = memberInfo.Name;
+                PrepareAttributesForSQL();
+            }
             return PrepareTypeForSQL();
         }
         protected bool PrepareTypeForSQL()
         {
             bool isOk = false;
-            Type type = Type;
+            Type? type = Type;
+            if (type == null)
+            {
+                return false;
+            }
             if (type == typeof(int))
             {
                 SqlTypeTxt = "int";
                 SqlType = DbType.Int32;
-                ForeignKey attr = GetCustomAttribute<ForeignKey>();
+                ForeignKey? attr = GetCustomAttribute<ForeignKey>();
                 if (attr != null)
                 {
                     if (IsTypeUsable(attr.type))
@@ -188,7 +207,7 @@ namespace AventusSharp.Data.Storage.Default
             else if (type == typeof(string))
             {
                 SqlType = DbType.String;
-                Size attr = GetCustomAttribute<Size>();
+                Size? attr = GetCustomAttribute<Size>();
                 if (attr != null)
                 {
                     if (attr.max)
@@ -235,7 +254,7 @@ namespace AventusSharp.Data.Storage.Default
             else
             {
                 // TODO maybe implement both side for N-M link
-                Type refType = IsListTypeUsable(type);
+                Type? refType = IsListTypeUsable(type);
                 if (refType != null)
                 {
                     link = TableMemberInfoLink.Multiple;
@@ -284,7 +303,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return type.GetInterfaces().Contains(typeof(IStorable));
         }
-        protected Type IsListTypeUsable(Type type)
+        protected Type? IsListTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))
             {
@@ -296,7 +315,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return null;
         }
-        protected Type IsDictionaryTypeUsable(Type type)
+        protected Type? IsDictionaryTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IDictionary)))
             {
@@ -320,7 +339,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// Interface for Type
         /// </summary>
-        public virtual Type Type
+        public virtual Type? Type
         {
             get
             {
@@ -354,9 +373,9 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public virtual T GetCustomAttribute<T>() where T : Attribute
+        public virtual T? GetCustomAttribute<T>() where T : Attribute
         {
-            return memberInfo.GetCustomAttribute<T>();
+            return memberInfo?.GetCustomAttribute<T>();
         }
         /// <summary>
         /// Interface for GetCustomAttributes
@@ -390,11 +409,11 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public virtual object GetValue(object obj)
+        public virtual object? GetValue(object obj)
         {
             try
             {
-                MemberInfo member = GetRealMemmber(obj);
+                MemberInfo? member = GetRealMemmber(obj);
                 if (member is FieldInfo fieldInfo)
                 {
                     return fieldInfo.GetValue(obj);
@@ -417,11 +436,11 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="obj"></param>
         /// <param name="value"></param>
-        public virtual void SetValue(object obj, object value)
+        public virtual void SetValue(object obj, object? value)
         {
             try
             {
-                MemberInfo member = GetRealMemmber(obj);
+                MemberInfo? member = GetRealMemmber(obj);
                 if (member is FieldInfo fieldInfo)
                 {
                     fieldInfo.SetValue(obj, value);
@@ -440,7 +459,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// Interface for ReflectedType
         /// </summary>
-        public virtual Type ReflectedType
+        public virtual Type? ReflectedType
         {
             get
             {
@@ -462,10 +481,10 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        protected MemberInfo GetRealMemmber(object obj)
+        protected MemberInfo? GetRealMemmber(object obj)
         {
-            MemberInfo member = memberInfo;
-            if (TableInfo.IsAbstract)
+            MemberInfo? member = memberInfo;
+            if (member != null && TableInfo.IsAbstract)
             {
                 Type typeToUse = obj.GetType();
                 if (!memberInfoByType.ContainsKey(typeToUse))
@@ -488,12 +507,17 @@ namespace AventusSharp.Data.Storage.Default
             {
                 attrs = "- " + string.Join(", ", attributes.Select(a => "[" + a.GetType().Name + "]"));
             }
-            string type = Type.Name;
-            if (!TypeTools.primitiveType.Contains(Type))
+            Type? type = Type;
+            if (type != null)
             {
-                type += " - " + Type.Assembly.GetName().Name;
+                string typeTxt = type.Name;
+                if (!TypeTools.primitiveType.Contains(Type))
+                {
+                    typeTxt += " - " + type.Assembly.GetName().Name;
+                }
+                return Name + " (" + typeTxt + ") " + attrs;
             }
-            return Name + " (" + type + ") " + attrs;
+            return Name + "(NULL)";
         }
     }
 }
