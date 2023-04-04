@@ -266,7 +266,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.Where<X>(Expression<Func<X, bool>> func)
         {
-            List<X>? result = InvokeMethod<List<X>, X>(new object[] { func });
+            List<X>? result = InvokeMethod<List<X>, X>(new object[] { func }, false);
             if (result == null)
             {
                 return new List<X>();
@@ -608,7 +608,7 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region Utils
-        protected X? InvokeMethod<X, Y>(object[]? parameters = null, [CallerMemberName] string name = "")
+        protected X? InvokeMethod<X, Y>(object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
         {
             if (parameters == null)
             {
@@ -628,7 +628,14 @@ namespace AventusSharp.Data.Manager
                     try
                     {
                         MethodInfo methodType = method.MakeGenericMethod(typeof(Y));
-                        if (IsSameParameters(methodType.GetParameters(), types))
+                        if (checkSameParam)
+                        {
+                            if (IsSameParameters(methodType.GetParameters(), types))
+                            {
+                                return (X?)methodType.Invoke(this, parameters);
+                            }
+                        }
+                        else
                         {
                             return (X?)methodType.Invoke(this, parameters);
                         }

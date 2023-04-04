@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
+using AventusSharp.Data.Storage.Mysql.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,9 @@ namespace AventusSharp.Data.Storage.Mysql.Action
         {
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
             result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Not implemented"));
+
+            Where.GetQueryInfo(table, (BinaryExpression)func.Body, Storage);
+
             return result;
         }
     }
