@@ -19,7 +19,7 @@ namespace TestConsole.cs
             MySQLStorage storage = new MySQLStorage(new StorageCredentials(
                 host: "localhost",
                 database: "aventus",
-                username: "max",
+                username: "maxime",
                 password: "pass$1234"
             )
             {
@@ -44,6 +44,7 @@ namespace TestConsole.cs
                 return;
             }
 
+            Animal<IAnimal>.Where(a => a.name == "felix");
 
 
 
@@ -108,6 +109,9 @@ namespace TestConsole.cs
             Console.WriteLine("");
             Console.WriteLine("GetAll done");
             #endregion
+
+
+            
 
             Console.ReadLine();
 

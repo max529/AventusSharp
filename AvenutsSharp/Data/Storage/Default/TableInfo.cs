@@ -56,10 +56,13 @@ namespace AventusSharp.Data.Storage.Default
         /// <remarks></remarks>
         public List<TableMemberInfo> primaries { get => members.Where(m => m.IsPrimary).ToList(); }
 
+        public Type Type { get; private set; }
+
         public TableInfo(PyramidInfo pyramid)
         {
             SqlTableName = GetSQLTableName(pyramid.type);
             Type typeToLoad = pyramid.type;
+            Type = typeToLoad;
             if (pyramid.type.IsGenericType)
             {
                 IsAbstract = true;
