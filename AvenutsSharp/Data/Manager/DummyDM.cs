@@ -28,6 +28,11 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
+        public override QueryBuilder<U> GetQuery()
+        {
+            throw new NotImplementedException();
+        }
+
         public override ResultWithError<List<X>> UpdateWithError<X>(List<X> values)
         {
             throw new NotImplementedException();

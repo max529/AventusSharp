@@ -13,8 +13,8 @@ namespace AventusSharp.Data.Storage.Default
 
         private Func<object, object?>? fctGetValue;
         private Func<object, object?>? fctGetSQLValue;
-        private Action<object, object>? fctSetValue;
-        private Action<object, object>? fctSetSQLValue;
+        private Action<object, object?>? fctSetValue;
+        private Action<object, object?>? fctSetSQLValue;
         public CustomTableMemberInfo(string name, TableInfo tableInfo) : base(tableInfo)
         {
             this._Name = name;
@@ -33,7 +33,7 @@ namespace AventusSharp.Data.Storage.Default
         /// Param 2 => the value
         /// </summary>
         /// <param name="fctSetValue"></param>
-        public void DefineSetValue(Action<object, object> fctSetValue)
+        public void DefineSetValue(Action<object, object?> fctSetValue)
         {
             this.fctSetValue = fctSetValue;
         }
@@ -42,7 +42,7 @@ namespace AventusSharp.Data.Storage.Default
         /// Param 2 => the value
         /// </summary>
         /// <param name="fctSetSQLValue"></param>
-        public void DefineSetSqlValue(Action<object, object> fctSetSQLValue)
+        public void DefineSetSqlValue(Action<object, object?> fctSetSQLValue)
         {
             this.fctSetSQLValue = fctSetSQLValue;
         }
@@ -107,7 +107,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return null;
         }
-        public override void SetValue(object obj, object value)
+        public override void SetValue(object obj, object? value)
         {
             if (fctSetValue != null)
             {

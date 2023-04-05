@@ -20,6 +20,7 @@ namespace AventusSharp.Data.Manager
         #region Get
         List<X> GetAll<X>() where X : notnull;
         ResultWithError<List<X>> GetAllWithError<X>() where X : notnull;
+        QueryBuilder<X>? GetQuery<X>() where X : notnull;
 
         X GetById<X>(int id) where X : notnull;
         ResultWithError<X> GetByIdWithError<X>(int id) where X : notnull;

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AventusSharp.Data.Manager.DB;
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq.Expressions;
@@ -11,6 +12,8 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsConnectedOneTime { get; }
         public void CreateLinks();
         public void AddPyramid(PyramidInfo pyramid);
+        public TableInfo? GetTableInfo(Type type);
+        public void BuildQueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
         public VoidWithError CreateTable(PyramidInfo pyramid);
         public ResultWithError<bool> TableExist(PyramidInfo pyramid);
         public ResultWithError<List<X>> GetAll<X>() where X : IStorable;

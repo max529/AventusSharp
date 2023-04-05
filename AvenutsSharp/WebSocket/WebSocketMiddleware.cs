@@ -44,6 +44,7 @@ namespace AventusSharp.WebSocket
                 {
                     continue;
                 }
+                Console.WriteLine("add ws router " + instance.getSocketName());
                 routers.Add(instance.getSocketName(), instance);
             }
 
@@ -61,6 +62,7 @@ namespace AventusSharp.WebSocket
                 {
                     continue;
                 }
+                Console.WriteLine("Register receiver" + instance.GetType().Name + " => " + instance.defineTrigger());
                 instance.init();
             }
         }

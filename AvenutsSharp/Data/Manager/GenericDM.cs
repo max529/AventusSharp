@@ -1,4 +1,5 @@
-﻿using AventusSharp.Data.Storage.Default;
+﻿using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Storage.Default;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -136,6 +137,19 @@ namespace AventusSharp.Data.Manager
             return false;
         }
         protected abstract Task<bool> Initialize();
+        #endregion
+
+        #region generic query
+        public abstract QueryBuilder<U> GetQuery();
+        public QueryBuilder<X>? GetQuery<X>() where X : notnull
+        {
+            ResultWithError<QueryBuilder<X>>? result = InvokeMethod<ResultWithError<QueryBuilder<X>>, X>(new object[] { });
+            if (result == null)
+            {
+                return null;
+            }
+            return result.Result;
+        }
         #endregion
 
         #region Get
@@ -672,6 +686,8 @@ namespace AventusSharp.Data.Manager
             }
             return false;
         }
+
+        
 
         #endregion
 

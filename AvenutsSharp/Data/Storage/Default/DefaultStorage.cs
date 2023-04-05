@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Attributes;
+using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Tools;
 using System;
@@ -59,7 +60,7 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsConnectedOneTime { get; protected set; }
 
         private Dictionary<Type, TableInfo> allTableInfos = new Dictionary<Type, TableInfo>();
-        public TableInfo? getTableInfo(Type type)
+        public TableInfo? GetTableInfo(Type type)
         {
             if (allTableInfos.ContainsKey(type))
             {
@@ -538,6 +539,7 @@ namespace AventusSharp.Data.Storage.Default
                     TableMemberInfo? updatedDate = null;
                     foreach (TableMemberInfo memberInfo in membersToAdd.ToList())
                     {
+                        memberInfo.ChangeTableInfo(classInfo);
                         if (memberInfo.Name == "createdDate")
                         {
                             membersToAdd.Remove(memberInfo);
@@ -596,6 +598,8 @@ namespace AventusSharp.Data.Storage.Default
         #region actions
         private StorageAction<T> Actions;
         internal abstract StorageAction<T> defineActions();
+        public abstract void BuildQueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
+
 
         #region Table
 
@@ -801,7 +805,7 @@ namespace AventusSharp.Data.Storage.Default
                     Type type = item.GetType();
                     if (!loadedType.ContainsKey(type))
                     {
-                        TableInfo? tableInfo = getTableInfo(type);
+                        TableInfo? tableInfo = GetTableInfo(type);
                         if (tableInfo == null)
                         {
                             result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "this must be impossible"));

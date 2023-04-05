@@ -22,7 +22,7 @@ namespace AventusSharp.Data.Storage.Default
     {
         protected MemberInfo? memberInfo;
         protected Dictionary<Type, MemberInfo> memberInfoByType = new Dictionary<Type, MemberInfo>();
-        public readonly TableInfo TableInfo;
+        public TableInfo TableInfo { get; private set; }
         public TableMemberInfo(TableInfo tableInfo)
         {
             TableInfo = tableInfo;
@@ -40,6 +40,11 @@ namespace AventusSharp.Data.Storage.Default
         public TableMemberInfo(MemberInfo? memberInfo, TableInfo tableInfo)
         {
             this.memberInfo = memberInfo;
+            TableInfo = tableInfo;
+        }
+
+        public void ChangeTableInfo(TableInfo tableInfo)
+        {
             TableInfo = tableInfo;
         }
 
@@ -484,7 +489,7 @@ namespace AventusSharp.Data.Storage.Default
         protected MemberInfo? GetRealMemmber(object obj)
         {
             MemberInfo? member = memberInfo;
-            if (member != null && TableInfo.IsAbstract)
+            if (member?.ReflectedType?.IsGenericType == true)
             {
                 Type typeToUse = obj.GetType();
                 if (!memberInfoByType.ContainsKey(typeToUse))

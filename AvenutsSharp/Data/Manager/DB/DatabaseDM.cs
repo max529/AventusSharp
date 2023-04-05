@@ -77,6 +77,10 @@ namespace AventusSharp.Data.Manager.DB
         #endregion
 
         #region Get
+        public override QueryBuilder<U> GetQuery()
+        {
+            return new DatabaseQueryBuilder<U>(QueryBuildType.Get, Storage);
+        }
         public override ResultWithError<List<X>> GetAllWithError<X>()
         {
             return Storage.GetAll<X>();
@@ -112,6 +116,8 @@ namespace AventusSharp.Data.Manager.DB
         {
             return Storage.Delete(values);
         }
+
+       
         #endregion
 
     }

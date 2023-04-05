@@ -1,4 +1,5 @@
-﻿using AventusSharp.Data.Storage.Default;
+﻿using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Data.Storage.Mysql.Action;
 using MySql.Data.MySqlClient;
@@ -146,6 +147,11 @@ namespace AventusSharp.Data.Storage.Mysql
 
             result.Result = true;
             return result;
+        }
+
+        public override void BuildQueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder)
+        {
+            
         }
     }
 }

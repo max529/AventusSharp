@@ -3,8 +3,10 @@ using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Mysql;
+using AventusSharp.WebSocket;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using TestConsole.cs.Data;
 using TestConsole.cs.Data.Abstract;
@@ -19,7 +21,7 @@ namespace TestConsole.cs
             MySQLStorage storage = new MySQLStorage(new StorageCredentials(
                 host: "localhost",
                 database: "aventus",
-                username: "maxime",
+                username: "max",
                 password: "pass$1234"
             )
             {
@@ -44,10 +46,19 @@ namespace TestConsole.cs
                 return;
             }
 
-            Animal<IAnimal>.Where(a => a.name == "felix");
+            WebSocketMiddleware.register();
 
 
 
+            //var resultTemp = Animal<IAnimal>.GetQuery()
+            //    .Field(animal => animal.id)
+            //    .Field(animal => animal.name)
+            //    .Where(animal => animal.name == "felix")
+            //    .Query();
+
+            //Person.GetQuery().Field(p => p.location.name).Include(p => p.location);
+            string name = "felix";
+            List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
             Console.ReadLine();
             #region Creation
             Console.WriteLine("Creation ");
@@ -110,8 +121,19 @@ namespace TestConsole.cs
             Console.WriteLine("GetAll done");
             #endregion
 
+            #region GetById
+            Console.WriteLine("GetById");
+            Cat cat1 = Cat.GetById(1);
+            Console.WriteLine("the first cat is " + cat1.name);
+            Console.WriteLine("GetById done");
+            #endregion
 
-            
+
+            //List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
+            foreach (Cat c in cats)
+            {
+                Console.WriteLine("I found cat with where " + c.id + " named " + c.name);
+            }
 
             Console.ReadLine();
 
