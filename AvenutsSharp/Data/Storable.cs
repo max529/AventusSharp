@@ -276,6 +276,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().DeleteWithError(value);
         }
+
         /// <summary>
         /// Delete the current element inside the DM
         /// </summary>

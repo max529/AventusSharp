@@ -82,7 +82,10 @@ namespace AventusSharp.Data.Storage.Mysql
                             result.Errors.Add(new DataError(DataErrorCode.UnknowError, e2));
                         }
                     }
-
+                    else
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                    }
                 }
                 else
                 {

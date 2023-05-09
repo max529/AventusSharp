@@ -21,13 +21,17 @@ namespace TestConsole.cs
             MySQLStorage storage = new MySQLStorage(new StorageCredentials(
                 host: "localhost",
                 database: "aventus",
-                username: "max",
+                username: "maxime",
                 password: "pass$1234"
             )
             {
                 keepConnectionOpen = true,
             });
-            storage.Connect();
+            if (!storage.Connect())
+            {
+                Console.WriteLine("Error during connection");
+                return;
+            }
             storage.ResetStorage();
             Task<bool> registeringProcess = DataMainManager.Register(new DataManagerConfig()
             {
