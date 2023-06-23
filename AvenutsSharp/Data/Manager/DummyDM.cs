@@ -28,7 +28,7 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
-        public override QueryBuilder<U> GetQuery()
+        public override QueryBuilder<X>? CreateQuery<X>()
         {
             throw new NotImplementedException();
         }

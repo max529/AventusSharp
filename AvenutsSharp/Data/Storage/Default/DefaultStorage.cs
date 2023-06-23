@@ -550,6 +550,10 @@ namespace AventusSharp.Data.Storage.Default
                             membersToAdd.Remove(memberInfo);
                             updatedDate = memberInfo;
                         }
+                        if (memberInfo.IsPrimary)
+                        {
+                            classInfo.primary = memberInfo;
+                        }
                     }
                     classInfo.members.InsertRange(0, membersToAdd);
                     if (addCreatedAndUpdatedDate)
@@ -578,12 +582,9 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     classInfo.Parent = parent;
                     parent.Children.Add(classInfo);
-
-                    List<TableMemberInfo> prims = parent.primaries;
-                    foreach (TableMemberInfo prim in prims)
-                    {
-                        classInfo.members.Insert(0, prim.TransformForParentLink(parent));
-                    }
+                    TableMemberInfo primInfo = parent.primary.TransformForParentLink(parent);
+                    classInfo.members.Insert(0, primInfo);
+                    classInfo.primary = primInfo;
                 }
                 foreach (PyramidInfo child in pyramid.children)
                 {

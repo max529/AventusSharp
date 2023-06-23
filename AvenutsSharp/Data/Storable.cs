@@ -36,7 +36,7 @@ namespace AventusSharp.Data
         }
         public static QueryBuilder<T>? GetQuery()
         {
-            return GenericDM.Get<T>().GetQuery<T>();
+            return GenericDM.Get<T>().CreateQuery<T>();
         }
 
         public static T GetById(int id)

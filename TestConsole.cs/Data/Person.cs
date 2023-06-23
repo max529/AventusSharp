@@ -7,7 +7,7 @@ using System.Text;
 namespace TestConsole.cs.Data
 {
     
-    public class Person : Storable<Person>
+    public class PersonHuman : Storable<PersonHuman>
     {
         public string firstname { get; set; }
 

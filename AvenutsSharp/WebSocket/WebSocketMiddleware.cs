@@ -92,7 +92,6 @@ namespace AventusSharp.WebSocket
                 {
                     string newPath = context.Request.Path.ToString().Replace("/ws", "");
                     newPath = newPath.ToLower();
-                    newPath = newPath.Replace("/", "");
                     if (routers.ContainsKey(newPath))
                     {
                         System.Net.WebSockets.WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();

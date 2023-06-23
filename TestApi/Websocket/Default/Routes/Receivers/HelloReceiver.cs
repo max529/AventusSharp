@@ -5,21 +5,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TestConsole.cs.Data;
-using TestConsole.cs.Websocket.Default.Routes.Senders;
+using TestApi.Websocket.Default.Routes.Senders;
 
-namespace TestConsole.cs.Websocket.Default.Routes.Receivers
+namespace TestApi.Websocket.Default.Routes.Receivers
 {
-    class PersonGetAllReceiver : WebSocketReceiverAnswer<PersonGetAllReceiver, EmptyBody>
+    class HelloReceiver : WebSocketReceiverAnswer<HelloReceiver, EmptyBody>
     {
         public override void defineAnswers()
         {
-            this.setAnswer<PersonGetAllSender>();
+            this.setAnswer<HelloSender>();
         }
 
         public override string defineTrigger()
         {
-            return "/person/get";
+            return "/hello";
         }
 
         public override void defineWebSockets()
@@ -29,8 +28,7 @@ namespace TestConsole.cs.Websocket.Default.Routes.Receivers
 
         public override async Task<IWebSocketSender> onMessage(WebSocketData socketData, EmptyBody message, WebSocketAnswerOptions options)
         {
-            List<PersonHuman> people = PersonHuman.GetAll();
-            return new PersonGetAllSender(people);
+            return new HelloSender();
         }
     }
 }

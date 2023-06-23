@@ -5,7 +5,7 @@ using System.Text;
 
 namespace TestConsole.cs.Data
 {
-    public class Role : Storable<Person>
+    public class Role : Storable<PersonHuman>
     {
         public string name { get; set; }
     }

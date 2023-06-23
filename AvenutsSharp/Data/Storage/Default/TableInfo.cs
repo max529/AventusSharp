@@ -54,7 +54,7 @@ namespace AventusSharp.Data.Storage.Default
         /// List of primaries members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public List<TableMemberInfo> primaries { get => members.Where(m => m.IsPrimary).ToList(); }
+        public TableMemberInfo primary { get; set; }
 
         public Type Type { get; private set; }
 
@@ -115,6 +115,10 @@ namespace AventusSharp.Data.Storage.Default
                 if (temp.PrepareForSQL())
                 {
                     members.Add(temp);
+                    if (temp.IsPrimary)
+                    {
+                        primary = temp;
+                    }
                 }
             }
         }

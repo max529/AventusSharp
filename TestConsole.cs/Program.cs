@@ -50,9 +50,13 @@ namespace TestConsole.cs
                 return;
             }
 
-            WebSocketMiddleware.register();
 
+            //Cat.GetQuery().Field(c => c.name).Query();
+            //PersonHuman.GetQuery().Field(p => p.firstname).Field(p => p.lastname).Field(p => p.location.name).Query();//.Include(p => p.location) => is implicit;
+            string test = "salut";
+            PersonHuman.GetQuery().Where(p => p.location.name.Contains(test) && p.firstname == "paul").Query();
 
+            //PersonHuman.GetQuery().Where(p => p.location.name != null && (p.location.name.StartsWith("L") || p.location.name.StartsWith("B"))).Query();
 
             //var resultTemp = Animal<IAnimal>.GetQuery()
             //    .Field(animal => animal.id)
@@ -60,16 +64,23 @@ namespace TestConsole.cs
             //    .Where(animal => animal.name == "felix")
             //    .Query();
 
-            //Person.GetQuery().Field(p => p.location.name).Include(p => p.location);
-            string name = "felix";
-            List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
-            Console.ReadLine();
+
+            return;
+
+
+            //string name = "felix";
+            //List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
+            //Console.ReadLine();
+
             #region Creation
             Console.WriteLine("Creation ");
 
-            Person maxime = new Person() { firstname = "Maxime", lastname = "Bétrisey" };
-            Person benjamin = new Person() { firstname = "Benjamin", lastname = "Bétrisey" };
-            Person.Create(maxime);
+            Location home = new Location() { name = "Home" };
+            home.Create();
+
+            PersonHuman maxime = new PersonHuman() { firstname = "Maxime", lastname = "Bétrisey", location = home };
+            PersonHuman benjamin = new PersonHuman() { firstname = "Benjamin", lastname = "Bétrisey" };
+            PersonHuman.Create(maxime);
             benjamin.Create();
 
 
@@ -94,9 +105,9 @@ namespace TestConsole.cs
 
             #region GetAll
             Console.WriteLine("GetAll");
-            List<Person> people = Person.GetAll();
+            List<PersonHuman> people = PersonHuman.GetAll();
             Console.WriteLine("");
-            foreach (Person p in people)
+            foreach (PersonHuman p in people)
             {
                 Console.WriteLine("I found person " + p.id + " named " + p.firstname + " " + p.lastname);
             }
@@ -134,10 +145,10 @@ namespace TestConsole.cs
 
 
             //List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
-            foreach (Cat c in cats)
-            {
-                Console.WriteLine("I found cat with where " + c.id + " named " + c.name);
-            }
+            //foreach (Cat c in cats)
+            //{
+            //    Console.WriteLine("I found cat with where " + c.id + " named " + c.name);
+            //}
 
             Console.ReadLine();
 
@@ -145,7 +156,7 @@ namespace TestConsole.cs
             Console.WriteLine("Update");
 
             maxime.firstname += "2";
-            Person.Update(maxime);
+            PersonHuman.Update(maxime);
 
             benjamin.firstname += "2";
             benjamin.Update();
@@ -168,7 +179,7 @@ namespace TestConsole.cs
             #region Delete
             Console.WriteLine("Delete");
 
-            Person.Delete(maxime);
+            PersonHuman.Delete(maxime);
             benjamin.Delete();
 
             felix.Delete();

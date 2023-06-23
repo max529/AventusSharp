@@ -16,7 +16,7 @@ namespace TestConsole.cs.Logic
         {
             return new List<Type>()
             {
-                typeof(Person)
+                typeof(PersonHuman)
             };
         }
     }

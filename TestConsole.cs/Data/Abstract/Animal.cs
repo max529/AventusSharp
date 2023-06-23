@@ -21,7 +21,7 @@ namespace TestConsole.cs.Data.Abstract
     public interface IFelin: IAnimal { }
     public abstract class Felin<T> : Animal<T>, IFelin, ITest where T : IFelin, ITest
     {
-
+        public string color { get; set; }
     }
 
     public class Cat : Felin<Cat>

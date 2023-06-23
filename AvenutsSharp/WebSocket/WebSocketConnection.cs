@@ -162,7 +162,7 @@ namespace AventusSharp.WebSocket
                                     {
                                         data = JObject.Parse(objString);
                                     }
-                                    string? uid = o.ContainsKey("uid") ? o["data"]?.ToString() : null;
+                                    string? uid = o.ContainsKey("uid") ? o["uid"]?.ToString() : null;
                                     if (uid != null)
                                     {
                                         await instance.route(this, channel, data, uid.ToString());
@@ -205,6 +205,10 @@ namespace AventusSharp.WebSocket
         /// <returns></returns>
         private async Task _send(string eventName, JObject o, string? uid = null)
         {
+            if (o.ContainsKey("$type"))
+            {
+                o.Remove("$type");
+            }
             string data = o.ToString(Newtonsoft.Json.Formatting.None);
             JObject toSend = new JObject();
             toSend.Add("channel", eventName);

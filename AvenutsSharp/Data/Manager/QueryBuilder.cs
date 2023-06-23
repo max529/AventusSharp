@@ -16,10 +16,8 @@ namespace AventusSharp.Data.Manager
     }
     public abstract class QueryBuilder<T>
     {
-        public QueryBuildType Type { get; private set; }
-        public QueryBuilder(QueryBuildType type)
+        public QueryBuilder()
         {
-            Type = type;
         }
 
         public abstract void Execute();
