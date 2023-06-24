@@ -20,6 +20,26 @@ namespace AventusSharp.Data.Storage.Default
     }
     public class TableMemberInfo
     {
+        public static DbType? GetDbType(Type? type)
+        {
+            if(type == null)
+                return null;
+            if (type == typeof(int))
+                return DbType.Int32;
+            if (type == typeof(double) || type == typeof(float) || type == typeof(decimal))
+                return DbType.Double;
+            if (type == typeof(string))
+                return DbType.String;
+            if (type == typeof(Boolean))
+                return DbType.Boolean;
+            if (type == typeof(DateTime))
+                return DbType.DateTime;
+            if (type.IsEnum)
+                return DbType.String;
+            if (IsTypeUsable(type))
+                return DbType.Int32;
+            return null;
+        }
         protected MemberInfo? memberInfo;
         protected Dictionary<Type, MemberInfo> memberInfoByType = new Dictionary<Type, MemberInfo>();
         public TableInfo TableInfo { get; private set; }
@@ -142,7 +162,7 @@ namespace AventusSharp.Data.Storage.Default
                 else
                 {
                     // TODO load reference field
-                   // SetValue(obj, value);
+                    // SetValue(obj, value);
                 }
             }
 
@@ -300,7 +320,7 @@ namespace AventusSharp.Data.Storage.Default
             }
 
         }
-        protected bool IsTypeUsable(Type type)
+        protected static bool IsTypeUsable(Type type)
         {
             if (type == null)
             {
@@ -308,7 +328,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return type.GetInterfaces().Contains(typeof(IStorable));
         }
-        protected Type? IsListTypeUsable(Type type)
+        protected static Type? IsListTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))
             {
@@ -320,7 +340,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return null;
         }
-        protected Type? IsDictionaryTypeUsable(Type type)
+        protected static Type? IsDictionaryTypeUsable(Type type)
         {
             if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IDictionary)))
             {

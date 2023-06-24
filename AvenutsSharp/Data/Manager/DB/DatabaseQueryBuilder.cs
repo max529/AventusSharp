@@ -1,6 +1,8 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
@@ -11,125 +13,9 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager.DB
 {
-    public enum WhereQueryGroupFctEnum
-    {
-        Not,
-        And,
-        Or,
-        Equal,
-        NotEqual,
-        LessThan,
-        GreaterThan,
-        LessThanOrEqual,
-        GreaterThanOrEqual,
-        Add,
-        Subtract,
-        Multiply,
-        Divide,
-        StartsWith,
-        EndsWith,
-        Contains
-    }
-
-    public interface IWhereQueryGroup { }
-    public class WhereQueryGroup : IWhereQueryGroup
-    {
-        public List<IWhereQueryGroup> queryGroups { get; set; } = new List<IWhereQueryGroup>();
-
-    }
-    public class WhereQueryGroupFct : IWhereQueryGroup
-    {
-        public WhereQueryGroupFctEnum fct { get; set; }
-        public WhereQueryGroupFct(WhereQueryGroupFctEnum fct)
-        {
-            this.fct = fct;
-        }
-    }
-    public class WhereQueryGroupConstantNull : IWhereQueryGroup
-    {
-    }
-    public class WhereQueryGroupConstantString : IWhereQueryGroup
-    {
-        public string value { get; set; } = "";
-        public WhereQueryGroupConstantString(string value)
-        {
-            this.value = value;
-        }
-    }
-    public class WhereQueryGroupConstantOther : IWhereQueryGroup
-    {
-        public string value { get; set; } = "";
-        public WhereQueryGroupConstantOther(string value)
-        {
-            this.value = value;
-        }
-    }
-    public class WhereQueryGroupConstantBool : IWhereQueryGroup
-    {
-        public bool value { get; set; }
-        public WhereQueryGroupConstantBool(bool value)
-        {
-            this.value = value;
-        }
-    }
-    public class WhereQueryGroupConstantDateTime : IWhereQueryGroup
-    {
-        public DateTime value { get; set; }
-        public WhereQueryGroupConstantDateTime(DateTime value)
-        {
-            this.value = value;
-        }
-    }
-
-    public class WhereQueryGroupField : IWhereQueryGroup
-    {
-        public string alias { get; set; }
-        public TableMemberInfo tableMemberInfo { get; set; }
-    }
-
-    public class DatabaseQueryBuilderInfoChild
-    {
-        public string alias { get; set; }
-        public TableInfo tableInfo { get; set; }
-
-        public List<DatabaseQueryBuilderInfoChild> children { get; set; } = new List<DatabaseQueryBuilderInfoChild>();
-    }
-    public class DatabaseQueryBuilderInfo
-    {
-        public TableInfo tableInfo { get; set; }
-        public string alias { get; set; }
-        public Dictionary<TableMemberInfo, string> members { get; set; } = new Dictionary<TableMemberInfo, string>();
-
-        public Dictionary<TableInfo, string> parents { get; set; } = new Dictionary<TableInfo, string>(); // string is the alias
-        public List<DatabaseQueryBuilderInfoChild> children { get; set; } = new List<DatabaseQueryBuilderInfoChild>();
-
-        public Dictionary<DatabaseQueryBuilderInfo, TableMemberInfo> links = new Dictionary<DatabaseQueryBuilderInfo, TableMemberInfo>();
-        public KeyValuePair<TableMemberInfo, string> GetTableMemberInfoAndAlias(string field)
-        {
-            KeyValuePair<TableMemberInfo, string> result = new KeyValuePair<TableMemberInfo, string>();
-            TableMemberInfo? memberInfo = null;
-            memberInfo = tableInfo.members.Find(m => m.Name == field);
-            if (memberInfo == null)
-            {
-                foreach (KeyValuePair<TableInfo, string> parent in parents)
-                {
-                    memberInfo = parent.Key.members.Find(m => m.Name == field);
-                    if (memberInfo != null)
-                    {
-                        return result;
-                    }
-                }
-                return result;
-            }
-            result = new KeyValuePair<TableMemberInfo, string>(memberInfo, alias);
-            return result;
-        }
-    }
-
-
     public class DatabaseQueryBuilder<T> : QueryBuilder<T>
     {
-        protected IStorage Storage { get; private set; }
+        public IStorage Storage { get; private set; }
 
         public Dictionary<string, DatabaseQueryBuilderInfo> infoByPath { get; set; } = new Dictionary<string, DatabaseQueryBuilderInfo>();
 
@@ -138,6 +24,11 @@ namespace AventusSharp.Data.Manager.DB
         public bool allMembers { get; set; } = true;
         public List<WhereQueryGroup>? wheres { get; set; } = null;
 
+        public bool replaceVarsByParameters { get; set; } = false;
+
+        public Dictionary<string, ParamsQueryInfo> paramsInfo = new Dictionary<string, ParamsQueryInfo>(); // type is the type of the variable to use
+        
+        public string? sql { get; set; } = null;
 
         public DatabaseQueryBuilder(IStorage storage) : base()
         {
@@ -224,7 +115,7 @@ namespace AventusSharp.Data.Manager.DB
             }
         }
 
-        private void loadLinks(List<string> pathSplitted, List<Type> types)
+        public void loadLinks(List<string> pathSplitted, List<Type> types)
         {
             string currentPath = "";
             DatabaseQueryBuilderInfo parentInfo = infoByPath[currentPath];
@@ -267,7 +158,11 @@ namespace AventusSharp.Data.Manager.DB
 
         public override List<T> Query()
         {
-            Storage.BuildQueryFromBuilder(this);
+            ResultWithError<List<T>> result = Storage.QueryFromBuilder(this);
+            if (result.Success)
+            {
+                return result.Result;
+            }
             return new List<T>();
         }
 
@@ -277,10 +172,59 @@ namespace AventusSharp.Data.Manager.DB
             {
                 throw new Exception("Can't use twice the where action");
             }
-            LambdaTranslator translator = new LambdaTranslator(this);
+            replaceVarsByParameters = false;
+            LambdaTranslator<T> translator = new LambdaTranslator<T>(this);
             wheres = translator.Translate(expression);
 
             return this;
+        }
+
+        public override QueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> expression)
+        {
+            if (wheres != null)
+            {
+                throw new Exception("Can't use twice the where action");
+            }
+            replaceVarsByParameters = true;
+            LambdaTranslator<T> translator = new LambdaTranslator<T>(this);
+            wheres = translator.Translate(expression);
+
+            return this;
+        }
+
+        public override QueryBuilder<T> Prepare(params object[] objects)
+        {
+            List<ParamsQueryInfo> toSet = paramsInfo.Values.ToList();
+            foreach(object obj in objects)
+            {
+                foreach (ParamsQueryInfo info in toSet)
+                {
+                    if(obj.GetType() == info.typeLvl0)
+                    {
+                        info.SetValue(obj);
+                        toSet.Remove(info);
+                        break;
+                    }
+                }
+            }
+            if(toSet.Count > 0)
+            {
+                throw new Exception("Can't found a value to set for variables : " + string.Join(", ", toSet.Select(t => t.name)));
+            }
+            
+            return this;
+        }
+        public override QueryBuilder<T> SetVariable(string name, object value)
+        {
+            foreach (KeyValuePair<string, ParamsQueryInfo> paramInfo in paramsInfo)
+            {
+                if (paramInfo.Value.IsNameSimilar(name))
+                {
+                    paramInfo.Value.SetValue(value);
+                }
+            }
+            return this;
+
         }
 
         public override QueryBuilder<T> Field(Expression<Func<T, object>> expression)
@@ -365,265 +309,6 @@ namespace AventusSharp.Data.Manager.DB
         }
 
 
-        public class LambdaTranslator : ExpressionVisitor
-        {
-            public List<string> pathes = new List<string>();
-            public List<Type> types = new List<Type>();
-            private DatabaseQueryBuilder<T> databaseQueryBuilder;
-
-            private List<WhereQueryGroup> queryGroups = new List<WhereQueryGroup>();
-            private List<WhereQueryGroup> queryGroupsBase = new List<WhereQueryGroup>();
-            private WhereQueryGroup? currentGroup;
-            private bool onParameter = false;
-
-            public LambdaTranslator(DatabaseQueryBuilder<T> databaseQueryBuilder)
-            {
-                this.databaseQueryBuilder = databaseQueryBuilder;
-            }
-
-            public List<WhereQueryGroup> Translate(Expression expression)
-            {
-                queryGroups = new List<WhereQueryGroup>();
-                queryGroupsBase = new List<WhereQueryGroup>();
-                Visit(expression);
-
-                return queryGroupsBase;
-            }
-
-            protected override Expression VisitUnary(UnaryExpression u)
-            {
-                switch (u.NodeType)
-                {
-                    case ExpressionType.Not:
-                        currentGroup?.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Not));
-                        Visit(u.Operand);
-                        break;
-                    case ExpressionType.Convert:
-                        Visit(u.Operand);
-                        break;
-                    default:
-                        throw new NotSupportedException(string.Format("The unary operator '{0}' is not supported", u.NodeType));
-                }
-
-                return u;
-            }
-
-            protected override Expression VisitBinary(BinaryExpression b)
-            {
-                WhereQueryGroup newGroup = new WhereQueryGroup();
-                if (currentGroup != null)
-                {
-                    currentGroup.queryGroups.Add(newGroup);
-                }
-                currentGroup = newGroup;
-                if (queryGroups.Count == 0)
-                {
-                    queryGroupsBase.Add(newGroup);
-                }
-                queryGroups.Add(newGroup);
-
-                Visit(b.Left);
-
-                switch (b.NodeType)
-                {
-                    case ExpressionType.And:
-                    case ExpressionType.AndAlso:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.And));
-                        break;
-                    case ExpressionType.Or:
-                    case ExpressionType.OrElse:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Or));
-                        break;
-                    case ExpressionType.Equal:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Equal));
-                        break;
-                    case ExpressionType.NotEqual:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.NotEqual));
-                        break;
-                    case ExpressionType.LessThan:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.LessThan));
-                        break;
-                    case ExpressionType.LessThanOrEqual:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.LessThanOrEqual));
-                        break;
-                    case ExpressionType.GreaterThan:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.GreaterThan));
-                        break;
-                    case ExpressionType.GreaterThanOrEqual:
-                        currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.GreaterThanOrEqual));
-                        break;
-                    default:
-                        throw new NotSupportedException(string.Format("The binary operator '{0}' is not supported", b.NodeType));
-                }
-
-                Visit(b.Right);
-
-                queryGroups.RemoveAt(queryGroups.Count - 1);
-                currentGroup = queryGroups.LastOrDefault();
-
-                return b;
-            }
-
-            protected override Expression VisitConstant(ConstantExpression c)
-            {
-                IQueryable? q = c.Value as IQueryable;
-                if (q == null && c.Value == null)
-                {
-                    currentGroup?.queryGroups.Add(new WhereQueryGroupConstantNull());
-                }
-                if (q == null && c.Value != null)
-                {
-                    switch (Type.GetTypeCode(c.Value.GetType()))
-                    {
-                        case TypeCode.Boolean:
-                            currentGroup?.queryGroups.Add(new WhereQueryGroupConstantBool((bool)c.Value));
-                            break;
-
-                        case TypeCode.String:
-                            currentGroup?.queryGroups.Add(new WhereQueryGroupConstantString((string)c.Value));
-                            break;
-
-                        case TypeCode.DateTime:
-                            currentGroup?.queryGroups.Add(new WhereQueryGroupConstantDateTime((DateTime)c.Value));
-                            break;
-
-                        case TypeCode.Object:
-                            throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
-                        
-                        default:
-                            currentGroup?.queryGroups.Add(new WhereQueryGroupConstantOther((string)c.Value));
-                            break;
-                    }
-                }
-
-                return c;
-            }
-
-            protected override Expression VisitMember(MemberExpression m)
-            {
-                bool isBase = types.Count == 0;
-                if (isBase)
-                {
-                    onParameter = false;
-                }
-
-                pathes.Insert(0, m.Member.Name);
-                types.Insert(0, m.Type);
-
-                if (m.Expression != null)
-                {
-                    if (m.Expression is ParameterExpression)
-                    {
-                        onParameter = true;
-                    }
-                    if (m.Expression is ConstantExpression cst)
-                    {
-                        object? container = cst.Value;
-                        if (m.Member is FieldInfo fieldInfo)
-                        {
-                            object? value = fieldInfo.GetValue(container);
-                            Visit(Expression.Constant(value));
-                        }
-                        else if(m.Member is PropertyInfo propertyInfo)
-                        {
-                            object? value = propertyInfo.GetValue(container);
-                            Visit(Expression.Constant(value));
-                        }
-                        else
-                        {
-                            Visit(m.Expression);
-                        }
-                    }
-                    else
-                    {
-                        Visit(m.Expression);
-                    }
-                }
-                if (isBase)
-                {
-                    if (onParameter)
-                    {
-                        databaseQueryBuilder.loadLinks(pathes, types);
-                        string fullPath = string.Join(".", pathes.SkipLast(1));
-
-                        KeyValuePair<TableMemberInfo, string> memberInfo = databaseQueryBuilder.infoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
-
-                        WhereQueryGroupField field = new WhereQueryGroupField()
-                        {
-                            alias = memberInfo.Value,
-                            tableMemberInfo = memberInfo.Key
-                        };
-                        currentGroup?.queryGroups.Add(field);
-                    }
-                    pathes.Clear();
-                    types.Clear();
-                }
-                return m;
-
-                throw new NotSupportedException(string.Format("The member '{0}' is not supported", m.Member.Name));
-            }
-
-            protected override Expression VisitMethodCall(MethodCallExpression node)
-            {
-                string methodName = node.Method.Name;
-                Type? onType = node.Object?.Type;
-                WhereQueryGroupFctEnum? fct = null;
-
-                if (onType == typeof(string))
-                {
-                    if(methodName == "StartsWith")
-                    {
-                        fct = WhereQueryGroupFctEnum.StartsWith;
-                    }
-                    else if (methodName == "Contains")
-                    {
-                        fct = WhereQueryGroupFctEnum.Contains;
-                    }
-                    else if (methodName == "EndsWith")
-                    {
-                        fct = WhereQueryGroupFctEnum.EndsWith;
-                    }
-                }
-
-                if (fct == null)
-                {
-                    throw new Exception("Method " + methodName + " isn't allowed");
-                }
-
-                WhereQueryGroup newGroup = new WhereQueryGroup();
-                if (currentGroup != null)
-                {
-                    currentGroup.queryGroups.Add(newGroup);
-                }
-                currentGroup = newGroup;
-                if (queryGroups.Count == 0)
-                {
-                    queryGroupsBase.Add(newGroup);
-                }
-                queryGroups.Add(newGroup);
-
-                Visit(node.Object);
-                currentGroup.queryGroups.Add(new WhereQueryGroupFct((WhereQueryGroupFctEnum)fct));
-                foreach(Expression argument in node.Arguments)
-                {
-                    Visit(argument);
-                }
-
-                queryGroups.RemoveAt(queryGroups.Count - 1);
-                currentGroup = queryGroups.LastOrDefault();
-                return node;
-            }
-
-            protected bool IsNullConstant(Expression exp)
-            {
-                return (exp.NodeType == ExpressionType.Constant && ((ConstantExpression)exp).Value == null);
-            }
-        }
-
-
 
     }
-
-
-
 }

@@ -1,10 +1,12 @@
-﻿using AventusSharp.Data.Manager.DB;
+﻿using AventusSharp.Data.Manager;
+using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Data.Storage.Mysql.Action;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Text;
@@ -152,7 +154,7 @@ namespace AventusSharp.Data.Storage.Mysql
             return result;
         }
 
-        public override void BuildQueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder)
+        private string PrepareSQL<X>(DatabaseQueryBuilder<X> queryBuilder)
         {
             DatabaseQueryBuilderInfo mainInfo = queryBuilder.infoByPath[""];
             List<string> fields = new List<string>();
@@ -297,6 +299,34 @@ namespace AventusSharp.Data.Storage.Mysql
                         {
                             subQuery += otherConst.value;
                         }
+                        else if (queryGroup is WhereQueryGroupConstantParameter paramConst)
+                        {
+                            bool mustBeEscaped = paramConst.mustBeEscaped;
+                            string strValue =  "@" + paramConst.value;
+                            if (lastGroup is WhereQueryGroupFct groupFct)
+                            {
+                                if (groupFct.fct == WhereQueryGroupFctEnum.StartsWith)
+                                {
+                                    mustBeEscaped = true;
+                                    strValue = "@" + paramConst.value + "%";
+                                }
+                                else if (groupFct.fct == WhereQueryGroupFctEnum.EndsWith)
+                                {
+                                    mustBeEscaped = true;
+                                    strValue = "%@" + paramConst.value;
+                                }
+                                else if (groupFct.fct == WhereQueryGroupFctEnum.Contains)
+                                {
+                                    mustBeEscaped = true;
+                                    strValue = "%@" + paramConst.value + "%";
+                                }
+                            }
+                            if (mustBeEscaped)
+                            {
+                                strValue = "'" + strValue + "'";
+                            }
+                            subQuery += strValue;
+                        }
                         else if (queryGroup is WhereQueryGroupField fieldGrp)
                         {
                             subQuery += fieldGrp.alias + "." + fieldGrp.tableMemberInfo.SqlName;
@@ -330,6 +360,53 @@ namespace AventusSharp.Data.Storage.Mysql
 
 
             Console.WriteLine(sql);
+            return sql;
+        }
+        public override ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder)
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+
+            string sql = "";
+            if (queryBuilder.sql != null)
+            {
+                sql = queryBuilder.sql;
+            }
+            else
+            {
+                sql = PrepareSQL(queryBuilder);
+                queryBuilder.sql = sql;
+            }
+
+            ResultWithError<DbCommand> cmdResult = CreateCmd(sql);
+            result.Errors.AddRange(cmdResult.Errors);
+            if (!result.Success || cmdResult.Result == null)
+            {
+                return result;
+            }
+            DbCommand cmd = cmdResult.Result;
+            Dictionary<string, object?> parametersValue = new Dictionary<string, object?>();
+            foreach (KeyValuePair<string, ParamsQueryInfo> parameterInfo in queryBuilder.paramsInfo)
+            {
+                DbParameter parameter = GetDbParameter();
+                parameter.ParameterName = parameterInfo.Key;
+                parameter.DbType = parameterInfo.Value.dbType;
+                cmd.Parameters.Add(parameter);
+                parametersValue[parameterInfo.Key] = parameterInfo.Value.value;
+            }
+
+            StorageQueryResult queryResult = Query(cmd, new List<Dictionary<string, object?>>() { parametersValue });
+            cmd.Dispose();
+
+            result.Errors.AddRange(queryResult.Errors);
+            if (queryResult.Success)
+            {
+                for (int i = 0; i < queryResult.Result.Count; i++)
+                {
+
+                }
+            }
+
+            return result;
         }
 
         private string GetFctName(WhereQueryGroupFctEnum fctEnum)

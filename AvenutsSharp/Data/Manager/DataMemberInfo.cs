@@ -10,6 +10,18 @@ namespace AventusSharp.Data.Manager
 {
     public class DataMemberInfo
     {
+        public static DataMemberInfo? Create(object o)
+        {
+            if(o is PropertyInfo p)
+            {
+                return new DataMemberInfo(p);
+            }
+            if(o is FieldInfo f)
+            {
+                return new DataMemberInfo(f);
+            }
+            return null;
+        }
         private MemberInfo memberInfo;
         public DataMemberInfo(FieldInfo fieldInfo)
         {
@@ -93,7 +105,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public object? GetValue(object obj)
+        public object? GetValue(object? obj)
         {
             if (memberInfo is FieldInfo fieldInfo)
             {

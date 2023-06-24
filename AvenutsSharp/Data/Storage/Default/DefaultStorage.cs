@@ -599,7 +599,7 @@ namespace AventusSharp.Data.Storage.Default
         #region actions
         private StorageAction<T> Actions;
         internal abstract StorageAction<T> defineActions();
-        public abstract void BuildQueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
+        public abstract ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
 
 
         #region Table

@@ -7,13 +7,6 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager
 {
-    public enum QueryBuildType
-    {
-        Get,
-        Create,
-        Update,
-        Delete
-    }
     public abstract class QueryBuilder<T>
     {
         public QueryBuilder()
@@ -24,9 +17,11 @@ namespace AventusSharp.Data.Manager
 
         public abstract List<T> Query();
 
-
+        public abstract QueryBuilder<T> Prepare(params object[] objects);
+        public abstract QueryBuilder<T> SetVariable(string name, object value);
 
         public abstract QueryBuilder<T> Where(Expression<Func<T, bool>> func);
+        public abstract QueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> func);
 
         public abstract QueryBuilder<T> Field(Expression<Func<T, object>> memberExpression);
 

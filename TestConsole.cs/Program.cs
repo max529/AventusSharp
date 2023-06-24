@@ -54,8 +54,17 @@ namespace TestConsole.cs
             //Cat.GetQuery().Field(c => c.name).Query();
             //PersonHuman.GetQuery().Field(p => p.firstname).Field(p => p.lastname).Field(p => p.location.name).Query();//.Include(p => p.location) => is implicit;
             string test = "salut";
-            PersonHuman.GetQuery().Where(p => p.location.name.Contains(test) && p.firstname == "paul").Query();
-
+            PersonHuman human = new PersonHuman()
+            {
+                firstname = "salut",
+                location = new Location()
+                {
+                    name = "home"
+                }
+            };
+            var t = PersonHuman.GetQuery().Field(p => p.id).WhereWithParameters(p => p.location.name.StartsWith(human.location.name) && p.firstname == test);
+            t.Prepare();
+            t.Query();
             //PersonHuman.GetQuery().Where(p => p.location.name != null && (p.location.name.StartsWith("L") || p.location.name.StartsWith("B"))).Query();
 
             //var resultTemp = Animal<IAnimal>.GetQuery()
