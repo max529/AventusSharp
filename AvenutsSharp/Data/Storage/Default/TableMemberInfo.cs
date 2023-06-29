@@ -72,6 +72,7 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsPrimary { get; protected set; }
         public bool IsAutoIncrement { get; protected set; }
         public bool IsNullable { get; protected set; }
+        public bool IsDeleteOnCascade { get; protected set; }
         public string SqlTypeTxt { get; protected set; } = "";
         public DbType SqlType { get; protected set; }
         public string SqlName { get; protected set; } = "";
@@ -303,6 +304,7 @@ namespace AventusSharp.Data.Storage.Default
         protected void PrepareAttributesForSQL()
         {
             List<object> attributes = GetCustomAttributes(false);
+            IsNullable = DataMainManager.config?.nullByDefault ?? false;
             foreach (object attribute in attributes)
             {
                 if (attribute is Primary)
@@ -316,6 +318,14 @@ namespace AventusSharp.Data.Storage.Default
                 else if (attribute is Attributes.Nullable)
                 {
                     IsNullable = true;
+                }
+                else if (attribute is NotNullable)
+                {
+                    IsNullable = false;
+                }
+                else if (attribute is DeleteOnCascade)
+                {
+                    IsDeleteOnCascade = true;
                 }
             }
 

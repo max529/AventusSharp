@@ -8,6 +8,6 @@ namespace AventusSharp.Data.Storage.Default.Action
 {
     internal abstract class UpdateAction<T> : GenericAction<T> where T : IStorage
     {
-        public abstract ResultWithError<List<X>> run<X>(TableInfo table, List<X> data) where X : IStorable;
+        public abstract ResultWithError<List<X>> run<X>(TableInfo table, List<X> data, List<X>? oldData) where X : IStorable;
     }
 }

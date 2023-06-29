@@ -1,4 +1,5 @@
-﻿using AventusSharp.Data.Manager.DB;
+﻿using AventusSharp.Data.Manager.DB.Query;
+using AventusSharp.Data.Manager.DB.Update;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -14,13 +15,11 @@ namespace AventusSharp.Data.Storage.Default
         public void AddPyramid(PyramidInfo pyramid);
         public TableInfo? GetTableInfo(Type type);
         public ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
+        public ResultWithError<X> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> queryBuilder, X item);
         public VoidWithError CreateTable(PyramidInfo pyramid);
         public ResultWithError<bool> TableExist(PyramidInfo pyramid);
-        public ResultWithError<List<X>> GetAll<X>() where X : IStorable;
-        public ResultWithError<X> GetById<X>(int id) where X : IStorable;
-        public ResultWithError<List<X>> Where<X>(Expression<Func<X, bool>> func) where X : IStorable;
         public ResultWithError<List<X>> Create<X>(List<X> values) where X : IStorable;
-        public ResultWithError<List<X>> Update<X>(List<X> values) where X : IStorable;
+        public ResultWithError<List<X>> Update<X>(List<X> values, List<X>? oldValues) where X : IStorable;
         public ResultWithError<List<X>> Delete<X>(List<X> values) where X : IStorable;
 
         public ResultWithError<DbTransaction> BeginTransaction();

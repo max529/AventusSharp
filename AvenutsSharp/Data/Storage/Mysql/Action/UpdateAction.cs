@@ -13,7 +13,7 @@ namespace AventusSharp.Data.Storage.Mysql.Action
 {
     internal class UpdateAction : UpdateAction<MySQLStorage>
     {
-        public override ResultWithError<List<X>> run<X>(TableInfo table, List<X> data)
+        public override ResultWithError<List<X>> run<X>(TableInfo table, List<X> data, List<X>? oldData)
         {
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
             result.Result = new List<X>();
@@ -25,6 +25,7 @@ namespace AventusSharp.Data.Storage.Mysql.Action
             {
                 return result;
             }
+            
             // delete group of data
             foreach (KeyValuePair<TableInfo, IList> pair in orderedData.Result)
             {

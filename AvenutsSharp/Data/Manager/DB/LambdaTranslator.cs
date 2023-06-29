@@ -8,27 +8,36 @@ using System.Reflection;
 
 namespace AventusSharp.Data.Manager.DB
 {
+    public interface ILambdaTranslatable
+    {
+        public bool replaceWhereByParameters { get; }
+        public IStorage Storage { get; }
+        public Dictionary<string, ParamsInfo> whereParamsInfo { get; }
+        public Dictionary<string, DatabaseBuilderInfo> infoByPath { get; }
+        public void loadLinks(List<string> pathSplitted, List<Type> types, bool addLinksToMembers);
+    }
     public class LambdaTranslator<T> : ExpressionVisitor
     {
         public List<string> pathes = new List<string>();
         public List<Type> types = new List<Type>();
-        private DatabaseQueryBuilder<T> databaseQueryBuilder;
+        private ILambdaTranslatable databaseBuilder;
         private List<DataMemberInfo> variableAccess = new List<DataMemberInfo>();
 
-        private List<WhereQueryGroup> queryGroups = new List<WhereQueryGroup>();
-        private List<WhereQueryGroup> queryGroupsBase = new List<WhereQueryGroup>();
-        private WhereQueryGroup? currentGroup;
+        private List<WhereGroup> queryGroups = new List<WhereGroup>();
+        private List<WhereGroup> queryGroupsBase = new List<WhereGroup>();
+        private WhereGroup? currentGroup;
         private bool onParameter = false;
+        private WhereGroupFctEnum fctMethodCall = WhereGroupFctEnum.None;
 
-        public LambdaTranslator(DatabaseQueryBuilder<T> databaseQueryBuilder)
+        public LambdaTranslator(ILambdaTranslatable databaseQueryBuilder)
         {
-            this.databaseQueryBuilder = databaseQueryBuilder;
+            this.databaseBuilder = databaseQueryBuilder;
         }
 
-        public List<WhereQueryGroup> Translate(Expression expression)
+        public List<WhereGroup> Translate(Expression expression)
         {
-            queryGroups = new List<WhereQueryGroup>();
-            queryGroupsBase = new List<WhereQueryGroup>();
+            queryGroups = new List<WhereGroup>();
+            queryGroupsBase = new List<WhereGroup>();
             Visit(expression);
 
             return queryGroupsBase;
@@ -39,7 +48,7 @@ namespace AventusSharp.Data.Manager.DB
             switch (u.NodeType)
             {
                 case ExpressionType.Not:
-                    currentGroup?.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Not));
+                    currentGroup?.groups.Add(new WhereGroupFct(WhereGroupFctEnum.Not));
                     Visit(u.Operand);
                     break;
                 case ExpressionType.Convert:
@@ -54,10 +63,10 @@ namespace AventusSharp.Data.Manager.DB
 
         protected override Expression VisitBinary(BinaryExpression b)
         {
-            WhereQueryGroup newGroup = new WhereQueryGroup();
+            WhereGroup newGroup = new WhereGroup();
             if (currentGroup != null)
             {
-                currentGroup.queryGroups.Add(newGroup);
+                currentGroup.groups.Add(newGroup);
             }
             currentGroup = newGroup;
             if (queryGroups.Count == 0)
@@ -72,29 +81,29 @@ namespace AventusSharp.Data.Manager.DB
             {
                 case ExpressionType.And:
                 case ExpressionType.AndAlso:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.And));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.And));
                     break;
                 case ExpressionType.Or:
                 case ExpressionType.OrElse:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Or));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.Or));
                     break;
                 case ExpressionType.Equal:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.Equal));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.Equal));
                     break;
                 case ExpressionType.NotEqual:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.NotEqual));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.NotEqual));
                     break;
                 case ExpressionType.LessThan:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.LessThan));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.LessThan));
                     break;
                 case ExpressionType.LessThanOrEqual:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.LessThanOrEqual));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.LessThanOrEqual));
                     break;
                 case ExpressionType.GreaterThan:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.GreaterThan));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.GreaterThan));
                     break;
                 case ExpressionType.GreaterThanOrEqual:
-                    currentGroup.queryGroups.Add(new WhereQueryGroupFct(WhereQueryGroupFctEnum.GreaterThanOrEqual));
+                    currentGroup.groups.Add(new WhereGroupFct(WhereGroupFctEnum.GreaterThanOrEqual));
                     break;
                 default:
                     throw new NotSupportedException(string.Format("The binary operator '{0}' is not supported", b.NodeType));
@@ -113,29 +122,30 @@ namespace AventusSharp.Data.Manager.DB
             IQueryable? q = c.Value as IQueryable;
             if (q == null && c.Value == null)
             {
-                currentGroup?.queryGroups.Add(new WhereQueryGroupConstantNull());
+                currentGroup?.groups.Add(new WhereGroupConstantNull());
             }
             if (q == null && c.Value != null)
             {
                 switch (Type.GetTypeCode(c.Value.GetType()))
                 {
                     case TypeCode.Boolean:
-                        currentGroup?.queryGroups.Add(new WhereQueryGroupConstantBool((bool)c.Value));
+                        currentGroup?.groups.Add(new WhereGroupConstantBool((bool)c.Value));
                         break;
 
                     case TypeCode.String:
-                        currentGroup?.queryGroups.Add(new WhereQueryGroupConstantString((string)c.Value));
+                        currentGroup?.groups.Add(new WhereGroupConstantString((string)c.Value));
                         break;
 
                     case TypeCode.DateTime:
-                        currentGroup?.queryGroups.Add(new WhereQueryGroupConstantDateTime((DateTime)c.Value));
+                        currentGroup?.groups.Add(new WhereGroupConstantDateTime((DateTime)c.Value));
                         break;
 
                     case TypeCode.Object:
                         throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
 
                     default:
-                        currentGroup?.queryGroups.Add(new WhereQueryGroupConstantOther((string)c.Value));
+                        string value = c.Value?.ToString() ?? "";
+                        currentGroup?.groups.Add(new WhereGroupConstantOther(value));
                         break;
                 }
             }
@@ -171,7 +181,7 @@ namespace AventusSharp.Data.Manager.DB
                             object? value = memberInfo.GetValue(container);
                             if (isBase)
                             {
-                                if (databaseQueryBuilder.replaceVarsByParameters)
+                                if (databaseBuilder.replaceWhereByParameters)
                                 {
                                     variableAccess.Add(memberInfo);
                                     SetInfoToQueryBuilder();
@@ -210,7 +220,7 @@ namespace AventusSharp.Data.Manager.DB
                                 object? value = memberInfo.GetValue(cstExpression.Value);
                                 if (isBase)
                                 {
-                                    if (databaseQueryBuilder.replaceVarsByParameters)
+                                    if (databaseBuilder.replaceWhereByParameters)
                                     {
                                         variableAccess.Add(memberInfo);
                                         SetInfoToQueryBuilder();
@@ -242,17 +252,17 @@ namespace AventusSharp.Data.Manager.DB
             {
                 if (onParameter)
                 {
-                    databaseQueryBuilder.loadLinks(pathes, types);
+                    databaseBuilder.loadLinks(pathes, types, false);
                     string fullPath = string.Join(".", pathes.SkipLast(1));
 
-                    KeyValuePair<TableMemberInfo, string> memberInfo = databaseQueryBuilder.infoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
+                    KeyValuePair<TableMemberInfo, string> memberInfo = databaseBuilder.infoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
 
-                    WhereQueryGroupField field = new WhereQueryGroupField()
+                    WhereGroupField field = new WhereGroupField()
                     {
                         alias = memberInfo.Value,
                         tableMemberInfo = memberInfo.Key
                     };
-                    currentGroup?.queryGroups.Add(field);
+                    currentGroup?.groups.Add(field);
                 }
                 pathes.Clear();
                 types.Clear();
@@ -267,21 +277,21 @@ namespace AventusSharp.Data.Manager.DB
         {
             string methodName = node.Method.Name;
             Type? onType = node.Object?.Type;
-            WhereQueryGroupFctEnum? fct = null;
+            WhereGroupFctEnum? fct = null;
 
             if (onType == typeof(string))
             {
                 if (methodName == "StartsWith")
                 {
-                    fct = WhereQueryGroupFctEnum.StartsWith;
+                    fct = WhereGroupFctEnum.StartsWith;
                 }
                 else if (methodName == "Contains")
                 {
-                    fct = WhereQueryGroupFctEnum.Contains;
+                    fct = WhereGroupFctEnum.Contains;
                 }
                 else if (methodName == "EndsWith")
                 {
-                    fct = WhereQueryGroupFctEnum.EndsWith;
+                    fct = WhereGroupFctEnum.EndsWith;
                 }
             }
 
@@ -290,10 +300,10 @@ namespace AventusSharp.Data.Manager.DB
                 throw new Exception("Method " + methodName + " isn't allowed");
             }
 
-            WhereQueryGroup newGroup = new WhereQueryGroup();
+            WhereGroup newGroup = new WhereGroup();
             if (currentGroup != null)
             {
-                currentGroup.queryGroups.Add(newGroup);
+                currentGroup.groups.Add(newGroup);
             }
             currentGroup = newGroup;
             if (queryGroups.Count == 0)
@@ -302,12 +312,14 @@ namespace AventusSharp.Data.Manager.DB
             }
             queryGroups.Add(newGroup);
 
+            fctMethodCall = (WhereGroupFctEnum)fct;
             Visit(node.Object);
-            currentGroup.queryGroups.Add(new WhereQueryGroupFct((WhereQueryGroupFctEnum)fct));
+            currentGroup.groups.Add(new WhereGroupFct(fctMethodCall));
             foreach (Expression argument in node.Arguments)
             {
                 Visit(argument);
             }
+            fctMethodCall = WhereGroupFctEnum.None;
 
             queryGroups.RemoveAt(queryGroups.Count - 1);
             currentGroup = queryGroups.LastOrDefault();
@@ -318,13 +330,6 @@ namespace AventusSharp.Data.Manager.DB
         private void SetInfoToQueryBuilder()
         {
             List<DataMemberInfo> members = variableAccess;
-            string paramName = string.Join(".", variableAccess.Select(v => v.Name));
-            if (databaseQueryBuilder.paramsInfo.ContainsKey(paramName))
-            {
-                // already present
-                return;
-            }
-
             List<TableMemberInfo> result = new List<TableMemberInfo>();
 
             Type? from = members[0].Type;
@@ -332,12 +337,20 @@ namespace AventusSharp.Data.Manager.DB
             {
                 throw new Exception("The first members for query " + string.Join(".", members.Select(m => m.Name) + " has no type"));
             }
+            string paramName = string.Join(".", variableAccess.Select(v => v.Name));
+
+            if (databaseBuilder.whereParamsInfo.ContainsKey(paramName))
+            {
+                // already present
+                return;
+            }
+
             DbType? dbType = TableMemberInfo.GetDbType(members.Last().Type);
             if (dbType == null)
             {
                 throw new Exception("Can't find a type to use inside sql for type " + from.Name);
             }
-            TableInfo? tableInfo = databaseQueryBuilder.Storage.GetTableInfo(from);
+            TableInfo? tableInfo = databaseBuilder.Storage.GetTableInfo(from);
 
             for (int i = 1; i < members.Count; i++)
             {
@@ -354,18 +367,17 @@ namespace AventusSharp.Data.Manager.DB
                 tableInfo = memberInfo.TableLinked;
             }
 
-            databaseQueryBuilder.paramsInfo.Add(paramName, new ParamsQueryInfo()
+            databaseBuilder.whereParamsInfo.Add(paramName, new ParamsInfo()
             {
                 dbType = (DbType)dbType,
                 membersList = result,
                 name = paramName,
                 typeLvl0 = from,
-                value = null
+                value = null,
+                fctMethodCall = fctMethodCall
             });
 
-            List<DbType> escapedTypes = new List<DbType>() { DbType.String, DbType.DateTime };
-            bool mustBeEscaped = escapedTypes.Contains((DbType)dbType);
-            currentGroup?.queryGroups.Add(new WhereQueryGroupConstantParameter(paramName, mustBeEscaped));
+            currentGroup?.groups.Add(new WhereGroupConstantParameter(paramName));
 
         }
     }

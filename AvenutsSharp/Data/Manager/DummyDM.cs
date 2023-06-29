@@ -28,7 +28,7 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
-        public override QueryBuilder<X>? CreateQuery<X>()
+        public override QueryBuilder<X> CreateQuery<X>()
         {
             throw new NotImplementedException();
         }
@@ -44,6 +44,11 @@ namespace AventusSharp.Data.Manager
         }
 
         protected override Task<bool> Initialize()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override UpdateBuilder<X> CreateUpdate<X>()
         {
             throw new NotImplementedException();
         }

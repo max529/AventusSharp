@@ -19,6 +19,8 @@ namespace AventusSharp.Data
         public Type defaultDM = typeof(DummyDM<>);
         public bool createExternalData = false;
         public DataManagerConfigLog log = new DataManagerConfigLog();
+        public bool nullByDefault = false;
+        public bool preferLocalCache = false;
 
         public DataManagerConfig()
         {
@@ -41,6 +43,7 @@ namespace AventusSharp.Data
     }
     public static class DataMainManager
     {
+        static internal DataManagerConfig? config { get; private set; }
         private static bool registerDone = false;
         static internal Type? DefaultDMType { get; private set; }
         public static bool DefineDefaultDM<T>() where T : IGenericDM
@@ -81,6 +84,7 @@ namespace AventusSharp.Data
                     return false;
                 }
                 registerDone = true;
+                DataMainManager.config = config;
                 return await new DataInit(config).Init();
             }
             return false;

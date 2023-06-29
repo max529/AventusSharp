@@ -6,8 +6,9 @@ using System.Text.RegularExpressions;
 
 namespace AventusSharp.Data.Manager.DB
 {
-    public enum WhereQueryGroupFctEnum
+    public enum WhereGroupFctEnum
     {
+        None,
         Not,
         And,
         Or,
@@ -26,80 +27,80 @@ namespace AventusSharp.Data.Manager.DB
         Contains
     }
 
-    public interface IWhereQueryGroup { }
-    public class WhereQueryGroup : IWhereQueryGroup
+    public interface IWhereGroup { }
+    public class WhereGroup : IWhereGroup
     {
-        public List<IWhereQueryGroup> queryGroups { get; set; } = new List<IWhereQueryGroup>();
+        public List<IWhereGroup> groups { get; set; } = new List<IWhereGroup>();
 
     }
-    public class WhereQueryGroupFct : IWhereQueryGroup
+    public class WhereGroupFct : IWhereGroup
     {
-        public WhereQueryGroupFctEnum fct { get; set; }
-        public WhereQueryGroupFct(WhereQueryGroupFctEnum fct)
+        public WhereGroupFctEnum fct { get; set; }
+        public WhereGroupFct(WhereGroupFctEnum fct)
         {
             this.fct = fct;
         }
     }
-    public class WhereQueryGroupConstantNull : IWhereQueryGroup
+    public class WhereGroupConstantNull : IWhereGroup
     {
     }
-    public class WhereQueryGroupConstantString : IWhereQueryGroup
+    public class WhereGroupConstantString : IWhereGroup
     {
         public string value { get; set; } = "";
-        public WhereQueryGroupConstantString(string value)
+        public WhereGroupConstantString(string value)
         {
             this.value = value;
         }
     }
-    public class WhereQueryGroupConstantOther : IWhereQueryGroup
+    public class WhereGroupConstantOther : IWhereGroup
     {
         public string value { get; set; } = "";
-        public WhereQueryGroupConstantOther(string value)
+        public WhereGroupConstantOther(string value)
         {
             this.value = value;
         }
     }
-    public class WhereQueryGroupConstantBool : IWhereQueryGroup
+    public class WhereGroupConstantBool : IWhereGroup
     {
         public bool value { get; set; }
-        public WhereQueryGroupConstantBool(bool value)
+        public WhereGroupConstantBool(bool value)
         {
             this.value = value;
         }
     }
-    public class WhereQueryGroupConstantDateTime : IWhereQueryGroup
+    public class WhereGroupConstantDateTime : IWhereGroup
     {
         public DateTime value { get; set; }
-        public WhereQueryGroupConstantDateTime(DateTime value)
+        public WhereGroupConstantDateTime(DateTime value)
         {
             this.value = value;
         }
     }
-    public class WhereQueryGroupConstantParameter : IWhereQueryGroup
+    public class WhereGroupConstantParameter : IWhereGroup
     {
         public string value { get; set; }
-        public bool mustBeEscaped { get; set; }
-        public WhereQueryGroupConstantParameter(string value, bool mustBeEscaped)
+        public WhereGroupConstantParameter(string value)
         {
             this.value = value;
-            this.mustBeEscaped = mustBeEscaped;
         }
     }
-    public class WhereQueryGroupField : IWhereQueryGroup
+    public class WhereGroupField : IWhereGroup
     {
         public string alias { get; set; }
         public TableMemberInfo tableMemberInfo { get; set; }
     }
 
-    public class ParamsQueryInfo
+    public class ParamsInfo
     {
         public string name { get; set; } = "";
-        public Type typeLvl0 { get; set; } = typeof(Object);
+        public Type typeLvl0 { get; set; } = typeof(object);
         public DbType dbType { get; set; }
 
         public List<TableMemberInfo> membersList { get; set; } = new List<TableMemberInfo>();
 
         public object? value { get; set; }
+
+        public WhereGroupFctEnum fctMethodCall { get; set; }
 
         public bool IsNameSimilar(string name)
         {
@@ -121,25 +122,27 @@ namespace AventusSharp.Data.Manager.DB
                 this.value = valueToSet;
             }
         }
+
+       
     }
 
-    public class DatabaseQueryBuilderInfoChild
+    public class DatabaseBuilderInfoChild
     {
         public string alias { get; set; }
         public TableInfo tableInfo { get; set; }
 
-        public List<DatabaseQueryBuilderInfoChild> children { get; set; } = new List<DatabaseQueryBuilderInfoChild>();
+        public List<DatabaseBuilderInfoChild> children { get; set; } = new List<DatabaseBuilderInfoChild>();
     }
-    public class DatabaseQueryBuilderInfo
+    public class DatabaseBuilderInfo
     {
         public TableInfo tableInfo { get; set; }
         public string alias { get; set; }
         public Dictionary<TableMemberInfo, string> members { get; set; } = new Dictionary<TableMemberInfo, string>();
 
         public Dictionary<TableInfo, string> parents { get; set; } = new Dictionary<TableInfo, string>(); // string is the alias
-        public List<DatabaseQueryBuilderInfoChild> children { get; set; } = new List<DatabaseQueryBuilderInfoChild>();
+        public List<DatabaseBuilderInfoChild> children { get; set; } = new List<DatabaseBuilderInfoChild>();
 
-        public Dictionary<DatabaseQueryBuilderInfo, TableMemberInfo> links = new Dictionary<DatabaseQueryBuilderInfo, TableMemberInfo>();
+        public Dictionary<TableMemberInfo, DatabaseBuilderInfo> links = new Dictionary<TableMemberInfo, DatabaseBuilderInfo>();
         public KeyValuePair<TableMemberInfo, string> GetTableMemberInfoAndAlias(string field)
         {
             KeyValuePair<TableMemberInfo, string> result = new KeyValuePair<TableMemberInfo, string>();

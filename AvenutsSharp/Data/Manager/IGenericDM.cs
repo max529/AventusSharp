@@ -21,6 +21,7 @@ namespace AventusSharp.Data.Manager
         List<X> GetAll<X>() where X : notnull;
         ResultWithError<List<X>> GetAllWithError<X>() where X : notnull;
         QueryBuilder<X>? CreateQuery<X>() where X : notnull;
+        UpdateBuilder<X>? CreateUpdate<X>() where X : notnull;
 
         X GetById<X>(int id) where X : notnull;
         ResultWithError<X> GetByIdWithError<X>(int id) where X : notnull;
@@ -57,6 +58,7 @@ namespace AventusSharp.Data.Manager
         new List<X> GetAll<X>() where X : U;
         new ResultWithError<List<X>> GetAllWithError<X>() where X : U;
         new QueryBuilder<X>? CreateQuery<X>() where X : U;
+        new UpdateBuilder<X>? CreateUpdate<X>() where X : U;
 
         new X? GetById<X>(int id) where X : U;
         new ResultWithError<X> GetByIdWithError<X>(int id) where X : U;

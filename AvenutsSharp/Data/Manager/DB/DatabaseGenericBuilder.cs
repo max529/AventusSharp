@@ -1,36 +1,29 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager.DB
 {
-    public class DatabaseQueryBuilder<T> : QueryBuilder<T>
+    public class DatabaseGenericBuilder<T> : ILambdaTranslatable
     {
         public IStorage Storage { get; private set; }
 
-        public Dictionary<string, DatabaseQueryBuilderInfo> infoByPath { get; set; } = new Dictionary<string, DatabaseQueryBuilderInfo>();
+        public Dictionary<string, DatabaseBuilderInfo> infoByPath { get; set; } = new Dictionary<string, DatabaseBuilderInfo>();
 
-        public List<string> aliases { get; set; } = new List<string>();
+        public Dictionary<string, TableInfo> aliases { get; set; } = new Dictionary<string, TableInfo>();
         public Dictionary<Type, TableInfo> loadedTableInfo { get; set; } = new Dictionary<Type, TableInfo>();
-        public bool allMembers { get; set; } = true;
-        public List<WhereQueryGroup>? wheres { get; set; } = null;
+        public List<WhereGroup>? wheres { get; set; } = null;
 
-        public bool replaceVarsByParameters { get; set; } = false;
+        public bool replaceWhereByParameters { get; set; } = false;
 
-        public Dictionary<string, ParamsQueryInfo> paramsInfo = new Dictionary<string, ParamsQueryInfo>(); // type is the type of the variable to use
-        
+        public Dictionary<string, ParamsInfo> whereParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>(); // type is the type of the variable to use
+
         public string? sql { get; set; } = null;
 
-        public DatabaseQueryBuilder(IStorage storage) : base()
+
+        public DatabaseGenericBuilder(IStorage storage) : base()
         {
             Storage = storage;
             // load basic info for the main class
@@ -38,7 +31,8 @@ namespace AventusSharp.Data.Manager.DB
             loadTable(tableInfo, "");
         }
 
-        private TableInfo GetTableInfo(Type u)
+
+        protected TableInfo GetTableInfo(Type u)
         {
             if (loadedTableInfo.ContainsKey(u))
             {
@@ -53,7 +47,7 @@ namespace AventusSharp.Data.Manager.DB
             }
             throw new Exception();
         }
-        private string CreateAlias(TableInfo tableInfo)
+        protected string CreateAlias(TableInfo tableInfo)
         {
             string alias = string.Concat(tableInfo.Type.Name.Where(c => char.IsUpper(c)));
             if (alias.Length == 0)
@@ -62,16 +56,16 @@ namespace AventusSharp.Data.Manager.DB
             }
             int i = 1;
             string baseAlias = alias;
-            while (aliases.Contains(alias))
+            while (aliases.ContainsKey(alias))
             {
                 alias = baseAlias + i;
                 i++;
             }
-            aliases.Add(alias);
+            aliases.Add(alias, tableInfo);
             return alias;
         }
 
-        private DatabaseQueryBuilderInfo loadTable(TableInfo table, string path)
+        protected DatabaseBuilderInfo loadTable(TableInfo table, string path)
         {
             if (infoByPath.ContainsKey(path))
             {
@@ -79,7 +73,7 @@ namespace AventusSharp.Data.Manager.DB
             }
             string alias = CreateAlias(table);
 
-            DatabaseQueryBuilderInfo info = new DatabaseQueryBuilderInfo()
+            DatabaseBuilderInfo info = new DatabaseBuilderInfo()
             {
                 alias = alias,
                 tableInfo = table
@@ -90,7 +84,7 @@ namespace AventusSharp.Data.Manager.DB
             loadChildren(table, info, info.children);
             return info;
         }
-        private void loadParent(TableInfo table, DatabaseQueryBuilderInfo info)
+        protected void loadParent(TableInfo table, DatabaseBuilderInfo info)
         {
             if (table.Parent != null)
             {
@@ -100,14 +94,14 @@ namespace AventusSharp.Data.Manager.DB
                 loadParent(parent, info);
             }
         }
-        private void loadChildren(TableInfo table, DatabaseQueryBuilderInfo info, List<DatabaseQueryBuilderInfoChild> list)
+        protected void loadChildren(TableInfo table, DatabaseBuilderInfo info, List<DatabaseBuilderInfoChild> list)
         {
             foreach (TableInfo child in table.Children)
             {
-                DatabaseQueryBuilderInfoChild childInfo = new DatabaseQueryBuilderInfoChild()
+                DatabaseBuilderInfoChild childInfo = new DatabaseBuilderInfoChild()
                 {
                     alias = CreateAlias(child),
-                    children = new List<DatabaseQueryBuilderInfoChild>(),
+                    children = new List<DatabaseBuilderInfoChild>(),
                     tableInfo = child,
                 };
                 list.Add(childInfo);
@@ -115,10 +109,10 @@ namespace AventusSharp.Data.Manager.DB
             }
         }
 
-        public void loadLinks(List<string> pathSplitted, List<Type> types)
+        public void loadLinks(List<string> pathSplitted, List<Type> types, bool addLinksToMembers)
         {
             string currentPath = "";
-            DatabaseQueryBuilderInfo parentInfo = infoByPath[currentPath];
+            DatabaseBuilderInfo parentInfo = infoByPath[currentPath];
             for (int i = 0; i < pathSplitted.Count; i++)
             {
 
@@ -136,98 +130,100 @@ namespace AventusSharp.Data.Manager.DB
                         KeyValuePair<TableMemberInfo, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
                         if (memberInfo.Key != null)
                         {
-                            DatabaseQueryBuilderInfo currentTable = loadTable(GetTableInfo(types[i]), currentPath);
-                            parentInfo.links[currentTable] = memberInfo.Key;
+                            DatabaseBuilderInfo currentTable = loadTable(GetTableInfo(types[i]), currentPath);
+                            parentInfo.links[memberInfo.Key] = currentTable;
+                            if (addLinksToMembers)
+                            {
+                                parentInfo.members.Add(memberInfo.Key, memberInfo.Value);
+                            }
                         }
                         else
                         {
                             throw new Exception("Can't query " + pathSplitted[i] + " on " + parentInfo.tableInfo.Type.Name);
                         }
                     }
+                    else if (addLinksToMembers)
+                    {
+                        DatabaseBuilderInfo infoTemp = infoByPath[currentPath];
+                        KeyValuePair<TableMemberInfo, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
+                        if (!parentInfo.members.ContainsKey(memberInfo.Key))
+                        {
+                            parentInfo.members.Add(memberInfo.Key, memberInfo.Value);
+                        }
+                    }
                 }
             }
         }
 
-
-
-
-        public override void Execute()
-        {
-            throw new NotImplementedException();
-        }
-
-        public override List<T> Query()
-        {
-            ResultWithError<List<T>> result = Storage.QueryFromBuilder(this);
-            if (result.Success)
-            {
-                return result.Result;
-            }
-            return new List<T>();
-        }
-
-        public override QueryBuilder<T> Where(Expression<Func<T, bool>> expression)
+        public void _Where(Expression<Func<T, bool>> expression)
         {
             if (wheres != null)
             {
                 throw new Exception("Can't use twice the where action");
             }
-            replaceVarsByParameters = false;
+            replaceWhereByParameters = false;
             LambdaTranslator<T> translator = new LambdaTranslator<T>(this);
             wheres = translator.Translate(expression);
-
-            return this;
         }
-
-        public override QueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> expression)
+        public void _WhereWithParameters(Expression<Func<T, bool>> expression)
         {
             if (wheres != null)
             {
                 throw new Exception("Can't use twice the where action");
             }
-            replaceVarsByParameters = true;
+            replaceWhereByParameters = true;
             LambdaTranslator<T> translator = new LambdaTranslator<T>(this);
             wheres = translator.Translate(expression);
-
-            return this;
         }
-
-        public override QueryBuilder<T> Prepare(params object[] objects)
+        public void _Prepare(params object[] objects)
         {
-            List<ParamsQueryInfo> toSet = paramsInfo.Values.ToList();
-            foreach(object obj in objects)
+            List<ParamsInfo> toSet = whereParamsInfo.Values.ToList();
+            foreach (object obj in objects)
             {
-                foreach (ParamsQueryInfo info in toSet)
+                foreach (ParamsInfo info in toSet)
                 {
-                    if(obj.GetType() == info.typeLvl0)
+                    if (obj.GetType() == info.typeLvl0)
                     {
                         info.SetValue(obj);
                         toSet.Remove(info);
+                        // set by order first
                         break;
                     }
                 }
             }
-            if(toSet.Count > 0)
+            if (toSet.Count > 0)
             {
-                throw new Exception("Can't found a value to set for variables : " + string.Join(", ", toSet.Select(t => t.name)));
+                List<ParamsInfo> toSetClone = toSet.ToList();
+                foreach (ParamsInfo info in toSetClone)
+                {
+                    foreach (object obj in objects)
+                    {
+                        if (obj.GetType() == info.typeLvl0)
+                        {
+                            info.SetValue(obj);
+                            toSet.Remove(info);
+                            // set if same variable used by multiple params
+                            break;
+                        }
+                    }
+                }
+                if (toSet.Count > 0)
+                {
+                    throw new Exception("Can't found a value to set for variables : " + string.Join(", ", toSet.Select(t => t.name)));
+                }
             }
-            
-            return this;
         }
-        public override QueryBuilder<T> SetVariable(string name, object value)
+        public void _SetVariable(string name, object value)
         {
-            foreach (KeyValuePair<string, ParamsQueryInfo> paramInfo in paramsInfo)
+            foreach (KeyValuePair<string, ParamsInfo> paramInfo in whereParamsInfo)
             {
                 if (paramInfo.Value.IsNameSimilar(name))
                 {
                     paramInfo.Value.SetValue(value);
                 }
             }
-            return this;
-
         }
-
-        public override QueryBuilder<T> Field(Expression<Func<T, object>> expression)
+        public string _Field(Expression<Func<T, object>> expression)
         {
             // the strucutre must be Lambda => Convert? => (member x times)
             if (expression is LambdaExpression lambdaExpression)
@@ -255,24 +251,22 @@ namespace AventusSharp.Data.Manager.DB
                         Console.WriteLine("");
                     }
 
-                    loadLinks(names, types);
+                    loadLinks(names, types, true);
 
                     string fullPath = string.Join(".", names.SkipLast(1));
-                    allMembers = false;
                     KeyValuePair<TableMemberInfo, string> memberInfo = infoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);
                     if (memberInfo.Key != null && !infoByPath[fullPath].members.ContainsKey(memberInfo.Key))
                     {
                         infoByPath[fullPath].members[memberInfo.Key] = memberInfo.Value;
                     }
-
-                    return this;
+                    return fullPath != "" ? fullPath+"."+ memberExpression.Member.Name : memberExpression.Member.Name;
                 }
             }
 
             throw new Exception();
         }
 
-        public override QueryBuilder<T> Include(Expression<Func<T, IStorable>> expression)
+        public void _Include(Expression<Func<T, IStorable>> expression)
         {
             // the strucutre must be Lambda => Convert? => (member x times)
             if (expression is LambdaExpression lambdaExpression)
@@ -300,15 +294,11 @@ namespace AventusSharp.Data.Manager.DB
                         Console.WriteLine("");
                     }
 
-                    loadLinks(names, types);
-
-                    return this;
+                    loadLinks(names, types, false);
+                    return;
                 }
             }
             throw new Exception();
         }
-
-
-
     }
 }

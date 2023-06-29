@@ -51,36 +51,6 @@ namespace TestConsole.cs
             }
 
 
-            //Cat.GetQuery().Field(c => c.name).Query();
-            //PersonHuman.GetQuery().Field(p => p.firstname).Field(p => p.lastname).Field(p => p.location.name).Query();//.Include(p => p.location) => is implicit;
-            string test = "salut";
-            PersonHuman human = new PersonHuman()
-            {
-                firstname = "salut",
-                location = new Location()
-                {
-                    name = "home"
-                }
-            };
-            var t = PersonHuman.GetQuery().Field(p => p.id).WhereWithParameters(p => p.location.name.StartsWith(human.location.name) && p.firstname == test);
-            t.Prepare();
-            t.Query();
-            //PersonHuman.GetQuery().Where(p => p.location.name != null && (p.location.name.StartsWith("L") || p.location.name.StartsWith("B"))).Query();
-
-            //var resultTemp = Animal<IAnimal>.GetQuery()
-            //    .Field(animal => animal.id)
-            //    .Field(animal => animal.name)
-            //    .Where(animal => animal.name == "felix")
-            //    .Query();
-
-
-            return;
-
-
-            //string name = "felix";
-            //List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
-            //Console.ReadLine();
-
             #region Creation
             Console.WriteLine("Creation ");
 
@@ -95,6 +65,7 @@ namespace TestConsole.cs
 
             Cat felix = new Cat();
             felix.name = "felix";
+            felix.color = "brun";
             felix.Create();
 
             Dog medor = new Dog();
@@ -102,6 +73,7 @@ namespace TestConsole.cs
             Animal<IAnimal>.Create(medor);
 
             Cat filou = new Cat();
+            filou.color = "white";
             filou.name = "filou";
 
             Dog snoopy = new Dog();
@@ -109,49 +81,57 @@ namespace TestConsole.cs
 
             Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
 
+            Location LTemp = new Location()
+            {
+                name = "Home"
+            };
+            PersonHuman.Query().Field(p => p.id).WhereWithParameters(p => p.location.name.Contains(LTemp.name)).Prepare(LTemp).Run();
+            PersonHuman.Query().Where(p => p.location.name.Contains("Home")).Run();
+
             Console.WriteLine("Creation done");
             #endregion
+            if (false)
+            {
+                #region GetAll
+                Console.WriteLine("GetAll");
+                List<PersonHuman> people = PersonHuman.GetAll();
+                Console.WriteLine("");
+                foreach (PersonHuman p in people)
+                {
+                    Console.WriteLine("I found person " + p.id + " named " + p.firstname + " " + p.lastname);
+                }
+                Console.WriteLine("");
+                Console.WriteLine("");
+                List<IAnimal> animals = Animal<IAnimal>.GetAll();
+                foreach (IAnimal a in animals)
+                {
+                    Console.WriteLine("I found " + a.GetType().Name + " " + a.id + " named " + a.name);
+                }
+                Console.WriteLine("");
+                Console.WriteLine("");
+                List<IFelin> felins = Felin<IFelin>.GetAll();
+                foreach (IFelin f in felins)
+                {
+                    Console.WriteLine("I found " + f.GetType().Name + " " + f.id + " named " + f.name);
+                }
+                Console.WriteLine("");
+                Console.WriteLine("");
+                List<Dog> dogs = Dog.GetAll();
+                foreach (Dog d in dogs)
+                {
+                    Console.WriteLine("I found a dog " + d.id + " named " + d.name);
+                }
+                Console.WriteLine("");
+                Console.WriteLine("GetAll done");
+                #endregion
 
-            #region GetAll
-            Console.WriteLine("GetAll");
-            List<PersonHuman> people = PersonHuman.GetAll();
-            Console.WriteLine("");
-            foreach (PersonHuman p in people)
-            {
-                Console.WriteLine("I found person " + p.id + " named " + p.firstname + " " + p.lastname);
+                #region GetById
+                Console.WriteLine("GetById");
+                Cat cat1 = Cat.GetById(1);
+                Console.WriteLine("the first cat is " + cat1.name);
+                Console.WriteLine("GetById done");
+                #endregion
             }
-            Console.WriteLine("");
-            Console.WriteLine("");
-            List<IAnimal> animals = Animal<IAnimal>.GetAll();
-            foreach (IAnimal a in animals)
-            {
-                Console.WriteLine("I found " + a.GetType().Name + " " + a.id + " named " + a.name);
-            }
-            Console.WriteLine("");
-            Console.WriteLine("");
-            List<IFelin> felins = Felin<IFelin>.GetAll();
-            foreach (IFelin f in felins)
-            {
-                Console.WriteLine("I found " + f.GetType().Name + " " + f.id + " named " + f.name);
-            }
-            Console.WriteLine("");
-            Console.WriteLine("");
-            List<Dog> dogs = Dog.GetAll();
-            foreach (Dog d in dogs)
-            {
-                Console.WriteLine("I found a dog " + d.id + " named " + d.name);
-            }
-            Console.WriteLine("");
-            Console.WriteLine("GetAll done");
-            #endregion
-
-            #region GetById
-            Console.WriteLine("GetById");
-            Cat cat1 = Cat.GetById(1);
-            Console.WriteLine("the first cat is " + cat1.name);
-            Console.WriteLine("GetById done");
-            #endregion
-
 
             //List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
             //foreach (Cat c in cats)
@@ -164,17 +144,30 @@ namespace TestConsole.cs
             #region Update
             Console.WriteLine("Update");
 
-            maxime.firstname += "2";
-            PersonHuman.Update(maxime);
+            PersonHuman maximeClone = new PersonHuman()
+            {
+                id = 1,
+                firstname = "clone"
+            };
+            PersonHuman
+                .UpdateField(p => p.firstname)
+                .Where(p => p.location.name == "Home")
+                .Run(maximeClone);
 
-            benjamin.firstname += "2";
-            benjamin.Update();
+            return;
+            //maxime.firstname += "2";
+            //PersonHuman.Update(maxime);
+
+            //benjamin.firstname += "2";
+            //benjamin.Update();
 
 
             felix.name += "2";
             felix.Update();
+            string newName = "newName";
             medor.name += "2";
             Animal<IAnimal>.Update(medor);
+
 
             filou.name += "2";
             snoopy.name += "2";

@@ -30,7 +30,8 @@ namespace AventusSharp.Data
         NoItemProvided,
         NoTransactionInProgress,
         WrongType,
-        NoTypeIdentifierFoundInsideQuery
+        NoTypeIdentifierFoundInsideQuery,
+        ItemNoExistInsideStorage,
     }
     public class DataError : GenericError<DataErrorCode>
     {

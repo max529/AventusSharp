@@ -13,16 +13,8 @@ namespace AventusSharp.Data.Storage.Mysql.Action
         protected override TableExistAction<MySQLStorage> TableExist => new TableExistAction();
         protected override CreateTableAction<MySQLStorage> CreateTable => new CreateTableAction();
         
-        protected override GetAllAction<MySQLStorage> GetAll => new GetAllAction();
-        protected override GetByIdAction<MySQLStorage> GetById => new GetByIdAction();
-        protected override WhereAction<MySQLStorage> Where => new WhereAction();
-
-
         protected override CreateAction<MySQLStorage> Create => new CreateAction();
         protected override UpdateAction<MySQLStorage> Update => new UpdateAction();
         protected override DeleteAction<MySQLStorage> Delete => new DeleteAction();
-
-
-
     }
 }

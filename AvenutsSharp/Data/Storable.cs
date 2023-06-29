@@ -34,9 +34,18 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetAll<T>();
         }
-        public static QueryBuilder<T>? GetQuery()
+        public static QueryBuilder<T>? Query()
         {
             return GenericDM.Get<T>().CreateQuery<T>();
+        }
+        public static UpdateBuilder<T>? UpdateField(Expression<Func<T, object>> fct)
+        {
+            UpdateBuilder<T>? result = GenericDM.Get<T>().CreateUpdate<T>();
+            if(result != null)
+            {
+                result.UpdateField(fct);
+            }
+            return result;
         }
 
         public static T GetById(int id)
@@ -198,6 +207,7 @@ namespace AventusSharp.Data
         {
             return UpdateWithError().Count == 0;
         }
+
         /// <summary>
         /// Update the current element inside the DM
         /// If return Count == 0 it means no error and your item is stored

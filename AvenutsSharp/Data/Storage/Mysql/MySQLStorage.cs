@@ -1,8 +1,11 @@
 ﻿using AventusSharp.Data.Manager;
 using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Manager.DB.Query;
+using AventusSharp.Data.Manager.DB.Update;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Data.Storage.Mysql.Action;
+using AventusSharp.Tools;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
@@ -154,13 +157,14 @@ namespace AventusSharp.Data.Storage.Mysql
             return result;
         }
 
-        private string PrepareSQL<X>(DatabaseQueryBuilder<X> queryBuilder)
+        #region query
+        private string PrepareSQLForQuery<X>(DatabaseQueryBuilder<X> queryBuilder)
         {
-            DatabaseQueryBuilderInfo mainInfo = queryBuilder.infoByPath[""];
+            DatabaseBuilderInfo mainInfo = queryBuilder.infoByPath[""];
             List<string> fields = new List<string>();
             List<string> joins = new List<string>();
 
-            Action<DatabaseQueryBuilderInfo> loadInfo = null;
+            Action<DatabaseBuilderInfo> loadInfo = null;
             loadInfo = (baseInfo) =>
             {
 
@@ -183,10 +187,10 @@ namespace AventusSharp.Data.Storage.Mysql
                     lastTableInfo = info;
                 }
 
-                Action<List<DatabaseQueryBuilderInfoChild>, string, string> loadChild = null;
-                loadChild = delegate (List<DatabaseQueryBuilderInfoChild> children, string parentAlias, string parentPrimName)
+                Action<List<DatabaseBuilderInfoChild>, string, string> loadChild = null;
+                loadChild = delegate (List<DatabaseBuilderInfoChild> children, string parentAlias, string parentPrimName)
                 {
-                    foreach (DatabaseQueryBuilderInfoChild child in children)
+                    foreach (DatabaseBuilderInfoChild child in children)
                     {
                         string alias = child.alias;
                         string primName = child.tableInfo.primary.SqlName;
@@ -210,11 +214,12 @@ namespace AventusSharp.Data.Storage.Mysql
                 }
 
 
-                foreach (KeyValuePair<DatabaseQueryBuilderInfo, TableMemberInfo> linkInfo in baseInfo.links)
+                foreach (KeyValuePair<TableMemberInfo, DatabaseBuilderInfo> linkInfo in baseInfo.links)
                 {
-
-                    joins.Add("LEFT OUTER JOIN " + linkInfo.Key.tableInfo.SqlTableName + " " + linkInfo.Key.alias + " ON " + baseInfo.alias + "." + linkInfo.Value.SqlName + "=" + linkInfo.Key.alias + "." + linkInfo.Key.tableInfo.primary.SqlName);
-                    loadInfo(linkInfo.Key);
+                    TableMemberInfo tableMemberInfo = linkInfo.Key;
+                    DatabaseBuilderInfo databaseQueryBuilderInfo = linkInfo.Value;
+                    joins.Add("LEFT OUTER JOIN " + databaseQueryBuilderInfo.tableInfo.SqlTableName + " " + databaseQueryBuilderInfo.alias + " ON " + baseInfo.alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.alias + "." + databaseQueryBuilderInfo.tableInfo.primary.SqlName);
+                    loadInfo(databaseQueryBuilderInfo);
                 }
             };
             loadInfo(mainInfo);
@@ -222,36 +227,36 @@ namespace AventusSharp.Data.Storage.Mysql
             string whereTxt = "";
             if (queryBuilder.wheres != null)
             {
-                Func<WhereQueryGroup, string, string> buildWhere = null;
+                Func<WhereGroup, string, string> buildWhere = null;
                 buildWhere = (whereGroup, whereTxt) =>
                 {
                     whereTxt += "(";
                     string subQuery = "";
-                    IWhereQueryGroup? lastGroup = null;
-                    foreach (IWhereQueryGroup queryGroup in whereGroup.queryGroups)
+                    IWhereGroup? lastGroup = null;
+                    foreach (IWhereGroup queryGroup in whereGroup.groups)
                     {
-                        if (queryGroup is WhereQueryGroup childWhereGroup)
+                        if (queryGroup is WhereGroup childWhereGroup)
                         {
                             subQuery += buildWhere(childWhereGroup, "");
                         }
-                        else if (queryGroup is WhereQueryGroupFct fctGroup)
+                        else if (queryGroup is WhereGroupFct fctGroup)
                         {
                             subQuery += GetFctName(fctGroup.fct);
                         }
-                        else if (queryGroup is WhereQueryGroupConstantNull nullConst)
+                        else if (queryGroup is WhereGroupConstantNull nullConst)
                         {
                             // special case for IS and IS NOT
-                            if (whereGroup.queryGroups.Count == 3)
+                            if (whereGroup.groups.Count == 3)
                             {
-                                WhereQueryGroupFct? fctGrp = null;
-                                WhereQueryGroupField? fieldGrp = null;
-                                for (int i = 0; i < whereGroup.queryGroups.Count; i++)
+                                WhereGroupFct? fctGrp = null;
+                                WhereGroupField? fieldGrp = null;
+                                for (int i = 0; i < whereGroup.groups.Count; i++)
                                 {
-                                    if (whereGroup.queryGroups[i] is WhereQueryGroupFct fctGrpTemp && (fctGrpTemp.fct == WhereQueryGroupFctEnum.Equal || fctGrpTemp.fct == WhereQueryGroupFctEnum.NotEqual))
+                                    if (whereGroup.groups[i] is WhereGroupFct fctGrpTemp && (fctGrpTemp.fct == WhereGroupFctEnum.Equal || fctGrpTemp.fct == WhereGroupFctEnum.NotEqual))
                                     {
                                         fctGrp = fctGrpTemp;
                                     }
-                                    else if (whereGroup.queryGroups[i] is WhereQueryGroupField fieldGrpTemp)
+                                    else if (whereGroup.groups[i] is WhereGroupField fieldGrpTemp)
                                     {
                                         fieldGrp = fieldGrpTemp;
                                     }
@@ -259,7 +264,7 @@ namespace AventusSharp.Data.Storage.Mysql
 
                                 if (fctGrp != null && fieldGrp != null)
                                 {
-                                    string action = fctGrp.fct == WhereQueryGroupFctEnum.Equal ? " IS NULL" : " IS NOT NULL";
+                                    string action = fctGrp.fct == WhereGroupFctEnum.Equal ? " IS NULL" : " IS NOT NULL";
                                     subQuery = fieldGrp.alias + "." + fieldGrp.tableMemberInfo.SqlName + action;
                                     break;
                                 }
@@ -267,67 +272,44 @@ namespace AventusSharp.Data.Storage.Mysql
 
                             subQuery += "NULL";
                         }
-                        else if (queryGroup is WhereQueryGroupConstantBool boolConst)
+                        else if (queryGroup is WhereGroupConstantBool boolConst)
                         {
                             subQuery += boolConst.value ? "1" : "0";
                         }
-                        else if (queryGroup is WhereQueryGroupConstantString stringConst)
+                        else if (queryGroup is WhereGroupConstantString stringConst)
                         {
                             string strValue = "'" + stringConst.value + "'";
-                            if (lastGroup is WhereQueryGroupFct groupFct)
+                            if (lastGroup is WhereGroupFct groupFct)
                             {
-                                if (groupFct.fct == WhereQueryGroupFctEnum.StartsWith)
+                                if (groupFct.fct == WhereGroupFctEnum.StartsWith)
                                 {
                                     strValue = "'" + stringConst.value + "%'";
                                 }
-                                else if (groupFct.fct == WhereQueryGroupFctEnum.EndsWith)
+                                else if (groupFct.fct == WhereGroupFctEnum.EndsWith)
                                 {
                                     strValue = "'%" + stringConst.value + "'";
                                 }
-                                else if (groupFct.fct == WhereQueryGroupFctEnum.Contains)
+                                else if (groupFct.fct == WhereGroupFctEnum.Contains)
                                 {
                                     strValue = "'%" + stringConst.value + "%'";
                                 }
                             }
                             subQuery += strValue;
                         }
-                        else if (queryGroup is WhereQueryGroupConstantDateTime dateTimeConst)
+                        else if (queryGroup is WhereGroupConstantDateTime dateTimeConst)
                         {
                             subQuery += "'" + dateTimeConst.value.ToString("yyyy-MM-dd HH:mm:ss") + "'";
                         }
-                        else if (queryGroup is WhereQueryGroupConstantOther otherConst)
+                        else if (queryGroup is WhereGroupConstantOther otherConst)
                         {
                             subQuery += otherConst.value;
                         }
-                        else if (queryGroup is WhereQueryGroupConstantParameter paramConst)
+                        else if (queryGroup is WhereGroupConstantParameter paramConst)
                         {
-                            bool mustBeEscaped = paramConst.mustBeEscaped;
-                            string strValue =  "@" + paramConst.value;
-                            if (lastGroup is WhereQueryGroupFct groupFct)
-                            {
-                                if (groupFct.fct == WhereQueryGroupFctEnum.StartsWith)
-                                {
-                                    mustBeEscaped = true;
-                                    strValue = "@" + paramConst.value + "%";
-                                }
-                                else if (groupFct.fct == WhereQueryGroupFctEnum.EndsWith)
-                                {
-                                    mustBeEscaped = true;
-                                    strValue = "%@" + paramConst.value;
-                                }
-                                else if (groupFct.fct == WhereQueryGroupFctEnum.Contains)
-                                {
-                                    mustBeEscaped = true;
-                                    strValue = "%@" + paramConst.value + "%";
-                                }
-                            }
-                            if (mustBeEscaped)
-                            {
-                                strValue = "'" + strValue + "'";
-                            }
+                            string strValue = "@" + paramConst.value;
                             subQuery += strValue;
                         }
-                        else if (queryGroup is WhereQueryGroupField fieldGrp)
+                        else if (queryGroup is WhereGroupField fieldGrp)
                         {
                             subQuery += fieldGrp.alias + "." + fieldGrp.tableMemberInfo.SqlName;
                         }
@@ -337,7 +319,7 @@ namespace AventusSharp.Data.Storage.Mysql
                     whereTxt += ")";
                     return whereTxt;
                 };
-                foreach (WhereQueryGroup whereGroup in queryBuilder.wheres)
+                foreach (WhereGroup whereGroup in queryBuilder.wheres)
                 {
                     whereTxt += buildWhere(whereGroup, whereTxt);
                 }
@@ -373,7 +355,7 @@ namespace AventusSharp.Data.Storage.Mysql
             }
             else
             {
-                sql = PrepareSQL(queryBuilder);
+                sql = PrepareSQLForQuery(queryBuilder);
                 queryBuilder.sql = sql;
             }
 
@@ -385,13 +367,13 @@ namespace AventusSharp.Data.Storage.Mysql
             }
             DbCommand cmd = cmdResult.Result;
             Dictionary<string, object?> parametersValue = new Dictionary<string, object?>();
-            foreach (KeyValuePair<string, ParamsQueryInfo> parameterInfo in queryBuilder.paramsInfo)
+            foreach (KeyValuePair<string, ParamsInfo> parameterInfo in queryBuilder.whereParamsInfo)
             {
                 DbParameter parameter = GetDbParameter();
-                parameter.ParameterName = parameterInfo.Key;
+                parameter.ParameterName = "@" + parameterInfo.Key;
                 parameter.DbType = parameterInfo.Value.dbType;
                 cmd.Parameters.Add(parameter);
-                parametersValue[parameterInfo.Key] = parameterInfo.Value.value;
+                parametersValue["@"+parameterInfo.Key] = TransformValueForFct(parameterInfo.Value);
             }
 
             StorageQueryResult queryResult = Query(cmd, new List<Dictionary<string, object?>>() { parametersValue });
@@ -400,53 +382,113 @@ namespace AventusSharp.Data.Storage.Mysql
             result.Errors.AddRange(queryResult.Errors);
             if (queryResult.Success)
             {
+                result.Result = new List<X>();
+                DatabaseBuilderInfo baseInfo = queryBuilder.infoByPath[""];
+                
                 for (int i = 0; i < queryResult.Result.Count; i++)
                 {
-
+                    Dictionary<string, string> itemFields = queryResult.Result[i];
+                    object o = CreateObject(baseInfo, itemFields, queryBuilder.allMembers);
+                    if(o is X oCasted)
+                    {
+                        result.Result.Add(oCasted);
+                    }
                 }
             }
 
             return result;
         }
-
-        private string GetFctName(WhereQueryGroupFctEnum fctEnum)
+        private object CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields, bool allMembers)
         {
-            switch (fctEnum)
-            {
-                case WhereQueryGroupFctEnum.Add:
-                    return " + ";
-                case WhereQueryGroupFctEnum.And:
-                    return " AND ";
-                case WhereQueryGroupFctEnum.Contains:
-                case WhereQueryGroupFctEnum.StartsWith:
-                case WhereQueryGroupFctEnum.EndsWith:
-                    return " LIKE ";
-                case WhereQueryGroupFctEnum.Divide:
-                    return " / ";
-                case WhereQueryGroupFctEnum.Equal:
-                    return " = ";
-                case WhereQueryGroupFctEnum.GreaterThan:
-                    return " > ";
-                case WhereQueryGroupFctEnum.GreaterThanOrEqual:
-                    return " >= ";
-                case WhereQueryGroupFctEnum.LessThan:
-                    return " < ";
-                case WhereQueryGroupFctEnum.LessThanOrEqual:
-                    return " <= ";
-                case WhereQueryGroupFctEnum.Multiply:
-                    return " * ";
-                case WhereQueryGroupFctEnum.Not:
-                    return " NOT ";
-                case WhereQueryGroupFctEnum.NotEqual:
-                    return " <> ";
-                case WhereQueryGroupFctEnum.Or:
-                    return " OR ";
-                case WhereQueryGroupFctEnum.Subtract:
-                    return " - ";
-            }
-            return "";
-        }
+            string rootAlias = info.alias;
+            TableInfo rootTableInfo = info.tableInfo;
 
+            while (rootTableInfo.Parent != null)
+            {
+                rootTableInfo = rootTableInfo.Parent;
+            }
+            if (rootTableInfo != info.tableInfo)
+            {
+                rootAlias = info.parents[rootTableInfo];
+            }
+
+            object o;
+            if (info.tableInfo.IsAbstract)
+            {
+                string fieldTypeName = rootAlias + "." + TableInfo.TypeIdentifierName;
+                if (!itemFields.ContainsKey(fieldTypeName))
+                {
+                    throw new DataError(DataErrorCode.NoTypeIdentifierFoundInsideQuery, "Can't find the field " + TableInfo.TypeIdentifierName).GetException();
+                }
+
+                Type? typeToCreate = Type.GetType(itemFields[fieldTypeName]);
+                if (typeToCreate == null)
+                {
+                    throw new DataError(DataErrorCode.WrongType, "Can't find the type " + itemFields[fieldTypeName]).GetException();
+                }
+
+                o = TypeTools.CreateNewObj(typeToCreate);
+            }
+            else
+            {
+                o = TypeTools.CreateNewObj(rootTableInfo.Type);
+            }
+
+            // TODO : optimize this method by storing needed values
+            TableInfo? childest = info.tableInfo;
+            if (info.tableInfo.Type != o.GetType())
+            {
+                DatabaseBuilderInfoChild? childTemp = info.children.Find(c => c.tableInfo.Type == o.GetType());
+                childest = childTemp?.tableInfo;
+            }
+            while (childest != null)
+            {
+                string alias = "";
+                DatabaseBuilderInfoChild? tempChild = info.children.Find(c => c.tableInfo == childest);
+                if (tempChild != null)
+                {
+                    alias = tempChild.alias;
+                }
+                else if (childest == info.tableInfo)
+                {
+                    alias = info.alias;
+                }
+                else if (info.parents.ContainsKey(childest))
+                {
+                    alias = info.parents[childest];
+                }
+                else
+                {
+                    throw new Exception("Can't found what I wnat");
+                }
+
+                foreach (TableMemberInfo memberInfo in childest.members)
+                {
+                    if(!allMembers && !info.members.ContainsKey(memberInfo))
+                    {
+                        continue;
+                    }
+                    string key = alias + "*" + memberInfo.SqlName;
+                    if (itemFields.ContainsKey(key))
+                    {
+                        if (memberInfo.link == TableMemberInfoLink.None)
+                        {
+                            memberInfo.SetSqlValue(o, itemFields[key]);
+                        }
+                        else if (memberInfo.link == TableMemberInfoLink.Simple)
+                        {
+                            if (itemFields[key] != "")
+                            {
+                                object oTemp = CreateObject(info.links[memberInfo], itemFields, allMembers);
+                                memberInfo.SetValue(o, oTemp);
+                            }
+                        }
+                    }
+                }
+                childest = childest.Parent;
+            }
+            return o;
+        }
         private void loadTableField(TableInfo tableInfo, string alias, List<string> fields)
         {
             foreach (TableMemberInfo member in tableInfo.members)
@@ -460,5 +502,316 @@ namespace AventusSharp.Data.Storage.Mysql
                 }
             }
         }
+
+        #endregion
+
+        #region update
+        private string PrepareSQLForUpdate<X>(DatabaseUpdateBuilder<X> updateBuilder)
+        {
+            DatabaseBuilderInfo mainInfo = updateBuilder.infoByPath[""];
+            List<string> fields = new List<string>();
+            List<string> joins = new List<string>();
+
+            Action<DatabaseBuilderInfo> loadInfo = null;
+            loadInfo = (baseInfo) =>
+            {
+
+                string lastAlias = baseInfo.alias;
+                TableInfo lastTableInfo = baseInfo.tableInfo;
+                foreach (KeyValuePair<TableInfo, string> parentLink in baseInfo.parents)
+                {
+                    string alias = parentLink.Value;
+                    TableInfo info = parentLink.Key;
+                    joins.Add("INNER JOIN " + info.SqlTableName + " " + alias + " ON " + lastAlias + "." + lastTableInfo.primary.SqlName + "=" + alias + "." + info.primary.SqlName);
+                    lastAlias = alias;
+                    lastTableInfo = info;
+                }
+
+                Action<List<DatabaseBuilderInfoChild>, string, string> loadChild = null;
+                loadChild = delegate (List<DatabaseBuilderInfoChild> children, string parentAlias, string parentPrimName)
+                {
+                    foreach (DatabaseBuilderInfoChild child in children)
+                    {
+                        string alias = child.alias;
+                        string primName = child.tableInfo.primary.SqlName;
+                        joins.Add("LEFT OUTER JOIN " + child.tableInfo.SqlTableName + " " + child.alias + " ON " + parentAlias + "." + parentPrimName + "=" + alias + "." + primName);
+                        loadChild(child.children, alias, primName);
+                    }
+                };
+                loadChild(baseInfo.children, baseInfo.alias, baseInfo.tableInfo.primary.SqlName);
+
+                foreach (KeyValuePair<TableMemberInfo, DatabaseBuilderInfo> linkInfo in baseInfo.links)
+                {
+                    TableMemberInfo tableMemberInfo = linkInfo.Key;
+                    DatabaseBuilderInfo databaseQueryBuilderInfo = linkInfo.Value;
+                    joins.Add("LEFT OUTER JOIN " + databaseQueryBuilderInfo.tableInfo.SqlTableName + " " + databaseQueryBuilderInfo.alias + " ON " + baseInfo.alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.alias + "." + databaseQueryBuilderInfo.tableInfo.primary.SqlName);
+                    loadInfo(databaseQueryBuilderInfo);
+                }
+            };
+            loadInfo(mainInfo);
+
+            foreach (KeyValuePair<string, ParamsInfo> paramInfo in updateBuilder.updateParamsInfo)
+            {
+                string name = paramInfo.Key;
+                DbType dbType = paramInfo.Value.dbType;
+                List<DbType> escapedTypes = new List<DbType>() { DbType.String, DbType.DateTime };
+                bool mustBeEscaped = escapedTypes.Contains(dbType);
+                if (mustBeEscaped)
+                {
+                    fields.Add(name + " = '@" + name+"'");
+                }
+                else
+                {
+                    fields.Add(name + " = @" + name);
+
+                }
+            }
+
+            string whereTxt = "";
+            if (updateBuilder.wheres != null)
+            {
+                Func<WhereGroup, string, string> buildWhere = null;
+                buildWhere = (whereGroup, whereTxt) =>
+                {
+                    whereTxt += "(";
+                    string subQuery = "";
+                    IWhereGroup? lastGroup = null;
+                    foreach (IWhereGroup queryGroup in whereGroup.groups)
+                    {
+                        if (queryGroup is WhereGroup childWhereGroup)
+                        {
+                            subQuery += buildWhere(childWhereGroup, "");
+                        }
+                        else if (queryGroup is WhereGroupFct fctGroup)
+                        {
+                            subQuery += GetFctName(fctGroup.fct);
+                        }
+                        else if (queryGroup is WhereGroupConstantNull nullConst)
+                        {
+                            // special case for IS and IS NOT
+                            if (whereGroup.groups.Count == 3)
+                            {
+                                WhereGroupFct? fctGrp = null;
+                                WhereGroupField? fieldGrp = null;
+                                for (int i = 0; i < whereGroup.groups.Count; i++)
+                                {
+                                    if (whereGroup.groups[i] is WhereGroupFct fctGrpTemp && (fctGrpTemp.fct == WhereGroupFctEnum.Equal || fctGrpTemp.fct == WhereGroupFctEnum.NotEqual))
+                                    {
+                                        fctGrp = fctGrpTemp;
+                                    }
+                                    else if (whereGroup.groups[i] is WhereGroupField fieldGrpTemp)
+                                    {
+                                        fieldGrp = fieldGrpTemp;
+                                    }
+                                }
+
+                                if (fctGrp != null && fieldGrp != null)
+                                {
+                                    string action = fctGrp.fct == WhereGroupFctEnum.Equal ? " IS NULL" : " IS NOT NULL";
+                                    subQuery = fieldGrp.alias + "." + fieldGrp.tableMemberInfo.SqlName + action;
+                                    break;
+                                }
+                            }
+
+                            subQuery += "NULL";
+                        }
+                        else if (queryGroup is WhereGroupConstantBool boolConst)
+                        {
+                            subQuery += boolConst.value ? "1" : "0";
+                        }
+                        else if (queryGroup is WhereGroupConstantString stringConst)
+                        {
+                            string strValue = "'" + stringConst.value + "'";
+                            if (lastGroup is WhereGroupFct groupFct)
+                            {
+                                if (groupFct.fct == WhereGroupFctEnum.StartsWith)
+                                {
+                                    strValue = "'" + stringConst.value + "%'";
+                                }
+                                else if (groupFct.fct == WhereGroupFctEnum.EndsWith)
+                                {
+                                    strValue = "'%" + stringConst.value + "'";
+                                }
+                                else if (groupFct.fct == WhereGroupFctEnum.Contains)
+                                {
+                                    strValue = "'%" + stringConst.value + "%'";
+                                }
+                            }
+                            subQuery += strValue;
+                        }
+                        else if (queryGroup is WhereGroupConstantDateTime dateTimeConst)
+                        {
+                            subQuery += "'" + dateTimeConst.value.ToString("yyyy-MM-dd HH:mm:ss") + "'";
+                        }
+                        else if (queryGroup is WhereGroupConstantOther otherConst)
+                        {
+                            subQuery += otherConst.value;
+                        }
+                        else if (queryGroup is WhereGroupConstantParameter paramConst)
+                        {
+                            string strValue = "@" + paramConst.value;
+                            if (lastGroup is WhereGroupFct groupFct)
+                            {
+                                if (groupFct.fct == WhereGroupFctEnum.StartsWith)
+                                {
+                                    strValue = "@" + paramConst.value + "%";
+                                }
+                                else if (groupFct.fct == WhereGroupFctEnum.EndsWith)
+                                {
+                                    strValue = "%@" + paramConst.value;
+                                }
+                                else if (groupFct.fct == WhereGroupFctEnum.Contains)
+                                {
+                                    strValue = "%@" + paramConst.value + "%";
+                                }
+                            }
+                            subQuery += strValue;
+                        }
+                        else if (queryGroup is WhereGroupField fieldGrp)
+                        {
+                            subQuery += fieldGrp.alias + "." + fieldGrp.tableMemberInfo.SqlName;
+                        }
+                        lastGroup = queryGroup;
+                    }
+                    whereTxt += subQuery;
+                    whereTxt += ")";
+                    return whereTxt;
+                };
+                foreach (WhereGroup whereGroup in updateBuilder.wheres)
+                {
+                    whereTxt += buildWhere(whereGroup, whereTxt);
+                }
+                if (whereTxt.Length > 1)
+                {
+                    whereTxt = " WHERE " + whereTxt;
+                }
+            }
+
+            string joinTxt = string.Join(" ", joins);
+            if (joinTxt.Length > 1)
+            {
+                joinTxt = " " + joinTxt;
+            }
+
+            string sql = "UPDATE " + mainInfo.tableInfo.SqlTableName + " " + mainInfo.alias
+                + joinTxt
+                +" SET "+ string.Join(",", fields)
+                + whereTxt;
+
+
+            Console.WriteLine(sql);
+            return sql;
+        }
+        public override ResultWithError<X> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> updateBuilder, X item)
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            if(item == null)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "Please provide an item to use for update"));
+                return result;
+            }
+            string sql = "";
+            if (updateBuilder.sql != null)
+            {
+                sql = updateBuilder.sql;
+            }
+            else
+            {
+                sql = PrepareSQLForUpdate(updateBuilder);
+                updateBuilder.sql = sql;
+            }
+
+            ResultWithError<DbCommand> cmdResult = CreateCmd(sql);
+            result.Errors.AddRange(cmdResult.Errors);
+            if (!result.Success || cmdResult.Result == null)
+            {
+                return result;
+            }
+            DbCommand cmd = cmdResult.Result;
+            Dictionary<string, object?> parametersValue = new Dictionary<string, object?>();
+            foreach (KeyValuePair<string, ParamsInfo> parameterInfo in updateBuilder.whereParamsInfo)
+            {
+                DbParameter parameter = GetDbParameter();
+                parameter.ParameterName = parameterInfo.Key;
+                parameter.DbType = parameterInfo.Value.dbType;
+                cmd.Parameters.Add(parameter);
+                parametersValue[parameterInfo.Key] = parameterInfo.Value.value;
+            }
+            foreach (KeyValuePair<string, ParamsInfo> parameterInfo in updateBuilder.updateParamsInfo)
+            {
+                DbParameter parameter = GetDbParameter();
+                parameter.ParameterName = parameterInfo.Key;
+                parameter.DbType = parameterInfo.Value.dbType;
+                cmd.Parameters.Add(parameter);
+                parameterInfo.Value.typeLvl0 = item.GetType();
+                parameterInfo.Value.SetValue(item);
+                parametersValue[parameterInfo.Key] = parameterInfo.Value.value;
+            }
+
+            StorageQueryResult queryResult = Query(cmd, new List<Dictionary<string, object?>>() { parametersValue });
+            cmd.Dispose();
+
+            return result;
+        }
+        #endregion
+
+        private string GetFctName(WhereGroupFctEnum fctEnum)
+        {
+            switch (fctEnum)
+            {
+                case WhereGroupFctEnum.Add:
+                    return " + ";
+                case WhereGroupFctEnum.And:
+                    return " AND ";
+                case WhereGroupFctEnum.Contains:
+                case WhereGroupFctEnum.StartsWith:
+                case WhereGroupFctEnum.EndsWith:
+                    return " LIKE ";
+                case WhereGroupFctEnum.Divide:
+                    return " / ";
+                case WhereGroupFctEnum.Equal:
+                    return " = ";
+                case WhereGroupFctEnum.GreaterThan:
+                    return " > ";
+                case WhereGroupFctEnum.GreaterThanOrEqual:
+                    return " >= ";
+                case WhereGroupFctEnum.LessThan:
+                    return " < ";
+                case WhereGroupFctEnum.LessThanOrEqual:
+                    return " <= ";
+                case WhereGroupFctEnum.Multiply:
+                    return " * ";
+                case WhereGroupFctEnum.Not:
+                    return " NOT ";
+                case WhereGroupFctEnum.NotEqual:
+                    return " <> ";
+                case WhereGroupFctEnum.Or:
+                    return " OR ";
+                case WhereGroupFctEnum.Subtract:
+                    return " - ";
+            }
+            return "";
+        }
+
+        private object? TransformValueForFct(ParamsInfo paramsInfo)
+        {
+            if (paramsInfo.value is string casted)
+            {
+                if (paramsInfo.fctMethodCall == WhereGroupFctEnum.StartsWith)
+                {
+                    return casted + "%";
+                }
+                if (paramsInfo.fctMethodCall == WhereGroupFctEnum.EndsWith)
+                {
+                    return "%" + casted;
+                }
+                if (paramsInfo.fctMethodCall == WhereGroupFctEnum.Contains)
+                {
+                    return "%" + casted + "%";
+                }
+            }
+            return paramsInfo.value;
+        }
+        
     }
 }

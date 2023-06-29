@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Attributes;
-using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Manager.DB.Query;
+using AventusSharp.Data.Manager.DB.Update;
 using AventusSharp.Data.Storage.Default.Action;
 using AventusSharp.Tools;
 using System;
@@ -600,6 +601,7 @@ namespace AventusSharp.Data.Storage.Default
         private StorageAction<T> Actions;
         internal abstract StorageAction<T> defineActions();
         public abstract ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder);
+        public abstract ResultWithError<X> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> queryBuilder, X item);
 
 
         #region Table
@@ -651,69 +653,6 @@ namespace AventusSharp.Data.Storage.Default
         }
         #endregion
 
-        #region Get
-
-        #region GetAll
-        public ResultWithError<List<X>> GetAll<X>() where X : IStorable
-        {
-            Type type = typeof(X);
-            if (allTableInfos.ContainsKey(type))
-            {
-                return GetAll<X>(allTableInfos[type]);
-            }
-
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
-            return result;
-        }
-
-        public ResultWithError<List<X>> GetAll<X>(TableInfo pyramid) where X : IStorable
-        {
-            return Actions._GetAll.run<X>(pyramid);
-        }
-        #endregion
-
-        #region GetById
-        public ResultWithError<X> GetById<X>(int id) where X : IStorable
-        {
-            Type type = typeof(X);
-            if (allTableInfos.ContainsKey(type))
-            {
-                return GetById<X>(allTableInfos[type], id);
-            }
-
-            ResultWithError<X> result = new ResultWithError<X>();
-            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
-            return result;
-        }
-
-        public ResultWithError<X> GetById<X>(TableInfo pyramid, int id) where X : IStorable
-        {
-            return Actions._GetById.run<X>(pyramid, id);
-        }
-        #endregion
-
-        #region Where
-        public ResultWithError<List<X>> Where<X>(Expression<Func<X, bool>> func) where X : IStorable
-        {
-            Type type = typeof(X);
-            if (allTableInfos.ContainsKey(type))
-            {
-                return Where<X>(allTableInfos[type], func);
-            }
-
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-            result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + type + " inside the storage " + GetType().Name));
-            return result;
-        }
-
-        public ResultWithError<List<X>> Where<X>(TableInfo pyramid, Expression<Func<X, bool>> func) where X : IStorable
-        {
-            return Actions._Where.run<X>(pyramid, func);
-        }
-        #endregion
-
-        #endregion
 
         #region Create
         public ResultWithError<List<X>> Create<X>(List<X> values) where X : IStorable
@@ -740,12 +679,12 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region Update
-        public ResultWithError<List<X>> Update<X>(List<X> values) where X : IStorable
+        public ResultWithError<List<X>> Update<X>(List<X> values, List<X>? oldValues = null) where X : IStorable
         {
             Type type = typeof(X);
             if (allTableInfos.ContainsKey(type))
             {
-                return Update(allTableInfos[type], values);
+                return Update(allTableInfos[type], values, oldValues);
             }
 
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
@@ -753,11 +692,11 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-        public ResultWithError<List<X>> Update<X>(TableInfo pyramid, List<X> values) where X : IStorable
+        public ResultWithError<List<X>> Update<X>(TableInfo pyramid, List<X> values, List<X>? oldValues) where X : IStorable
         {
             return RunInsideTransaction(new List<X>(), delegate ()
             {
-                return Actions._Update.run(pyramid, values);
+                return Actions._Update.run(pyramid, values, oldValues);
             });
         }
         #endregion
@@ -866,6 +805,17 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
             return resultTemp;
+        }
+
+        public List<TableMemberInfo> GetTableMemberInfosForType(Type type)
+        {
+            List<TableMemberInfo> result = new List<TableMemberInfo>();
+            TableInfo? tableInfo = GetTableInfo(type);
+            if (tableInfo != null)
+            {
+
+            }
+            return result;
         }
 
         #endregion

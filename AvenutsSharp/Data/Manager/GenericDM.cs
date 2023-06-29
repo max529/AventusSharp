@@ -143,12 +143,16 @@ namespace AventusSharp.Data.Manager
         public abstract QueryBuilder<X> CreateQuery<X>() where X : U;
         QueryBuilder<X>? IGenericDM.CreateQuery<X>()
         {
-            QueryBuilder<X> result = InvokeMethod<QueryBuilder<X>, X>(new object[] { });
-            //if (result == null)
-            //{
-            //    result = new ResultWithError<QueryBuilder<X>>();
-            //    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method QueryBuilder"));
-            //}
+            QueryBuilder<X>? result = InvokeMethod<QueryBuilder<X>, X>(new object[] { });
+            return result;
+        }
+        #endregion
+
+        #region generic update
+        public abstract UpdateBuilder<X> CreateUpdate<X>() where X : U;
+        UpdateBuilder<X>? IGenericDM.CreateUpdate<X>()
+        {
+            UpdateBuilder<X>? result = InvokeMethod<UpdateBuilder<X>, X>(new object[] { });
             return result;
         }
         #endregion

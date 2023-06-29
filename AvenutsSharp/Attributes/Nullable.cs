@@ -13,4 +13,12 @@ namespace AventusSharp.Attributes
     public class Nullable : Attribute
     {
     }
+
+    /// <summary>
+    /// Attribute used to allow a null value for the Property
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class NotNullable : Attribute
+    {
+    }
 }
