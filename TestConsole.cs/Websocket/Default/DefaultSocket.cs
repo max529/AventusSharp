@@ -9,7 +9,7 @@ namespace TestConsole.cs.Websocket.Default
 {
     public class DefaultSocket : WebSocketInstance<DefaultSocket>
     {
-        public override string getSocketName()
+        public override string GetSocketName()
         {
             return "/";
         }

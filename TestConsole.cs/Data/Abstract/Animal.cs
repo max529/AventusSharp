@@ -26,7 +26,6 @@ namespace TestConsole.cs.Data.Abstract
 
     public class Cat : Felin<Cat>
     {
-
     }
     public class Dog : Animal<Dog>
     {

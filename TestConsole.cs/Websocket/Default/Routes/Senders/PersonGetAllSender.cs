@@ -16,9 +16,9 @@ namespace TestConsole.cs.Websocket.Default.Routes.Senders
         }
         public PersonGetAllSender(List<PersonHuman> people)
         {
-            this.body = people;
+            body = people;
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return "/person/get/sucess";
         }

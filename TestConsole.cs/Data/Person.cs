@@ -6,7 +6,7 @@ using System.Text;
 
 namespace TestConsole.cs.Data
 {
-    
+
     public class PersonHuman : Storable<PersonHuman>
     {
         public string firstname { get; set; }
@@ -15,8 +15,10 @@ namespace TestConsole.cs.Data
 
         [Nullable]
         public Location location { get; set; }
-        
+
         [NotInDB]
         public Role role { get; set; }
     }
+
+    
 }

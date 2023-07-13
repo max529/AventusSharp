@@ -12,22 +12,22 @@ namespace TestConsole.cs.Websocket.Default.Routes.Receivers
 {
     class PersonGetAllReceiver : WebSocketReceiverAnswer<PersonGetAllReceiver, EmptyBody>
     {
-        public override void defineAnswers()
+        public override void DefineAnswers()
         {
-            this.setAnswer<PersonGetAllSender>();
+            SetAnswer<PersonGetAllSender>();
         }
 
-        public override string defineTrigger()
+        public override string DefineTrigger()
         {
             return "/person/get";
         }
 
-        public override void defineWebSockets()
+        public override void DefineWebSockets()
         {
-            setWebSocket<DefaultSocket>();
+            SetWebSocket<DefaultSocket>();
         }
 
-        public override async Task<IWebSocketSender> onMessage(WebSocketData socketData, EmptyBody message, WebSocketAnswerOptions options)
+        public override async Task<IWebSocketSender> OnMessage(WebSocketData socketData, EmptyBody message, WebSocketAnswerOptions options)
         {
             List<PersonHuman> people = PersonHuman.GetAll();
             return new PersonGetAllSender(people);
