@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -15,9 +11,10 @@ namespace AventusSharp.Data.Storage.Default
         private Func<object, object?>? fctGetSQLValue;
         private Action<object, object?>? fctSetValue;
         private Action<object, object?>? fctSetSQLValue;
-        public CustomTableMemberInfo(string name, TableInfo tableInfo) : base(tableInfo)
+        public CustomTableMemberInfo(string name, Type type, TableInfo tableInfo) : base(tableInfo)
         {
-            this._Name = name;
+            _Name = name;
+            _Type = type;
         }
 
         public void DefineGetValue(Func<object, object?> fctGetValue)
@@ -63,7 +60,7 @@ namespace AventusSharp.Data.Storage.Default
             IsAutoIncrement = information.IsAutoIncrement;
             IsNullable = information.IsNullable;
             IsPrimary = information.IsPrimary;
-            link = information.link;
+            Link = information.Link;
             SqlName = information.SqlName;
             SqlType = information.SqlType;
             SqlTypeTxt = information.SqlTypeTxt;
@@ -109,19 +106,16 @@ namespace AventusSharp.Data.Storage.Default
         }
         public override void SetValue(object obj, object? value)
         {
-            if (fctSetValue != null)
-            {
-                fctSetValue(obj, value);
-            }
+            fctSetValue?.Invoke(obj, value);
         }
-        private string _Name;
+        private readonly string _Name;
         public override string Name => _Name;
 
         private Type? _ReflectedType;
         public override Type? ReflectedType => _ReflectedType;
 
-        private Type? _Type;
-        public override Type? Type => _Type;
+        private Type _Type;
+        public override Type Type => _Type;
     }
 
     public class SQLInformation
@@ -133,7 +127,7 @@ namespace AventusSharp.Data.Storage.Default
         public string SqlTypeTxt { get; set; } = "";
         public DbType SqlType { get; set; }
         public string SqlName { get; set; } = "";
-        public TableMemberInfoLink link { get; set; } = TableMemberInfoLink.None;
+        public TableMemberInfoLink Link { get; set; } = TableMemberInfoLink.None;
         public TableInfo? TableLinked { get; set; }
         public Type? TableLinkedType { get; set; }
     }

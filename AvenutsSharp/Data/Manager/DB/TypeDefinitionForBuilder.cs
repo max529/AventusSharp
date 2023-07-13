@@ -24,21 +24,22 @@ namespace AventusSharp.Data.Manager.DB
         Divide,
         StartsWith,
         EndsWith,
-        Contains
+        ContainsStr,
+        ListContains
     }
 
     public interface IWhereGroup { }
     public class WhereGroup : IWhereGroup
     {
-        public List<IWhereGroup> groups { get; set; } = new List<IWhereGroup>();
+        public List<IWhereGroup> Groups { get; set; } = new List<IWhereGroup>();
 
     }
     public class WhereGroupFct : IWhereGroup
     {
-        public WhereGroupFctEnum fct { get; set; }
+        public WhereGroupFctEnum Fct { get; set; }
         public WhereGroupFct(WhereGroupFctEnum fct)
         {
-            this.fct = fct;
+            Fct = fct;
         }
     }
     public class WhereGroupConstantNull : IWhereGroup
@@ -46,61 +47,66 @@ namespace AventusSharp.Data.Manager.DB
     }
     public class WhereGroupConstantString : IWhereGroup
     {
-        public string value { get; set; } = "";
+        public string Value { get; set; } = "";
         public WhereGroupConstantString(string value)
         {
-            this.value = value;
+            Value = value;
         }
     }
     public class WhereGroupConstantOther : IWhereGroup
     {
-        public string value { get; set; } = "";
+        public string Value { get; set; } = "";
         public WhereGroupConstantOther(string value)
         {
-            this.value = value;
+            Value = value;
         }
     }
     public class WhereGroupConstantBool : IWhereGroup
     {
-        public bool value { get; set; }
+        public bool Value { get; set; }
         public WhereGroupConstantBool(bool value)
         {
-            this.value = value;
+            Value = value;
         }
     }
     public class WhereGroupConstantDateTime : IWhereGroup
     {
-        public DateTime value { get; set; }
+        public DateTime Value { get; set; }
         public WhereGroupConstantDateTime(DateTime value)
         {
-            this.value = value;
+            Value = value;
         }
     }
     public class WhereGroupConstantParameter : IWhereGroup
     {
-        public string value { get; set; }
+        public string Value { get; set; }
         public WhereGroupConstantParameter(string value)
         {
-            this.value = value;
+            Value = value;
         }
     }
     public class WhereGroupField : IWhereGroup
     {
-        public string alias { get; set; }
-        public TableMemberInfo tableMemberInfo { get; set; }
+        public string Alias { get; set; }
+        public TableMemberInfo TableMemberInfo { get; set; }
+
+        public WhereGroupField(string alias, TableMemberInfo tableMemberInfo)
+        {
+            Alias = alias;
+            TableMemberInfo = tableMemberInfo;
+        }
     }
 
     public class ParamsInfo
     {
-        public string name { get; set; } = "";
-        public Type typeLvl0 { get; set; } = typeof(object);
-        public DbType dbType { get; set; }
+        public string Name { get; set; } = "";
+        public Type TypeLvl0 { get; set; } = typeof(object);
+        public DbType DbType { get; set; }
+        public List<TableMemberInfo> MembersList { get; set; } = new List<TableMemberInfo>();
 
-        public List<TableMemberInfo> membersList { get; set; } = new List<TableMemberInfo>();
+        public object? Value { get; set; }
 
-        public object? value { get; set; }
-
-        public WhereGroupFctEnum fctMethodCall { get; set; }
+        public WhereGroupFctEnum FctMethodCall { get; set; }
 
         public bool IsNameSimilar(string name)
         {
@@ -108,10 +114,10 @@ namespace AventusSharp.Data.Manager.DB
         }
         public void SetValue(object value)
         {
-            if (value.GetType() == typeLvl0)
+            if (value.GetType() == TypeLvl0)
             {
                 object? valueToSet = value;
-                foreach (TableMemberInfo member in membersList)
+                foreach (TableMemberInfo member in MembersList)
                 {
                     valueToSet = member.GetValue(valueToSet);
                     if (valueToSet == null)
@@ -119,48 +125,142 @@ namespace AventusSharp.Data.Manager.DB
                         break;
                     }
                 }
-                this.value = valueToSet;
+                if(valueToSet is IStorable storable)
+                {
+                    valueToSet = storable.id;
+                }
+
+                this.Value = valueToSet;
             }
         }
 
-       
+        public void SetCurrentValueOnObject(object baseObj)
+        {
+            Type toCheck = TypeLvl0;
+            if (toCheck.IsGenericType)
+            {
+                try
+                {
+                    toCheck = toCheck.MakeGenericType(baseObj.GetType());
+                }
+                catch { }
+            }
+            if (toCheck.IsInstanceOfType(baseObj))
+            {
+                object? whereToSet = baseObj;
+                for (int i = 0; i < MembersList.Count - 1; i++)
+                {
+                    whereToSet = MembersList[i].GetValue(whereToSet);
+                    if (whereToSet == null)
+                    {
+                        break;
+                    }
+                }
+                if (whereToSet != null)
+                {
+                    MembersList[^1].SetValue(whereToSet, Value);
+                }
+            }
+        }
+
+        public List<string> IsValueValid()
+        {
+            TableMemberInfo memberInfo = MembersList[^1];
+            return memberInfo.IsValid(Value);
+        }
+
     }
 
     public class DatabaseBuilderInfoChild
     {
-        public string alias { get; set; }
-        public TableInfo tableInfo { get; set; }
+        public string Alias { get; set; }
+        public TableInfo TableInfo { get; set; }
 
-        public List<DatabaseBuilderInfoChild> children { get; set; } = new List<DatabaseBuilderInfoChild>();
+        public List<DatabaseBuilderInfoChild> Children { get; set; } = new List<DatabaseBuilderInfoChild>();
+
+        public DatabaseBuilderInfoChild(string alias, TableInfo tableInfo)
+        {
+            this.Alias = alias;
+            this.TableInfo = tableInfo;
+        }
+    }
+    public class DatabaseBuilderInfoMember
+    {
+        public TableMemberInfo MemberInfo { get; set; }
+        public string Alias { get; set; }
+        public bool UseDM { get; set; }
+
+        public Type? Type { get; }
+
+        public TableMemberInfo? TypeMemberInfo { get; }
+
+        public DatabaseBuilderInfoMember(TableMemberInfo memberInfo, string alias, IDBStorage from)
+        {
+            this.MemberInfo = memberInfo;
+            this.Alias = alias;
+            Type = memberInfo.Type;
+            if (memberInfo.Link == TableMemberInfoLink.Simple)
+            {
+                if (memberInfo.DM is IDatabaseDM databaseDM && databaseDM.NeedLocalCache && databaseDM.Storage == from)
+                {
+                    UseDM = true;
+                }
+                else if (memberInfo.TableInfo.IsAbstract)
+                {
+                    TypeMemberInfo = memberInfo.TableInfo.Members.Find(m => m.SqlName == TableInfo.TypeIdentifierName);
+                }
+            }
+
+        }
+
+        public bool IsGeneric()
+        {
+            if (Type != null)
+            {
+                if (Type.IsGenericType || Type.IsInterface)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     }
     public class DatabaseBuilderInfo
     {
-        public TableInfo tableInfo { get; set; }
-        public string alias { get; set; }
-        public Dictionary<TableMemberInfo, string> members { get; set; } = new Dictionary<TableMemberInfo, string>();
+        public TableInfo TableInfo { get; set; }
+        public string Alias { get; set; }
+        public Dictionary<TableMemberInfo, DatabaseBuilderInfoMember> Members { get; set; } = new Dictionary<TableMemberInfo, DatabaseBuilderInfoMember>();
 
-        public Dictionary<TableInfo, string> parents { get; set; } = new Dictionary<TableInfo, string>(); // string is the alias
-        public List<DatabaseBuilderInfoChild> children { get; set; } = new List<DatabaseBuilderInfoChild>();
+        public Dictionary<TableInfo, string> Parents { get; set; } = new Dictionary<TableInfo, string>(); // string is the alias
+        public List<DatabaseBuilderInfoChild> Children { get; set; } = new List<DatabaseBuilderInfoChild>();
 
-        public Dictionary<TableMemberInfo, DatabaseBuilderInfo> links = new Dictionary<TableMemberInfo, DatabaseBuilderInfo>();
-        public KeyValuePair<TableMemberInfo, string> GetTableMemberInfoAndAlias(string field)
+        public Dictionary<TableMemberInfo, DatabaseBuilderInfo> links = new();
+        
+        public DatabaseBuilderInfo(string alias, TableInfo tableInfo)
         {
-            KeyValuePair<TableMemberInfo, string> result = new KeyValuePair<TableMemberInfo, string>();
+            this.Alias = alias;
+            this.TableInfo = tableInfo;
+        }
+        public KeyValuePair<TableMemberInfo?, string> GetTableMemberInfoAndAlias(string field)
+        {
+            string aliasTemp = Alias;
+            KeyValuePair<TableMemberInfo?, string> result = new();
             TableMemberInfo? memberInfo = null;
-            memberInfo = tableInfo.members.Find(m => m.Name == field);
+            memberInfo = TableInfo.Members.Find(m => m.Name == field);
             if (memberInfo == null)
             {
-                foreach (KeyValuePair<TableInfo, string> parent in parents)
+                foreach (KeyValuePair<TableInfo, string> parent in Parents)
                 {
-                    memberInfo = parent.Key.members.Find(m => m.Name == field);
+                    memberInfo = parent.Key.Members.Find(m => m.Name == field);
                     if (memberInfo != null)
                     {
-                        return result;
+                        aliasTemp = parent.Value;
+                        break;
                     }
                 }
-                return result;
             }
-            result = new KeyValuePair<TableMemberInfo, string>(memberInfo, alias);
+            result = new KeyValuePair<TableMemberInfo?, string>(memberInfo, aliasTemp);
             return result;
         }
     }

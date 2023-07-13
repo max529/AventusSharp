@@ -22,7 +22,7 @@ namespace AventusSharp.Data.Manager
             }
             return null;
         }
-        private MemberInfo memberInfo;
+        private readonly MemberInfo memberInfo;
         public DataMemberInfo(FieldInfo fieldInfo)
         {
             memberInfo = fieldInfo;
@@ -169,7 +169,7 @@ namespace AventusSharp.Data.Manager
             if (type != null)
             {
                 string typeTxt = type.Name;
-                if (!TypeTools.primitiveType.Contains(type))
+                if (!TypeTools.PrimitiveType.Contains(type))
                 {
                     typeTxt += " - " + type.Assembly.GetName().Name;
                 }

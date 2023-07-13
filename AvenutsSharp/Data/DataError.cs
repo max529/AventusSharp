@@ -32,6 +32,7 @@ namespace AventusSharp.Data
         WrongType,
         NoTypeIdentifierFoundInsideQuery,
         ItemNoExistInsideStorage,
+        ValidationError
     }
     public class DataError : GenericError<DataErrorCode>
     {

@@ -1,23 +1,17 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager.DB.Query
 {
-    public class DatabaseQueryBuilder<T> : DatabaseGenericBuilder<T>, QueryBuilder<T>, ILambdaTranslatable
+    public class DatabaseQueryBuilder<T> : DatabaseGenericBuilder<T>, IQueryBuilder<T>, ILambdaTranslatable where T : IStorable
     {
-        public bool allMembers { get; set; } = true;
+        public bool AllMembers { get; set; } = true;
 
-        public DatabaseQueryBuilder(IStorage storage) : base(storage)
+        public bool UseShortObject { get; set; } = true;
+
+        public DatabaseQueryBuilder(IDBStorage storage) : base(storage)
         {
            
         }
@@ -36,39 +30,39 @@ namespace AventusSharp.Data.Manager.DB.Query
             return Storage.QueryFromBuilder(this);
         }
 
-        public QueryBuilder<T> Where(Expression<Func<T, bool>> expression)
+        public IQueryBuilder<T> Where(Expression<Func<T, bool>> expression)
         {
-            _Where(expression);
+            WhereGeneric(expression);
             return this;
         }
 
-        public QueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> expression)
+        public IQueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> expression)
         {
-            _WhereWithParameters(expression);
+            WhereGenericWithParameters(expression);
             return this;
         }
 
-        public QueryBuilder<T> Prepare(params object[] objects)
+        public IQueryBuilder<T> Prepare(params object[] objects)
         {
-           _Prepare(objects);
+           PrepareGeneric(objects);
             return this;
         }
-        public QueryBuilder<T> SetVariable(string name, object value)
+        public IQueryBuilder<T> SetVariable(string name, object value)
         {
-           _SetVariable(name, value);
-            return this;
-        }
-
-        public QueryBuilder<T> Field(Expression<Func<T, object>> expression)
-        {
-            _Field(expression);
-            allMembers = false;
+           SetVariableGeneric(name, value);
             return this;
         }
 
-        public QueryBuilder<T> Include(Expression<Func<T, IStorable>> expression)
+        public IQueryBuilder<T> Field(Expression<Func<T, object>> expression)
         {
-            _Include(expression);
+            FieldGeneric(expression);
+            AllMembers = false;
+            return this;
+        }
+
+        public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> expression)
+        {
+            IncludeGeneric(expression);
             return this;
         }
 

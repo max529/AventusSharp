@@ -10,13 +10,13 @@ namespace AventusSharp.WebSocket.precast
         public SuccessAnswer() { }
         public SuccessAnswer(string channel)
         {
-            this.setBaseChannel(channel);
+            this.SetBaseChannel(channel);
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return channel;
         }
-        public void setBaseChannel(string channel)
+        public void SetBaseChannel(string channel)
         {
             this.channel = channel + "/success";
         }
@@ -31,14 +31,14 @@ namespace AventusSharp.WebSocket.precast
         public SuccessAnswer() { }
         public SuccessAnswer(string channel, T data)
         {
-            this.setBaseChannel(channel);
+            this.SetBaseChannel(channel);
             this.body.data = data;
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return channel;
         }
-        public void setBaseChannel(string channel)
+        public void SetBaseChannel(string channel)
         {
             this.channel = channel + "/success";
         }
@@ -54,20 +54,20 @@ namespace AventusSharp.WebSocket.precast
         public SuccessAnswerList() { }
         public SuccessAnswerList(string channel, List<T> data)
         {
-            this.setBaseChannel(channel);
+            this.SetBaseChannel(channel);
             this.body.data = data;
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return channel;
         }
-        public void setBaseChannel(string channel)
+        public void SetBaseChannel(string channel)
         {
             this.channel = channel + "/success";
         }
         public class Body
         {
-            public List<T> data = new List<T>();
+            public List<T> data = new();
         }
 
     }
@@ -77,20 +77,20 @@ namespace AventusSharp.WebSocket.precast
         public SuccessAnswerDico() { }
         public SuccessAnswerDico(string channel, Dictionary<int, T> data)
         {
-            this.setBaseChannel(channel);
+            this.SetBaseChannel(channel);
             this.body.data = data;
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return channel;
         }
-        public void setBaseChannel(string channel)
+        public void SetBaseChannel(string channel)
         {
             this.channel = channel + "/success";
         }
         public class Body
         {
-            public Dictionary<int, T> data = new Dictionary<int, T>();
+            public Dictionary<int, T> data = new();
         }
 
     }

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Attributes
 {
@@ -12,10 +8,10 @@ namespace AventusSharp.Attributes
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class ForeignKey : System.Attribute
     {
-        public Type type { get; private set; }
+        public Type Type { get; private set; }
         public ForeignKey(Type type)
         {
-            this.type = type;
+            Type = type;
         }
     }
 }

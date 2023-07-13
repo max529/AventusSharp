@@ -15,7 +15,7 @@ namespace AventusSharp.WebSocket
     /// </summary>
     public class WriteTypeJsonConverter : JsonConverter
     {
-        private List<string> propToRemove = new List<string>() { "_configurations" };
+        private readonly List<string> propToRemove = new() { "_configurations" };
 
         /// <summary>
         /// always true because we can always convert until object
@@ -60,7 +60,7 @@ namespace AventusSharp.WebSocket
             lock (value)
             {
                 Type type = value.GetType();
-                if (type.IsPrimitive || TypeTools.primitiveType.Contains(type))
+                if (type.IsPrimitive || TypeTools.PrimitiveType.Contains(type))
                 {
                     JToken t = JToken.FromObject(value);
                     t.WriteTo(writer);
@@ -79,7 +79,7 @@ namespace AventusSharp.WebSocket
                         return;
                     }
                     IEnumerator valueEnumerator = values.GetEnumerator();
-                    JObject jo = new JObject();
+                    JObject jo = new();
                     foreach (object key in keys)
                     {
                         valueEnumerator.MoveNext();
@@ -98,7 +98,7 @@ namespace AventusSharp.WebSocket
                 {
                     IEnumerable values = (IEnumerable)value;
                     IEnumerator valueEnumerator = values.GetEnumerator();
-                    JArray jo = new JArray();
+                    JArray jo = new();
                     while (valueEnumerator.MoveNext())
                     {
                         if (valueEnumerator.Current != null)
@@ -111,8 +111,10 @@ namespace AventusSharp.WebSocket
                 }
                 else
                 {
-                    JObject jo = new JObject();
-                    jo.Add("$type", type.FullName + ", " + type.Assembly.GetName().Name);
+                    JObject jo = new()
+                    {
+                        { "$type", type.FullName + ", " + type.Assembly.GetName().Name }
+                    };
 
                     foreach (PropertyInfo prop in type.GetProperties())
                     {

@@ -8,8 +8,8 @@ namespace AventusSharp.WebSocket
 {
     public interface IWebSocketReceiverAnswer : IWebSocketReceiver
     {
-        void defineAnswers();
-        List<IWebSocketSender> getAnswers();
+        void DefineAnswers();
+        List<IWebSocketSender> GetAnswers();
     }
     public class WebSocketAnswerOptions
     {
@@ -17,24 +17,24 @@ namespace AventusSharp.WebSocket
     }
     public abstract class WebSocketReceiverAnswer<T, U> : WebSocketReceiver<T, U>, IWebSocketReceiverAnswer where T : IWebSocketReceiverAnswer, new() where U : new()
     {
-        private List<IWebSocketSender> answers = new List<IWebSocketSender>();
+        private readonly List<IWebSocketSender> answers = new();
 
-        public override void init()
+        public override void Init()
         {
-            defineAnswers();
-            base.init();
+            DefineAnswers();
+            base.Init();
         }
-        public List<IWebSocketSender> getAnswers()
+        public List<IWebSocketSender> GetAnswers()
         {
             return answers;
         }
-        public abstract void defineAnswers();
-        public void setAnswer<X>() where X : IWebSocketSender
+        public abstract void DefineAnswers();
+        public void SetAnswer<X>() where X : IWebSocketSender
         {
             X? temp = (X?)Activator.CreateInstance(typeof(X));
             if (temp is IWebSocketSenderPrecast precast)
             {
-                precast.setBaseChannel(defineTrigger());
+                precast.SetBaseChannel(DefineTrigger());
             }
             if (temp != null)
             {
@@ -42,12 +42,12 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        public sealed async override Task onMessage(WebSocketData socketData, U message)
+        public sealed async override Task OnMessage(WebSocketData socketData, U message)
         {
-            WebSocketAnswerOptions options = new WebSocketAnswerOptions();
-            IWebSocketSender answer = await onMessage(socketData, message, options);
-            await answer.send(socketData.socket, socketData.uid);
+            WebSocketAnswerOptions options = new();
+            IWebSocketSender answer = await OnMessage(socketData, message, options);
+            await answer.Send(socketData.Socket, socketData.Uid);
         }
-        public abstract Task<IWebSocketSender> onMessage(WebSocketData socketData, U message, WebSocketAnswerOptions options);
+        public abstract Task<IWebSocketSender> OnMessage(WebSocketData socketData, U message, WebSocketAnswerOptions options);
     }
 }

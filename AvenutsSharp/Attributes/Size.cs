@@ -1,34 +1,46 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Attributes
 {
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class Size : System.Attribute
+    public class Size : ValidationAttribute
     {
-        public int nb { get; private set; }
-        public bool max { get; private set; }
+        public int Nb { get; private set; }
+        public bool Max { get; private set; }
+        private string Msg { get; set; }
         /**
          * if nb = -1
          */
-        public Size(int nb)
+        public Size(int nb, string msg = "")
         {
-            this.nb = nb;
-            if(nb <= 0)
+            this.Nb = nb;
+            if (nb <= 0)
             {
-                max = true;
+                Max = true;
             }
+            this.Msg = msg;
         }
-        public Size(bool max)
+        public Size(bool max, string msg = "")
         {
-            this.max = max;
+            this.Max = max;
             if (!max)
             {
-                nb = 255;
+                Nb = 255;
             }
+            this.Msg = msg;
+        }
+
+        public override ValidationResult IsValid(object? value, ValidationContext context)
+        {
+            if (value is string casted)
+            {
+                if (casted.Length > Nb)
+                {
+                    string msg = this.Msg == "" ? $"The field {context.FieldName} must be shorter than {Max} chars." : this.Msg;
+                    return new ValidationResult(msg);
+                }
+            }
+            return ValidationResult.Success;
         }
     }
 }

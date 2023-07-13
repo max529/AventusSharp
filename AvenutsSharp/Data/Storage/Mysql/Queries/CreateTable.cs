@@ -3,28 +3,26 @@ using AventusSharp.Data.Storage.Mysql.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace AventusSharp.Data.Storage.Mysql.Query
+namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     internal class CreateTable
     {
-        public static string GetQuery(MySQLStorage storage, TableInfo table)
+        public static string GetQuery(TableInfo table)
         {
             string sql = "CREATE TABLE `" + table.SqlTableName + "` (\r\n";
 
-            List<string> schema = new List<string>();
-            List<string> primaryConstraint = new List<string>();
-            List<string> foreignConstraint = new List<string>();
+            List<string> schema = new();
+            List<string> primaryConstraint = new();
+            List<string> foreignConstraint = new();
             string separator = ",\r\n";
 
             // key is sql_table_name
-            Dictionary<string, Dictionary<string, List<TableMemberInfo>>> primariesByClass = new Dictionary<string, Dictionary<string, List<TableMemberInfo>>>();
+            Dictionary<string, Dictionary<string, List<TableMemberInfo>>> primariesByClass = new();
 
-            foreach (TableMemberInfo member in table.members)
+            foreach (TableMemberInfo member in table.Members)
             {
-                if (member.link != TableMemberInfoLink.Multiple)
+                if (member.Link != TableMemberInfoLink.Multiple)
                 {
                     string schemaProp = "\t`" + member.SqlName + "` " + member.SqlTypeTxt;
                     if (!member.IsNullable)
@@ -42,7 +40,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                         primaryConstraint.Add("`" + member.SqlName + "`");
                     }
 
-                    if (member.link == TableMemberInfoLink.Simple || member.link == TableMemberInfoLink.Parent)
+                    if (member.Link == TableMemberInfoLink.Simple || member.Link == TableMemberInfoLink.Parent)
                     {
                         if (member.TableLinked != null)
                         {
@@ -73,8 +71,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
                     bool deleteOnCascade = pri.Value.FirstOrDefault(p => p.IsDeleteOnCascade) != null;
                     string constraintName = "FK_" + string.Join("_", pri.Value.Select(field => field.SqlName)) + "_" + table.SqlTableName + "_" + primary.Key;
                     constraintName = Utils.CheckConstraint(constraintName);
-                    pri.Value.Select(field => "`" + field.TableLinked?.primary.SqlName + "`");
-                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked?.primary.SqlName + "`")) + ")";
+                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked?.Primary?.SqlName + "`")) + ")";
                     if(deleteOnCascade)
                     {
                         // TODO pour les tests mais doit être calculé du côté manager (seulement si stocker dans la RAM?)

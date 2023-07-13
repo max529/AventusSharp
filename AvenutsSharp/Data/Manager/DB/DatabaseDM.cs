@@ -1,7 +1,10 @@
-﻿using AventusSharp.Data.Manager.DB.Query;
+﻿using AventusSharp.Data.Manager.DB.Create;
+using AventusSharp.Data.Manager.DB.Delete;
+using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Manager.DB.Update;
 using AventusSharp.Data.Storage.Default;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -10,17 +13,29 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager.DB
 {
-    public class DatabaseDMSimple<T> : DatabaseDM<DatabaseDMSimple<T>, T> where T : IStorable { }
-    public class DatabaseDM<T, U> : GenericDM<T, U> where T : IGenericDM<U>, new() where U : IStorable
+    public interface IDatabaseDM
     {
-        private Dictionary<int, U> records { get; } = new Dictionary<int, U>();
+        public bool NeedLocalCache { get; }
+        public bool IsShortLink(string path);
+        public IDBStorage Storage { get; }
+        public List<X> RemoveRecordsItems<X>(List<int> ids) where X : IStorable;
+        public List<X> RemoveRecordsItems<X>(List<X> items) where X : IStorable;
+    }
 
-        public bool useLocalCache { get; private set; } = false;
+    public class DatabaseDMSimple<T> : DatabaseDM<DatabaseDMSimple<T>, T> where T : IStorable { }
+    public class DatabaseDM<T, U> : GenericDM<T, U>, IDatabaseDM where T : IGenericDM<U>, new() where U : IStorable
+    {
+        private Dictionary<int, U> Records { get; } = new Dictionary<int, U>();
 
-        protected IStorage? storage;
-        protected List<Type> getAllDone { get; } = new List<Type>();
+        public bool NeedLocalCache { get; private set; } = false;
+        public bool NeedShortLink { get; private set; } = false;
+        public List<string>? ShortLinks { get; private set; } = null;
 
-        protected IStorage Storage
+        protected IDBStorage? storage;
+        protected List<Type> GetAllDone { get; } = new List<Type>();
+
+
+        public IDBStorage Storage
         {
             get
             {
@@ -33,7 +48,7 @@ namespace AventusSharp.Data.Manager.DB
         }
 
         #region Config
-        protected virtual IStorage? DefineStorage()
+        protected virtual IDBStorage? DefineStorage()
         {
             return null;
         }
@@ -41,13 +56,35 @@ namespace AventusSharp.Data.Manager.DB
         {
             return null;
         }
+        protected virtual bool? UseShortLink()
+        {
+            return null;
+        }
+        protected void ShortLink<X>(Expression<Func<X, IStorable>> fct) where X : U
+        {
+            ShortLinks ??= new List<string>();
+            ShortLinks.Add(LambdaToPath.Translate(fct));
+        }
+        /// <summary>
+        /// Call the metho ShortLink to define which table will be in shortlink (only id inside object)
+        /// </summary>
+        /// <typeparam name="X"></typeparam>
+        protected virtual void DefineShortLinks<X>() where X : U
+        {
+        }
+
+        public bool IsShortLink(string path)
+        {
+            if(ShortLinks == null)
+            {
+                return NeedShortLink;
+            }
+            return ShortLinks.Contains(path);
+        }
         public override async Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
             storage = DefineStorage();
-            if (storage == null)
-            {
-                storage = config.defaultStorage;
-            }
+            storage ??= config.defaultStorage;
             if (storage == null)
             {
                 return false;
@@ -55,11 +92,21 @@ namespace AventusSharp.Data.Manager.DB
             bool? localCacheTemp = UseLocalCache();
             if (localCacheTemp == null)
             {
-                useLocalCache = config.preferLocalCache;
+                NeedLocalCache = config.preferLocalCache;
             }
             else
             {
-                useLocalCache = (bool)localCacheTemp;
+                NeedLocalCache = (bool)localCacheTemp;
+            }
+            DefineShortLinks<U>();
+            bool? shortLinkTemp = UseShortLink();
+            if (shortLinkTemp == null)
+            {
+                NeedShortLink = config.preferShortLink;
+            }
+            else
+            {
+                NeedShortLink = (bool)shortLinkTemp;
             }
             if (!storage.IsConnectedOneTime)
             {
@@ -77,7 +124,7 @@ namespace AventusSharp.Data.Manager.DB
             if (storage != null)
             {
                 storage.CreateLinks();
-                VoidWithError result = storage.CreateTable(pyramidInfo);
+                VoidWithError result = storage.CreateTable(PyramidInfo);
                 if (result.Success)
                 {
                     return Task.FromResult(true);
@@ -97,15 +144,15 @@ namespace AventusSharp.Data.Manager.DB
         #endregion
 
         #region Get
-        public override QueryBuilder<X> CreateQuery<X>()
+        public override IQueryBuilder<X> CreateQuery<X>()
         {
-            return new DatabaseQueryBuilder<X>(Storage);
+            return new DatabaseQueryBuilder<X>(Storage) { UseShortObject = false };
         }
 
-        private Dictionary<Type, object> savedGetAllQuery = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, object> savedGetAllQuery = new();
         public override ResultWithError<List<X>> GetAllWithError<X>()
         {
-            if (useLocalCache)
+            if (NeedLocalCache)
             {
                 return GetAllWithErrorCache<X>();
             }
@@ -115,11 +162,13 @@ namespace AventusSharp.Data.Manager.DB
         {
             Type type = typeof(X);
             Type rootType = typeof(U);
-            if (getAllDone.Contains(rootType) || getAllDone.Contains(type))
+            if (GetAllDone.Contains(rootType) || GetAllDone.Contains(type))
             {
-                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-                result.Result = new List<X>();
-                foreach (KeyValuePair<int, U> record in records)
+                ResultWithError<List<X>> result = new()
+                {
+                    Result = new List<X>()
+                };
+                foreach (KeyValuePair<int, U> record in Records)
                 {
                     if (record is X casted)
                     {
@@ -133,12 +182,12 @@ namespace AventusSharp.Data.Manager.DB
             {
                 foreach (X newRecord in resultNoCache.Result)
                 {
-                    if (!records.ContainsKey(newRecord.id))
+                    if (!Records.ContainsKey(newRecord.id))
                     {
-                        records.Add(newRecord.id, newRecord);
+                        Records.Add(newRecord.id, newRecord);
                     }
                 }
-                getAllDone.Add(type);
+                GetAllDone.Add(type);
             }
             return resultNoCache;
         }
@@ -153,10 +202,10 @@ namespace AventusSharp.Data.Manager.DB
         }
 
 
-        private Dictionary<Type, object> savedGetByIdQuery = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, object> savedGetByIdQuery = new();
         public override ResultWithError<X> GetByIdWithError<X>(int id)
         {
-            if (useLocalCache)
+            if (NeedLocalCache)
             {
                 return GetByIdWithErrorCache<X>(id);
             }
@@ -165,27 +214,29 @@ namespace AventusSharp.Data.Manager.DB
 
         public ResultWithError<X> GetByIdWithErrorCache<X>(int id) where X : U
         {
-            if (records.ContainsKey(id) && records[id] is X casted)
+            if (Records.ContainsKey(id) && Records[id] is X casted)
             {
-                ResultWithError<X> result = new ResultWithError<X>();
-                result.Result = casted;
+                ResultWithError<X> result = new()
+                {
+                    Result = casted
+                };
                 return result;
             }
             ResultWithError<X> resultNoCache = GetByIdWithErrorNoCache<X>(id);
             if (resultNoCache.Success && resultNoCache.Result != null)
             {
-                records[resultNoCache.Result.id] = resultNoCache.Result;
+                Records[resultNoCache.Result.id] = resultNoCache.Result;
             }
             return resultNoCache;
         }
         public ResultWithError<X> GetByIdWithErrorNoCache<X>(int id) where X : U
         {
-            ResultWithError<X> result = new ResultWithError<X>();
+            ResultWithError<X> result = new();
 
             Type x = typeof(X);
             if (!savedGetByIdQuery.ContainsKey(x))
             {
-                DatabaseQueryBuilder<X> queryBuilderTemp = new DatabaseQueryBuilder<X>(Storage);
+                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
                 queryBuilderTemp.WhereWithParameters(i => i.id == id);
                 savedGetByIdQuery[x] = queryBuilderTemp;
             }
@@ -212,9 +263,80 @@ namespace AventusSharp.Data.Manager.DB
             return result;
         }
 
+        private readonly Dictionary<Type, object> savedGetByIdsQuery = new();
+        public override ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids)
+        {
+            if (NeedLocalCache)
+            {
+                return GetByIdsWithErrorCache<X>(ids);
+            }
+            return GetByIdsWithErrorNoCache<X>(ids);
+        }
+
+        public ResultWithError<List<X>> GetByIdsWithErrorCache<X>(List<int> ids) where X : U
+        {
+            ResultWithError<List<X>> result = new()
+            {
+                Result = new List<X>()
+            };
+            List<int> missingIds = new();
+            foreach (int id in ids)
+            {
+                if (Records.ContainsKey(id))
+                {
+                    if (Records[id] is X casted)
+                    {
+                        result.Result.Add(casted);
+                    }
+                }
+                else
+                {
+                    missingIds.Add(id);
+                }
+            }
+            if (missingIds.Count > 0)
+            {
+                ResultWithError<List<X>> resultNoCache = GetByIdsWithErrorNoCache<X>(missingIds);
+                if (resultNoCache.Success && resultNoCache.Result != null)
+                {
+                    foreach (X item in resultNoCache.Result)
+                    {
+                        if (!Records.ContainsKey(item.id))
+                        {
+                            Records.Add(item.id, item);
+                        }
+                        result.Result.Add(item);
+                    }
+                }
+                else
+                {
+                    result.Result.Clear();
+                    result.Errors.AddRange(resultNoCache.Errors);
+                }
+            }
+            return result;
+        }
+        public ResultWithError<List<X>> GetByIdsWithErrorNoCache<X>(List<int> ids) where X : U
+        {
+            Type x = typeof(X);
+            if (!savedGetByIdsQuery.ContainsKey(x))
+            {
+                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
+                queryBuilderTemp.WhereWithParameters(i => ids.Contains(i.id));
+                savedGetByIdsQuery[x] = queryBuilderTemp;
+            }
+
+            DatabaseQueryBuilder<X> queryBuilder = (DatabaseQueryBuilder<X>)savedGetByIdsQuery[x];
+            queryBuilder.SetVariable("ids", ids);
+            ResultWithError<List<X>> resultTemp = queryBuilder.RunWithError();
+
+            return resultTemp;
+        }
+
+
         public override ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func)
         {
-            if (useLocalCache)
+            if (NeedLocalCache)
             {
                 return WhereWithErrorCache(func);
             }
@@ -225,12 +347,14 @@ namespace AventusSharp.Data.Manager.DB
         {
             Type type = typeof(X);
             Type rootType = typeof(U);
-            if (getAllDone.Contains(rootType) || getAllDone.Contains(type))
+            if (GetAllDone.Contains(rootType) || GetAllDone.Contains(type))
             {
-                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-                result.Result = new List<X>();
+                ResultWithError<List<X>> result = new()
+                {
+                    Result = new List<X>()
+                };
                 Func<X, bool> fct = func.Compile();
-                foreach (KeyValuePair<int, U> pair in records)
+                foreach (KeyValuePair<int, U> pair in Records)
                 {
                     try
                     {
@@ -254,88 +378,176 @@ namespace AventusSharp.Data.Manager.DB
 
         public ResultWithError<List<X>> WhereWithErrorNoCache<X>(Expression<Func<X, bool>> func) where X : U
         {
-            DatabaseQueryBuilder<X> queryBuilder = new DatabaseQueryBuilder<X>(Storage);
+            DatabaseQueryBuilder<X> queryBuilder = new(Storage);
             queryBuilder.Where(func);
             return queryBuilder.RunWithError();
         }
+
         #endregion
 
         #region Create
+        //public override ResultWithError<List<X>> CreateWithError2<X>(List<X> values)
+        //{
+
+        //    ResultWithError<List<X>> result = Storage.Create(values);
+        //    if (useLocalCache && result.Success && result.Result != null)
+        //    {
+        //        foreach (X value in result.Result)
+        //        {
+        //            if (!records.ContainsKey(value.id))
+        //            {
+        //                records[value.id] = value;
+        //            }
+        //        }
+        //    }
+        //    return result;
+        //}
+        private readonly Dictionary<Type, object> savedCreateQuery = new();
         public override ResultWithError<List<X>> CreateWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = Storage.Create(values);
-            if (useLocalCache && result.Success && result.Result != null)
+            return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                foreach (X value in result.Result)
+                ResultWithError<List<X>> result = new()
                 {
-                    if (!records.ContainsKey(value.id))
+                    Result = new List<X>()
+                };
+
+                foreach (X value in values)
+                {
+                    Type type = value.GetType();
+                    if (!savedCreateQuery.ContainsKey(type))
                     {
-                        records[value.id] = value;
+                        DatabaseCreateBuilder<X> query = new(Storage, type);
+                        savedCreateQuery[type] = query;
+                    }
+
+                    ResultWithError<X> resultTemp = ((DatabaseCreateBuilder<X>)savedCreateQuery[type]).RunWithError(value);
+                    if (resultTemp.Success && resultTemp.Result != null)
+                    {
+                        if (NeedLocalCache)
+                        {
+                            Records[resultTemp.Result.id] = resultTemp.Result;
+                        }
+                        result.Result.Add(resultTemp.Result);
+                    }
+                    else
+                    {
+                        result.Errors.AddRange(resultTemp.Errors);
                     }
                 }
-            }
-            return result;
+
+                return result;
+            });
         }
         #endregion
 
         #region Update
-        public override UpdateBuilder<X> CreateUpdate<X>()
+        public override IUpdateBuilder<X> CreateUpdate<X>()
         {
-            return new DatabaseUpdateBuilder<X>(Storage);
+            return new DatabaseUpdateBuilder<X>(Storage, this, NeedLocalCache);
         }
+        private readonly Dictionary<Type, object> savedUpdateQuery = new();
         public override ResultWithError<List<X>> UpdateWithError<X>(List<X> values)
         {
-            if (useLocalCache)
+            return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                return UpdateWithErrorCache(values);
-            }
-            return UpdateWithErrorNoCache(values);
-        }
-        public ResultWithError<List<X>> UpdateWithErrorCache<X>(List<X> values) where X : U
-        {
-            ResultWithError<List<X>> resultTemp = new ResultWithError<List<X>>();
+                ResultWithError<List<X>> result = new()
+                {
+                    Result = new List<X>()
+                };
+                int id = 0;
+                foreach (X value in values)
+                {
+                    Type type = value.GetType();
+                    if (!savedUpdateQuery.ContainsKey(type))
+                    {
+                        DatabaseUpdateBuilder<X> query = new(Storage, this, NeedLocalCache, type);
+                        query.WhereWithParameters(p => p.id == id);
+                        savedUpdateQuery[type] = query;
+                    }
 
-            List<X> oldValues = new List<X>();
-            foreach (X value in values)
-            {
-                if (records.ContainsKey(value.id) && records[value.id] is X casted)
-                {
-                    oldValues.Add(casted);
+                    ResultWithError<List<X>> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.id).RunWithError(value);
+                    if (resultTemp.Success && resultTemp.Result?.Count > 0)
+                    {
+                        result.Result.Add(resultTemp.Result[0]);
+                    }
+                    else
+                    {
+                        result.Errors.AddRange(resultTemp.Errors);
+                    }
                 }
-                else
-                {
-                    resultTemp.Errors.Add(new DataError(DataErrorCode.ItemNoExistInsideStorage, "Can't find a " + value.GetType().Name + " with id " + value.id + ""));
-                }
-            }
-            if (!resultTemp.Success)
-            {
-                return resultTemp;
-            }
-            return Storage.Update(values, oldValues);
-        }
-        public ResultWithError<List<X>> UpdateWithErrorNoCache<X>(List<X> values) where X : U
-        {
-            return Storage.Update(values, null);
+
+                return result;
+            });
         }
         #endregion
 
         #region Delete
+        public override IDeleteBuilder<X> CreateDelete<X>()
+        {
+            return new DatabaseDeleteBuilder<X>(Storage, this, NeedLocalCache);
+        }
+        private readonly Dictionary<Type, object> savedDeleteQuery = new();
         public override ResultWithError<List<X>> DeleteWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = Storage.Delete(values);
-            if (useLocalCache && result.Success && result.Result != null)
+            return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                foreach (X value in result.Result)
+                ResultWithError<List<X>> result = new()
                 {
-                    if (records.ContainsKey(value.id))
+                    Result = new List<X>()
+                };
+                int id = 0;
+                foreach (X value in values)
+                {
+                    Type type = value.GetType();
+                    if (!savedDeleteQuery.ContainsKey(type))
                     {
-                        records.Remove(value.id);
+                        DatabaseDeleteBuilder<X> query = new(Storage, this, NeedLocalCache, type);
+                        query.WhereWithParameters(p => p.id == id);
+                        savedUpdateQuery[type] = query;
                     }
+
+                    ResultWithError<List<X>> resultTemp = ((DatabaseDeleteBuilder<X>)savedDeleteQuery[type]).Prepare(value.id).RunWithError();
+                    if (resultTemp.Success && resultTemp.Result?.Count > 0)
+                    {
+                        result.Result.Add(resultTemp.Result[0]);
+                    }
+                    else
+                    {
+                        result.Errors.AddRange(resultTemp.Errors);
+                    }
+                }
+
+                return result;
+            });
+        }
+
+        public List<X> RemoveRecordsItems<X>(List<int> ids) where X : IStorable
+        {
+            List<X> result = new();
+            foreach (int id in ids)
+            {
+                if (Records.ContainsKey(id) && Records[id] is X casted)
+                {
+                    result.Add(casted);
+                    Records.Remove(id);
                 }
             }
             return result;
         }
-
+        public List<X> RemoveRecordsItems<X>(List<X> items) where X : IStorable
+        {
+            List<X> result = new();
+            foreach (X item in items)
+            {
+                if (item is U && Records.ContainsKey(item.id) && Records[item.id] is X casted)
+                {
+                    result.Add(casted);
+                    Records.Remove(item.id);
+                }
+            }
+            return result;
+        }
 
         #endregion
 

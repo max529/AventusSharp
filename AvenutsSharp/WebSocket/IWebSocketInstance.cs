@@ -13,19 +13,19 @@ namespace AventusSharp.WebSocket
     public interface IWebSocketInstance
     {
 
-        string getSocketName();
+        string GetSocketName();
         /// <summary>
         /// Add route inside the ws instance
         /// </summary>
         /// <param name="route"></param>
-        void addRoute(string canal, Func<WebSocketData, Task> action);
+        void AddRoute(string canal, Func<WebSocketData, Task> action);
         /// <summary>
         /// Start a new connection WS between server and client
         /// </summary>
         /// <param name="context"></param>
         /// <param name="webSocket"></param>
         /// <returns></returns>
-        Task startNewInstance(HttpContext context, System.Net.WebSockets.WebSocket webSocket);
+        Task StartNewInstance(HttpContext context, System.Net.WebSockets.WebSocket webSocket);
         /// <summary>
         /// This function is called to route to request to correct route
         /// </summary>
@@ -34,12 +34,12 @@ namespace AventusSharp.WebSocket
         /// <param name="data"></param>
         /// <param name="uid"></param>
         /// <returns></returns>
-        Task route(WebSocketConnection connection, string channel, JObject data, string uid = "");
+        Task Route(WebSocketConnection connection, string channel, JObject data, string uid = "");
         /// <summary>
         /// Remove connection of WS 
         /// </summary>
         /// <param name="connection"></param>
-        void removeInstance(WebSocketConnection connection);
+        void RemoveInstance(WebSocketConnection connection);
         /// <summary>
         /// Dispatch a message to all active connections
         /// </summary>
@@ -48,7 +48,7 @@ namespace AventusSharp.WebSocket
         /// <param name="connectionToAvoid"></param>
         /// <param name="idsUser"></param>
         /// <returns></returns>
-        List<WebSocketConnection> broadcast(string eventName, object obj, List<WebSocketConnection>? connectionToAvoid = null);
+        List<WebSocketConnection> Broadcast(string eventName, object obj, List<WebSocketConnection>? connectionToAvoid = null);
         /// <summary>
         /// Dispatch a message to all active connections
         /// </summary>
@@ -57,6 +57,6 @@ namespace AventusSharp.WebSocket
         /// <param name="connectionToAvoid"></param>
         /// <param name="idsUser"></param>
         /// <returns></returns>
-        List<WebSocketConnection> broadcast(string eventName, string keyName, object obj, List<WebSocketConnection>? connectionToAvoid = null);
+        List<WebSocketConnection> Broadcast(string eventName, string keyName, object obj, List<WebSocketConnection>? connectionToAvoid = null);
     }
 }

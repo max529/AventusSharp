@@ -17,20 +17,20 @@ namespace AventusSharp.WebSocket
     /// </summary>
     public class WebSocketConnection
     {
-        private static char fileDelimiter = '°';
+        private static readonly char fileDelimiter = '°';
         public static bool DisplayMsg { get; set; }
-        private HttpContext context;
-        private System.Net.WebSockets.WebSocket webSocket;
-        private IWebSocketInstance instance;
+        private readonly HttpContext context;
+        private readonly System.Net.WebSockets.WebSocket webSocket;
+        private readonly IWebSocketInstance instance;
         private WebSocketReceiveResult? result;
-        private WriteTypeJsonConverter converter;
-        private readonly Dictionary<string, FileBodyElement> filesInProgress = new Dictionary<string, FileBodyElement>();
+        private readonly WriteTypeJsonConverter converter;
+        private readonly Dictionary<string, FileBodyElement> filesInProgress = new();
 
         /// <summary>
         /// get context of the request
         /// </summary>
         /// <returns></returns>
-        public HttpContext getContext()
+        public HttpContext GetContext()
         {
             return context;
         }
@@ -38,7 +38,7 @@ namespace AventusSharp.WebSocket
         /// get WebSocket class from c#
         /// </summary>
         /// <returns></returns>
-        public System.Net.WebSockets.WebSocket getWebSocket()
+        public System.Net.WebSockets.WebSocket GetWebSocket()
         {
             return webSocket;
         }
@@ -81,17 +81,19 @@ namespace AventusSharp.WebSocket
                         if (lastPart == uid + fileDelimiter)
                         {
                             // end
-                            filesInProgress[uid].stream.Write(buffer, 10, buffer.Length - 21);
-                            filesInProgress[uid].stream.Close();
-                            filesInProgress[uid].stream.Dispose();
+                            filesInProgress[uid].Stream.Write(buffer, 10, buffer.Length - 21);
+                            filesInProgress[uid].Stream.Close();
+                            filesInProgress[uid].Stream.Dispose();
                             filesInProgress.Remove(uid);
-                            JObject obj = new JObject();
-                            obj["uid"] = "uid";
-                            _ = this.send("/file_uploaded", obj);
+                            JObject obj = new()
+                            {
+                                ["uid"] = "uid"
+                            };
+                            _ = this.Send("/file_uploaded", (object)obj);
                         }
                         else
                         {
-                            filesInProgress[uid].stream.Write(buffer, 10, buffer.Length - 10);
+                            filesInProgress[uid].Stream.Write(buffer, 10, buffer.Length - 10);
                         }
 
                     }
@@ -112,11 +114,11 @@ namespace AventusSharp.WebSocket
                                 JObject o = JObject.Parse(msg);
                                 if (o["channel"]?.ToString() == "ping")
                                 {
-                                    _ = send("pong", new JObject());
+                                    _ = Send("pong", (object)new JObject());
                                 }
                                 else if (o["channel"]?.ToString() == "/register_file_upload")
                                 {
-                                    JObject data = new JObject();
+                                    JObject data = new();
                                     string? dataObjectString = o["data"]?.ToString();
                                     string? filename = o["filename"]?.ToString();
                                     string? uid = o["uid"]?.ToString();
@@ -141,9 +143,9 @@ namespace AventusSharp.WebSocket
                                         i++;
                                         filePath = Path.Combine(tempFolder, string.Join(".", splitted));
                                     }
-                                    FileBodyElement fileBody = new FileBodyElement(filename, new FileStream(filePath, FileMode.Create), filePath);
+                                    FileBodyElement fileBody = new (filename, new FileStream(filePath, FileMode.Create), filePath);
                                     filesInProgress[uid] = fileBody;
-                                    _ = this.send("/register_file_upload/done", new JObject(), uid);
+                                    _ = this.Send("/register_file_upload/done", (object)new JObject(), uid);
                                 }
                                 else
                                 {
@@ -156,7 +158,7 @@ namespace AventusSharp.WebSocket
                                     {
                                         return;
                                     }
-                                    JObject data = new JObject();
+                                    JObject data = new();
                                     string? objString = o.ContainsKey("data") ? o["data"]?.ToString() : null;
                                     if (objString != null)
                                     {
@@ -165,11 +167,11 @@ namespace AventusSharp.WebSocket
                                     string? uid = o.ContainsKey("uid") ? o["uid"]?.ToString() : null;
                                     if (uid != null)
                                     {
-                                        await instance.route(this, channel, data, uid.ToString());
+                                        await instance.Route(this, channel, data, uid.ToString());
                                     }
                                     else
                                     {
-                                        await instance.route(this, channel, data);
+                                        await instance.Route(this, channel, data);
                                     }
                                 }
                             }
@@ -192,7 +194,7 @@ namespace AventusSharp.WebSocket
                     Console.WriteLine(e);
                 }
             }
-            instance.removeInstance(this);
+            instance.RemoveInstance(this);
         }
 
         #region Send
@@ -203,16 +205,18 @@ namespace AventusSharp.WebSocket
         /// <param name="o">Object to send</param>
         /// <param name="uid">Uid to identify request</param>
         /// <returns></returns>
-        private async Task _send(string eventName, JObject o, string? uid = null)
+        private async Task Send(string eventName, JObject o, string? uid = null)
         {
             if (o.ContainsKey("$type"))
             {
                 o.Remove("$type");
             }
             string data = o.ToString(Newtonsoft.Json.Formatting.None);
-            JObject toSend = new JObject();
-            toSend.Add("channel", eventName);
-            toSend.Add("data", data);
+            JObject toSend = new()
+            {
+                { "channel", eventName },
+                { "data", data }
+            };
             if (!string.IsNullOrEmpty(uid))
             {
                 toSend.Add("uid", uid);
@@ -228,24 +232,24 @@ namespace AventusSharp.WebSocket
                 }
                 else
                 {
-                    this.instance.removeInstance(this);
+                    this.instance.RemoveInstance(this);
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine("Error in RouterSocket.send() : " + e.ToString());
-                this.instance.removeInstance(this);
+                this.instance.RemoveInstance(this);
             }
         }
 
-        public async Task send(string eventName, object obj, string? uid = null)
+        public async Task Send(string eventName, object obj, string? uid = null)
         {
             try
             {
                 //obj = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(obj, settings), settings);
                 string json = JsonConvert.SerializeObject(obj, converter);
                 JObject jObject = JObject.Parse(json);
-                await _send(eventName, jObject, uid);
+                await Send(eventName, jObject, uid);
             }
             catch (Exception e)
             {
@@ -253,15 +257,17 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        public async Task send(string eventName, string keyName, object obj, string? uid = null)
+        public async Task Send(string eventName, string keyName, object obj, string? uid = null)
         {
             try
             {
                 string json = JsonConvert.SerializeObject(obj, converter);
                 JToken jTok = JToken.Parse(json);
-                JObject jObject = new JObject();
-                jObject.Add(keyName, jTok);
-                await _send(eventName, jObject, uid);
+                JObject jObject = new()
+                {
+                    { keyName, jTok }
+                };
+                await Send(eventName, jObject, uid);
             }
             catch (Exception e)
             {
@@ -275,15 +281,15 @@ namespace AventusSharp.WebSocket
 
         private class FileBodyElement
         {
-            public string filename { get; private set; }
-            public FileStream stream { get; private set; }
-            public string pathTemp { get; private set; }
+            public string Filename { get; private set; }
+            public FileStream Stream { get; private set; }
+            public string PathTemp { get; private set; }
 
             public FileBodyElement(string filename, FileStream stream, string pathTemp)
             {
-                this.filename = filename;
-                this.stream = stream;
-                this.pathTemp = pathTemp;
+                Filename = filename;
+                Stream = stream;
+                PathTemp = pathTemp;
             }
         }
     }

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Attributes
 {
@@ -18,7 +14,25 @@ namespace AventusSharp.Attributes
     /// Attribute used to allow a null value for the Property
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class NotNullable : Attribute
+    public class NotNullable : ValidationAttribute
     {
+        private string Msg { get; set; }
+        public NotNullable()
+        {
+            this.Msg = "";
+        }
+        public NotNullable(string msg)
+        {
+            this.Msg = msg;
+        }
+        public override ValidationResult IsValid(object? value, ValidationContext context)
+        {
+            if(value == null)
+            {
+                string msg = this.Msg == "" ? $"The field {context.FieldName} is required." : this.Msg;
+                return new ValidationResult(msg);
+            }
+            return ValidationResult.Success;
+        }
     }
 }

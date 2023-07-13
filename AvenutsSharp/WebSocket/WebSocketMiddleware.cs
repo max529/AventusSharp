@@ -16,13 +16,13 @@ namespace AventusSharp.WebSocket
         /// <summary>
         /// enable error after being ready
         /// </summary>
-        public static bool enableError = false;
-        private static Dictionary<string, IWebSocketInstance> routers = new Dictionary<string, IWebSocketInstance>();
+        public readonly static bool enableError = false;
+        private static readonly Dictionary<string, IWebSocketInstance> routers = new();
         /// <summary>
         /// Create all Websocket Instance inside current Assembly + load all routes inside namespace $CURRENT.Routes
         /// </summary>
         /// <param name="calling"></param>
-        public static void register(Assembly calling)
+        public static void Register(Assembly calling)
         {
             Type[] theList = calling.GetTypes();
 
@@ -34,45 +34,45 @@ namespace AventusSharp.WebSocket
                 {
                     continue;
                 }
-                MethodInfo? getInstance = instanceType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                if (getInstance == null)
+                MethodInfo? GetInstance = instanceType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (GetInstance == null)
                 {
                     continue;
                 }
-                IWebSocketInstance? instance = (IWebSocketInstance?)getInstance.Invoke(null, null);
+                IWebSocketInstance? instance = (IWebSocketInstance?)GetInstance.Invoke(null, null);
                 if (instance == null)
                 {
                     continue;
                 }
-                Console.WriteLine("add ws router " + instance.getSocketName());
-                routers.Add(instance.getSocketName(), instance);
+                Console.WriteLine("add ws router " + instance.GetSocketName());
+                routers.Add(instance.GetSocketName(), instance);
             }
 
             IEnumerable<Type> routes = theList.Where(type => type.Namespace != null && type.GetInterfaces().Contains(typeof(IWebSocketReceiver)));
 
             foreach (Type routeType in routes)
             {
-                MethodInfo? getInstance = routeType.GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                if (getInstance == null)
+                MethodInfo? GetInstance = routeType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (GetInstance == null)
                 {
                     continue;
                 }
-                IWebSocketReceiver? instance = (IWebSocketReceiver?)getInstance.Invoke(null, null);
+                IWebSocketReceiver? instance = (IWebSocketReceiver?)GetInstance.Invoke(null, null);
                 if (instance == null)
                 {
                     continue;
                 }
-                Console.WriteLine("Register receiver" + instance.GetType().Name + " => " + instance.defineTrigger());
-                instance.init();
+                Console.WriteLine("Register receiver" + instance.GetType().Name + " => " + instance.DefineTrigger());
+                instance.Init();
             }
         }
 
-        public static void register()
+        public static void Register()
         {
             Assembly? entry = Assembly.GetEntryAssembly();
             if (entry != null)
             {
-                register(entry);
+                Register(entry);
             }
         }
 
@@ -83,7 +83,7 @@ namespace AventusSharp.WebSocket
         /// <param name="context"></param>
         /// <param name="next"></param>
         /// <returns></returns>
-        public async static Task onRequest(HttpContext context, Func<Task> next)
+        public async static Task OnRequest(HttpContext context, Func<Task> next)
         {
             if (context.Request.Path.ToString().StartsWith("/ws"))
             {
@@ -95,7 +95,7 @@ namespace AventusSharp.WebSocket
                     if (routers.ContainsKey(newPath))
                     {
                         System.Net.WebSockets.WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                        await routers[newPath].startNewInstance(context, webSocket);
+                        await routers[newPath].StartNewInstance(context, webSocket);
                     }
                     else
                     {

@@ -6,33 +6,33 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AventusSharp.Data.Storage.Mysql.Query
+namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     internal class CreateIntermediateTable
     {
-        public static string? GetQuery(TableMemberInfo memberInfo)
+        public static string GetQuery(TableMemberInfo memberInfo)
         {
             TableInfo instance = memberInfo.TableInfo;
             TableInfo? link = memberInfo.TableLinked;
             if(link == null)
             {
-                return null;
+                return "";
             }
 
             string? intermediateTableName = Utils.GetIntermediateTablename(memberInfo);
             if(intermediateTableName == null)
             {
-                return null;
+                return "";
             }
 
-            List<string> schema = new List<string>();
-            List<string> primaryConstraint = new List<string>();
-            List<string> foreignConstraint = new List<string>();
+            List<string> schema = new();
+            List<string> primaryConstraint = new();
+            List<string> foreignConstraint = new();
             string separator = ",\r\n";
 
-            List<TableMemberInfo> prims = instance.members.Where(f => f.IsPrimary).ToList();
+            List<TableMemberInfo> prims = instance.Members.Where(f => f.IsPrimary).ToList();
             List<string> primsName = prims.Select(prim => prim.SqlName).ToList();
-            List<string> intermediatePrimsNameTmp = new List<string>();
+            List<string> intermediatePrimsNameTmp = new();
             foreach (TableMemberInfo prim in prims)
             {
                 string intermediateName = "`" + prim.SqlName + "_" + instance.SqlTableName + "`";
@@ -49,7 +49,7 @@ namespace AventusSharp.Data.Storage.Mysql.Query
             foreignConstraint.Add(constraintProp);
 
 
-            prims = link.members.Where(f => f.IsPrimary).ToList();
+            prims = link.Members.Where(f => f.IsPrimary).ToList();
             primsName = prims.Select(prim => prim.SqlName).ToList();
             intermediatePrimsNameTmp = new List<string>();
             foreach (TableMemberInfo prim in prims)

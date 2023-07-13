@@ -11,14 +11,14 @@ namespace AventusSharp.WebSocket.precast
         public ErrorAnswer() { }
         public ErrorAnswer(string channel, string message)
         {
-            this.setBaseChannel(channel);
-            this.body.message = message;
+            SetBaseChannel(channel);
+            body.message = message;
         }
-        public override string defineName()
+        public override string DefineName()
         {
             return channel;
         }
-        public void setBaseChannel(string channel)
+        public void SetBaseChannel(string channel)
         {
             this.channel = channel + "/error";
         }

@@ -6,6 +6,6 @@ namespace AventusSharp.WebSocket.precast
 {
     public interface IWebSocketSenderPrecast
     {
-        void setBaseChannel(string channel);
+        void SetBaseChannel(string channel);
     }
 }

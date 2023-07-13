@@ -6,8 +6,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Data;
+using AventusSharp.Data.Manager;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -22,7 +22,7 @@ namespace AventusSharp.Data.Storage.Default
     {
         public static DbType? GetDbType(Type? type)
         {
-            if(type == null)
+            if (type == null)
                 return null;
             if (type == typeof(int))
                 return DbType.Int32;
@@ -41,26 +41,24 @@ namespace AventusSharp.Data.Storage.Default
             return null;
         }
         protected MemberInfo? memberInfo;
-        protected Dictionary<Type, MemberInfo> memberInfoByType = new Dictionary<Type, MemberInfo>();
+        protected Dictionary<Type, MemberInfo> memberInfoByType = new();
         public TableInfo TableInfo { get; private set; }
+        public IGenericDM? DM { get => TableInfo.DM; }
         public TableMemberInfo(TableInfo tableInfo)
         {
             TableInfo = tableInfo;
         }
-        public TableMemberInfo(FieldInfo fieldInfo, TableInfo tableInfo)
+        public TableMemberInfo(FieldInfo fieldInfo, TableInfo tableInfo) : this(tableInfo)
         {
             memberInfo = fieldInfo;
-            TableInfo = tableInfo;
         }
-        public TableMemberInfo(PropertyInfo propertyInfo, TableInfo tableInfo)
+        public TableMemberInfo(PropertyInfo propertyInfo, TableInfo tableInfo) : this(tableInfo)
         {
             memberInfo = propertyInfo;
-            TableInfo = tableInfo;
         }
-        public TableMemberInfo(MemberInfo? memberInfo, TableInfo tableInfo)
+        public TableMemberInfo(MemberInfo? memberInfo, TableInfo tableInfo) : this(tableInfo)
         {
             this.memberInfo = memberInfo;
-            TableInfo = tableInfo;
         }
 
         public void ChangeTableInfo(TableInfo tableInfo)
@@ -73,18 +71,24 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsAutoIncrement { get; protected set; }
         public bool IsNullable { get; protected set; }
         public bool IsDeleteOnCascade { get; protected set; }
+        public bool IsUpdatable { get; internal set; } = true;
         public string SqlTypeTxt { get; protected set; } = "";
         public DbType SqlType { get; protected set; }
         public string SqlName { get; protected set; } = "";
 
+        public bool IsAutoCreate { get; protected set; } = false;
+        public bool IsAutoUpdate { get; protected set; } = false;
+        public bool IsAutoDelete { get; protected set; } = false;
+        private readonly List<ValidationAttribute> ValidationAttributes = new();
+
         public virtual object? GetSqlValue(object obj)
         {
             // TODO maybe check constraint here
-            if (link == TableMemberInfoLink.None || link == TableMemberInfoLink.Parent)
+            if (Link == TableMemberInfoLink.None || Link == TableMemberInfoLink.Parent)
             {
                 return GetValue(obj);
             }
-            else if (link == TableMemberInfoLink.Simple)
+            else if (Link == TableMemberInfoLink.Simple)
             {
                 object? elementRef = GetValue(obj);
                 if (elementRef is IStorable storableLink)
@@ -108,27 +112,31 @@ namespace AventusSharp.Data.Storage.Default
             }
             if (type == typeof(int))
             {
-                int nb;
-                int.TryParse(value, out nb);
-                SetValue(obj, nb);
+                if (int.TryParse(value, out int nb))
+                {
+                    SetValue(obj, nb);
+                }
             }
             else if (type == typeof(double))
             {
-                double nb;
-                double.TryParse(value, out nb);
-                SetValue(obj, nb);
+                if (double.TryParse(value, out double nb))
+                {
+                    SetValue(obj, nb);
+                }
             }
             else if (type == typeof(float))
             {
-                float nb;
-                float.TryParse(value, out nb);
-                SetValue(obj, nb);
+                if (float.TryParse(value, out float nb))
+                {
+                    SetValue(obj, nb);
+                }
             }
             else if (type == typeof(decimal))
             {
-                decimal nb;
-                decimal.TryParse(value, out nb);
-                SetValue(obj, nb);
+                if (decimal.TryParse(value, out decimal nb))
+                {
+                    SetValue(obj, nb);
+                }
             }
             else if (type == typeof(string))
             {
@@ -170,20 +178,21 @@ namespace AventusSharp.Data.Storage.Default
         }
 
         #region link
-        public TableMemberInfoLink link { get; protected set; } = TableMemberInfoLink.None;
+        public TableMemberInfoLink Link { get; protected set; } = TableMemberInfoLink.None;
         public TableInfo? TableLinked { get; set; }
         public Type? TableLinkedType { get; protected set; }
 
         #endregion
         public TableMemberInfo TransformForParentLink(TableInfo parentTable)
         {
-            TableMemberInfo parentLink = new TableMemberInfo(memberInfo, TableInfo);
+            TableMemberInfo parentLink = new(memberInfo, TableInfo);
             parentLink.PrepareForSQL();
-            parentLink.link = TableMemberInfoLink.Parent;
+            parentLink.Link = TableMemberInfoLink.Parent;
             parentLink.TableLinked = parentTable;
             parentLink.IsPrimary = true;
             parentLink.IsAutoIncrement = false;
             parentLink.IsNullable = false;
+            parentLink.IsUpdatable = false;
             return parentLink;
         }
         public bool PrepareForSQL()
@@ -210,14 +219,14 @@ namespace AventusSharp.Data.Storage.Default
                 ForeignKey? attr = GetCustomAttribute<ForeignKey>();
                 if (attr != null)
                 {
-                    if (IsTypeUsable(attr.type))
+                    if (IsTypeUsable(attr.Type))
                     {
-                        link = TableMemberInfoLink.Simple;
-                        TableLinkedType = attr.type;
+                        Link = TableMemberInfoLink.Simple;
+                        TableLinkedType = attr.Type;
                     }
                     else
                     {
-                        string errorTxt = "Can't use type " + attr.type.FullName + " as foreign key inside " + TableInfo.SqlTableName;
+                        string errorTxt = "Can't use type " + attr.Type.FullName + " as foreign key inside " + TableInfo.SqlTableName;
                         new DataError(DataErrorCode.TypeNotStorable, errorTxt).Print();
                         return false;
                     }
@@ -236,13 +245,13 @@ namespace AventusSharp.Data.Storage.Default
                 Size? attr = GetCustomAttribute<Size>();
                 if (attr != null)
                 {
-                    if (attr.max)
+                    if (attr.Max)
                     {
                         SqlTypeTxt = "varchar(MAX)";
                     }
                     else
                     {
-                        SqlTypeTxt = "varchar(" + attr.nb + ")";
+                        SqlTypeTxt = "varchar(" + attr.Nb + ")";
                     }
                 }
                 else
@@ -272,7 +281,7 @@ namespace AventusSharp.Data.Storage.Default
             else if (IsTypeUsable(type))
             {
                 SqlType = DbType.Int32;
-                link = TableMemberInfoLink.Simple;
+                Link = TableMemberInfoLink.Simple;
                 TableLinkedType = type;
                 SqlTypeTxt = "int";
                 isOk = true;
@@ -283,7 +292,7 @@ namespace AventusSharp.Data.Storage.Default
                 Type? refType = IsListTypeUsable(type);
                 if (refType != null)
                 {
-                    link = TableMemberInfoLink.Multiple;
+                    Link = TableMemberInfoLink.Multiple;
                     TableLinkedType = refType;
                     isOk = true;
                 }
@@ -292,7 +301,7 @@ namespace AventusSharp.Data.Storage.Default
                     refType = IsDictionaryTypeUsable(type);
                     if (refType != null)
                     {
-                        link = TableMemberInfoLink.Multiple;
+                        Link = TableMemberInfoLink.Multiple;
                         TableLinkedType = refType;
                         isOk = true;
                     }
@@ -304,12 +313,13 @@ namespace AventusSharp.Data.Storage.Default
         protected void PrepareAttributesForSQL()
         {
             List<object> attributes = GetCustomAttributes(false);
-            IsNullable = DataMainManager.config?.nullByDefault ?? false;
+            IsNullable = DataMainManager.Config?.nullByDefault ?? false;
             foreach (object attribute in attributes)
             {
                 if (attribute is Primary)
                 {
                     IsPrimary = true;
+                    IsUpdatable = false;
                 }
                 else if (attribute is AutoIncrement)
                 {
@@ -319,13 +329,32 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     IsNullable = true;
                 }
-                else if (attribute is NotNullable)
+                else if (attribute is NotNullable notNullable)
                 {
                     IsNullable = false;
+                    ValidationAttributes.Add(notNullable);
                 }
                 else if (attribute is DeleteOnCascade)
                 {
                     IsDeleteOnCascade = true;
+                }
+                else if (attribute is AutoCreate)
+                {
+                    IsAutoCreate = true;
+                }
+                else if (attribute is AutoUpdate)
+                {
+                    IsAutoUpdate = true;
+                }
+                else if (attribute is AutoDelete)
+                {
+                    IsAutoDelete = true;
+                }
+                else if (attribute is AutoCUD)
+                {
+                    IsAutoCreate = true;
+                    IsAutoUpdate = true;
+                    IsAutoDelete = true;
                 }
             }
 
@@ -368,13 +397,27 @@ namespace AventusSharp.Data.Storage.Default
         }
         #endregion
 
+        public List<string> IsValid(object? o)
+        {
+            List<string> errors = new();
+            ValidationContext context = new(Name, Type);
+            foreach (var validationAttribute in ValidationAttributes)
+            {
+                ValidationResult result = validationAttribute.IsValid(o, context);
+                if (!string.IsNullOrEmpty(result.Msg))
+                {
+                    errors.Add(result.Msg);
+                }
+            }
 
+            return errors;
+        }
 
         #region merge info
         /// <summary>
         /// Interface for Type
         /// </summary>
-        public virtual Type? Type
+        public virtual Type Type
         {
             get
             {
@@ -386,7 +429,7 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     return propertyInfo.PropertyType;
                 }
-                return null;
+                throw new Exception("No type for field??");
             }
         }
         /// <summary>
@@ -546,7 +589,7 @@ namespace AventusSharp.Data.Storage.Default
             if (type != null)
             {
                 string typeTxt = type.Name;
-                if (!TypeTools.primitiveType.Contains(Type))
+                if (!TypeTools.PrimitiveType.Contains(Type))
                 {
                     typeTxt += " - " + type.Assembly.GetName().Name;
                 }

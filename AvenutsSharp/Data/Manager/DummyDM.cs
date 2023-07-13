@@ -28,7 +28,13 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
-        public override QueryBuilder<X> CreateQuery<X>()
+        public override ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        public override IQueryBuilder<X> CreateQuery<X>()
         {
             throw new NotImplementedException();
         }
@@ -48,7 +54,12 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
-        public override UpdateBuilder<X> CreateUpdate<X>()
+        public override IUpdateBuilder<X> CreateUpdate<X>()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IDeleteBuilder<X> CreateDelete<X>()
         {
             throw new NotImplementedException();
         }

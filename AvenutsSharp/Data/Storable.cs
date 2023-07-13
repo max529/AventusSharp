@@ -1,22 +1,27 @@
 ﻿using AventusSharp.Attributes;
 using AventusSharp.Data.Manager;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using AvenutsSharp.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace AventusSharp.Data
 {
     public class Storable
     {
-        internal Dictionary<Type, IStorage> storageByClass = new Dictionary<Type, IStorage>();
+        internal Dictionary<Type, IDBStorage> storageByClass = new();
     }
     public interface IStorable
     {
+#pragma warning disable IDE1006
         int id { get; set; }
+#pragma warning restore IDE1006
 
+        public List<string> IsValid(StorableAction action);
     }
 
     [ForceInherit]
@@ -26,25 +31,27 @@ namespace AventusSharp.Data
 
         [Primary, AutoIncrement]
         public int id { get; set; }
-
+#pragma warning disable IDE1006
         public DateTime createdDate { get; set; }
         public DateTime updatedDate { get; set; }
+#pragma warning restore IDE1006
 
         public static List<T> GetAll()
         {
             return GenericDM.Get<T>().GetAll<T>();
         }
-        public static QueryBuilder<T>? Query()
+        public static IQueryBuilder<T>? StartQuery()
         {
             return GenericDM.Get<T>().CreateQuery<T>();
         }
-        public static UpdateBuilder<T>? UpdateField(Expression<Func<T, object>> fct)
+        public static IUpdateBuilder<T>? StartUpdate()
         {
-            UpdateBuilder<T>? result = GenericDM.Get<T>().CreateUpdate<T>();
-            if(result != null)
-            {
-                result.UpdateField(fct);
-            }
+            IUpdateBuilder<T>? result = GenericDM.Get<T>().CreateUpdate<T>();
+            return result;
+        }
+        public static IDeleteBuilder<T>? StartDelete()
+        {
+            IDeleteBuilder<T>? result = GenericDM.Get<T>().CreateDelete<T>();
             return result;
         }
 
@@ -55,7 +62,7 @@ namespace AventusSharp.Data
 
         public static List<T> Where(Expression<Func<T, bool>> func)
         {
-            return GenericDM.Get<T>().Where<T>(func);
+            return GenericDM.Get<T>().Where(func);
         }
 
         #region Create
@@ -85,7 +92,7 @@ namespace AventusSharp.Data
                 return GenericDM.Get<T>().CreateWithError(values);
             }
 
-            ResultWithError<List<T>> result = new ResultWithError<List<T>>();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to create"));
             result.Result = new List<T>();
             return result;
@@ -131,14 +138,19 @@ namespace AventusSharp.Data
             if (this is T TThis)
             {
                 ResultWithError<T> result = GenericDM.Get<T>().CreateWithError(TThis);
-                if (Equals(result.Result, this))
+                if (result.Success)
                 {
-                    return result.Errors;
+                    if (Equals(result.Result, this))
+                    {
+                        return new List<DataError>();
+                    }
+                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
                 }
-                return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
+                return result.Errors;
+
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
-            DataError error = new DataError(DataErrorCode.WrongType, errorMsg);
+            DataError error = new(DataErrorCode.WrongType, errorMsg);
             error.Print();
             return new List<DataError>() { error };
         }
@@ -171,7 +183,7 @@ namespace AventusSharp.Data
                 return GenericDM.Get<T>().UpdateWithError(values);
             }
 
-            ResultWithError<List<T>> result = new ResultWithError<List<T>>();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to Update"));
             result.Result = new List<T>();
             return result;
@@ -225,7 +237,7 @@ namespace AventusSharp.Data
                 return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
-            DataError error = new DataError(DataErrorCode.WrongType, errorMsg);
+            DataError error = new(DataErrorCode.WrongType, errorMsg);
             error.Print();
             return new List<DataError>() { error };
         }
@@ -258,7 +270,7 @@ namespace AventusSharp.Data
                 return GenericDM.Get<T>().DeleteWithError(values);
             }
 
-            ResultWithError<List<T>> result = new ResultWithError<List<T>>();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to Delete"));
             result.Result = new List<T>();
             return result;
@@ -312,11 +324,25 @@ namespace AventusSharp.Data
                 return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
-            DataError error = new DataError(DataErrorCode.WrongType, errorMsg);
+            DataError error = new(DataErrorCode.WrongType, errorMsg);
             error.Print();
             return new List<DataError>() { error };
         }
         #endregion
 
+
+        public List<string> IsValid(StorableAction action)
+        {
+            List<string> errors = new();
+            errors.AddRange(ValidationRules(action));
+            return errors;
+        }
+
+        protected virtual List<string> ValidationRules(StorableAction action)
+        {
+            return new List<string>();
+        }
     }
+
+
 }

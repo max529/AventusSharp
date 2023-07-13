@@ -7,7 +7,7 @@ namespace AventusSharp.Tools
 {
     public static class TypeTools
     {
-        public static Type[] primitiveType
+        public static Type[] PrimitiveType
         {
             get => new Type[] {
                 typeof(Enum),

@@ -15,7 +15,7 @@ namespace AventusSharp.Tools
         public static Type[] GetCurrentInterfaces(this Type @type)
         {
             //All of the interfaces implemented by the class
-            HashSet<Type> allInterfaces = new HashSet<Type>(@type.GetInterfaces());
+            HashSet<Type> allInterfaces = new(@type.GetInterfaces());
 
             //Type one step down the hierarchy
             Type? baseType = @type.BaseType;
@@ -28,7 +28,7 @@ namespace AventusSharp.Tools
             }
 
 
-            HashSet<Type> toRemove = new HashSet<Type>();
+            HashSet<Type> toRemove = new();
             //Considering class A given above allInterfaces contain A and B now
             foreach (Type implementedByMostDerivedClass in allInterfaces)
             {

@@ -18,12 +18,12 @@ namespace AventusSharp.WebSocket
     /// <typeparam name="T">Type of class</typeparam>
     public abstract class WebSocketInstance<T> : IWebSocketInstance where T : IWebSocketInstance, new()
     {
-        private Dictionary<string, Func<WebSocketData, Task>> routes = new Dictionary<string, Func<WebSocketData, Task>>();
-        private List<Func<WebSocketData, Task>> middlewares;
-        private List<WebSocketConnection> connections;
-        private static WriteTypeJsonConverter converter = new WriteTypeJsonConverter();
-        private static Dictionary<Type, IWebSocketInstance> instances = new Dictionary<Type, IWebSocketInstance>();
-       
+        private readonly Dictionary<string, Func<WebSocketData, Task>> routes = new();
+        private readonly List<Func<WebSocketData, Task>> middlewares;
+        private readonly List<WebSocketConnection> connections;
+        private static readonly WriteTypeJsonConverter converter = new();
+        private static readonly Dictionary<Type, IWebSocketInstance> instances = new();
+
         /// <summary>
         /// Default constructor
         /// </summary>
@@ -36,7 +36,7 @@ namespace AventusSharp.WebSocket
         /// Get instance of socket
         /// </summary>
         /// <returns></returns>
-        public static T? getInstance()
+        public static T? GetInstance()
         {
             Type type = typeof(T);
             if (!instances.ContainsKey(type))
@@ -55,13 +55,13 @@ namespace AventusSharp.WebSocket
         /// You must only return ${socketName}
         /// </summary>
         /// <returns></returns>
-        public abstract string getSocketName();
+        public abstract string GetSocketName();
 
         /// <summary>
         /// Add action when a request go though this WS instance
         /// </summary>
         /// <param name="action"></param>
-        public void addUse(Func<WebSocketData, Task> action)
+        public void AddUse(Func<WebSocketData, Task> action)
         {
             middlewares.Add(action);
         }
@@ -69,7 +69,7 @@ namespace AventusSharp.WebSocket
         /// Add route inside the ws instance
         /// </summary>
         /// <param name="route"></param>
-        public void addRoute(string canal, Func<WebSocketData, Task> action)
+        public void AddRoute(string canal, Func<WebSocketData, Task> action)
         {
             if (routes.ContainsKey(canal))
             {
@@ -88,7 +88,7 @@ namespace AventusSharp.WebSocket
         /// <param name="context"></param>
         /// <param name="webSocket"></param>
         /// <returns></returns>
-        public virtual bool canOpenConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket)
+        public virtual bool CanOpenConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket)
         {
             return true;
         }
@@ -98,13 +98,13 @@ namespace AventusSharp.WebSocket
         /// <param name="context"></param>
         /// <param name="webSocket"></param>
         /// <returns></returns>
-        public async Task startNewInstance(HttpContext context, System.Net.WebSockets.WebSocket webSocket)
+        public async Task StartNewInstance(HttpContext context, System.Net.WebSockets.WebSocket webSocket)
         {
-            if (canOpenConnection(context, webSocket))
+            if (CanOpenConnection(context, webSocket))
             {
-                WebSocketConnection connection = new WebSocketConnection(context, webSocket, this);
+                WebSocketConnection connection = new(context, webSocket, this);
                 connections.Add(connection);
-                nbConnectionChanged(connections.Count);
+                NbConnectionChanged(connections.Count);
                 await connection.Start();
             }
             else
@@ -117,15 +117,15 @@ namespace AventusSharp.WebSocket
         /// Remove connection of WS 
         /// </summary>
         /// <param name="connection"></param>
-        public void removeInstance(WebSocketConnection connection)
+        public void RemoveInstance(WebSocketConnection connection)
         {
-            //Log.getInstance().WriteLine("Closing router for " + connection.getContext().Session.Id, "closingSocket");
+            //Log.GetInstance().WriteLine("Closing router for " + connection.getContext().Session.Id, "closingSocket");
             try
             {
                 if (connections.Contains(connection))
                 {
                     connections.Remove(connection);
-                    nbConnectionChanged(connections.Count);
+                    NbConnectionChanged(connections.Count);
                 }
             }
             catch
@@ -134,7 +134,7 @@ namespace AventusSharp.WebSocket
             }
             try
             {
-                connection.getWebSocket().Dispose();
+                connection.GetWebSocket().Dispose();
             }
             catch
             {
@@ -150,9 +150,9 @@ namespace AventusSharp.WebSocket
         /// <param name="data"></param>
         /// <param name="uid"></param>
         /// <returns></returns>
-        public async Task route(WebSocketConnection connection, string channel, JObject data, string uid = "")
+        public async Task Route(WebSocketConnection connection, string channel, JObject data, string uid = "")
         {
-            WebSocketData wsData = new WebSocketData(this, connection, data, uid);
+            WebSocketData wsData = new(this, connection, data, uid);
             foreach (var middleware in middlewares)
             {
 
@@ -175,7 +175,7 @@ namespace AventusSharp.WebSocket
         /// Number of connection changed
         /// </summary>
         /// <param name="nbConnection"></param>
-        protected virtual void nbConnectionChanged(int nbConnection) { }
+        protected virtual void NbConnectionChanged(int nbConnection) { }
 
         #region Broadcast
 
@@ -187,45 +187,45 @@ namespace AventusSharp.WebSocket
         /// <param name="connectionsToAvoid"></param>
         /// <param name="idsUser"></param>
         /// <returns></returns>
-        private List<WebSocketConnection> _broadcast(string eventName, JObject o, List<WebSocketConnection>? connectionsToAvoid = null)
+        private List<WebSocketConnection> Broadcast(string eventName, JObject o, List<WebSocketConnection>? connectionsToAvoid = null)
         {
-            List<WebSocketConnection> emitted = new List<WebSocketConnection>();
+            List<WebSocketConnection> emitted = new();
             try
             {
-                for (int i = 0; i < connections.Count(); i++)
+                for (int i = 0; i < connections.Count; i++)
                 {
                     WebSocketConnection conn = connections.ElementAt(i);
-                    if (conn.getWebSocket().State != System.Net.WebSockets.WebSocketState.Open)
+                    if (conn.GetWebSocket().State != System.Net.WebSockets.WebSocketState.Open)
                     {
-                        removeInstance(conn);
+                        RemoveInstance(conn);
                         i--;
                     }
                     else
                     {
                         if (connectionsToAvoid == null || !connectionsToAvoid.Contains(conn))
                         {
-                             _ = conn.send(eventName, o);
-                             emitted.Add(conn);
+                            _ = conn.Send(eventName, o);
+                            emitted.Add(conn);
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-               Console.WriteLine(e);
+                Console.WriteLine(e);
             }
             return emitted;
         }
 
         #region instance
 
-        public List<WebSocketConnection> broadcast(string eventName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
+        public List<WebSocketConnection> Broadcast(string eventName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
         {
             try
             {
                 string json = JsonConvert.SerializeObject(obj, converter);
                 JObject jObject = JObject.Parse(json);
-                return _broadcast(eventName, jObject, connectionToAvoid);
+                return Broadcast(eventName, jObject, connectionToAvoid);
             }
             catch (Exception e)
             {
@@ -233,17 +233,19 @@ namespace AventusSharp.WebSocket
             }
             return new List<WebSocketConnection>();
 
-            
+
         }
-        public List<WebSocketConnection> broadcast(string eventName, string keyName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
+        public List<WebSocketConnection> Broadcast(string eventName, string keyName, object obj, List<WebSocketConnection>? connectionToAvoid = null)
         {
             try
             {
                 string json = JsonConvert.SerializeObject(obj, converter);
                 JToken jTok = JToken.Parse(json);
-                JObject jObject = new JObject();
-                jObject.Add(keyName, jTok);
-                return _broadcast(eventName, jObject, connectionToAvoid);
+                JObject jObject = new()
+                {
+                    { keyName, jTok }
+                };
+                return Broadcast(eventName, jObject, connectionToAvoid);
             }
             catch (Exception e)
             {

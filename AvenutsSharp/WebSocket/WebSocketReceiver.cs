@@ -8,17 +8,17 @@ namespace AventusSharp.WebSocket
 {
     public interface IWebSocketReceiver
     {
-        void init();
-        string defineTrigger();
-        Type getBody();
+        void Init();
+        string DefineTrigger();
+        Type GetBody();
 
-        List<IWebSocketInstance> getWebSockets();
+        List<IWebSocketInstance> GetWebSockets();
     }
     public abstract class WebSocketReceiver<T, U> : IWebSocketReceiver where T : IWebSocketReceiver, new() where U : new()
     {
         #region singleton
-        private static Dictionary<Type, IWebSocketReceiver> singletons = new Dictionary<Type, IWebSocketReceiver>();
-        public static T? getInstance()
+        private static readonly Dictionary<Type, IWebSocketReceiver> singletons = new();
+        public static T? GetInstance()
         {
             Type type = typeof(T);
             if (!singletons.ContainsKey(type))
@@ -29,42 +29,42 @@ namespace AventusSharp.WebSocket
             {
                 return casted;
             }
-            return default(T);
+            return default;
         }
         protected WebSocketReceiver() { }
         #endregion
 
-        private List<IWebSocketInstance> instances = new List<IWebSocketInstance>();
+        private readonly List<IWebSocketInstance> instances = new();
 
-        public virtual void init()
+        public virtual void Init()
         {
-            string trigger = defineTrigger();
-            defineWebSockets();
+            string trigger = DefineTrigger();
+            DefineWebSockets();
             foreach (IWebSocketInstance instance in instances)
             {
-                instance.addRoute(trigger, async delegate (WebSocketData data)
+                instance.AddRoute(trigger, async delegate (WebSocketData data)
                 {
-                    U? item = data.getData<U>();
+                    U? item = data.GetData<U>();
                     if (item != null)
                     {
-                        await onMessage(data, item);
+                        await OnMessage(data, item);
                     }
                 });
             }
         }
 
-        public abstract string defineTrigger();
-        public Type getBody()
+        public abstract string DefineTrigger();
+        public Type GetBody()
         {
             return typeof(U);
         }
-        public abstract void defineWebSockets();
-        public void setWebSocket<X>() where X : IWebSocketInstance
+        public abstract void DefineWebSockets();
+        public void SetWebSocket<X>() where X : IWebSocketInstance
         {
-            MethodInfo? getInstance = typeof(X).GetMethod("getInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-            if (getInstance != null)
+            MethodInfo? GetInstance = typeof(X).GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            if (GetInstance != null)
             {
-                IWebSocketInstance? instance = (IWebSocketInstance?)getInstance.Invoke(null, null);
+                IWebSocketInstance? instance = (IWebSocketInstance?)GetInstance.Invoke(null, null);
                 if (instance != null)
                 {
                     instances.Add(instance);
@@ -72,17 +72,12 @@ namespace AventusSharp.WebSocket
             }
             
         }
-        public List<IWebSocketInstance> getWebSockets()
+        public List<IWebSocketInstance> GetWebSockets()
         {
             return instances;
         }
 
-        public abstract Task onMessage(WebSocketData socketData, U message);
-
-
-
-
-
+        public abstract Task OnMessage(WebSocketData socketData, U message);
 
     }
 }

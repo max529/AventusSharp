@@ -1,4 +1,5 @@
-﻿using AvenutsSharp.Attributes;
+﻿using AventusSharp.Data.Manager;
+using AvenutsSharp.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +12,7 @@ namespace AventusSharp.Data.Storage.Default
 {
     public class TableInfo
     {
-        public static string TypeIdentifierName = "__type";
+        public readonly static string TypeIdentifierName = "__type";
         public static string GetSQLTableName(Type type)
         {
             return type.Name.Split('`')[0];
@@ -47,16 +48,19 @@ namespace AventusSharp.Data.Storage.Default
         /// List of members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public List<TableMemberInfo> members { get; private set; } = new List<TableMemberInfo>();
+        public List<TableMemberInfo> Members { get; private set; } = new List<TableMemberInfo>();
 
+        public TableMemberInfo? TypeMember { get; private set; } = null;
 
         /// <summary>
         /// List of primaries members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public TableMemberInfo primary { get; set; }
+        public TableMemberInfo? Primary { get; set; }
 
         public Type Type { get; private set; }
+
+        public IGenericDM? DM { get; private set; }
 
         public TableInfo(PyramidInfo pyramid)
         {
@@ -66,15 +70,18 @@ namespace AventusSharp.Data.Storage.Default
             if (pyramid.type.IsGenericType)
             {
                 IsAbstract = true;
-                //typeToLoad = pyramid.type.MakeGenericType(pyramid.aliasType);
             }
             LoadMembers(typeToLoad);
+        }
 
+        public void LoadDM()
+        {
+            DM = GenericDM.Get(Type);
         }
 
         public void AddTypeMember()
         {
-            CustomTableMemberInfo typeMember = new CustomTableMemberInfo(TypeIdentifierName, this);
+            CustomTableMemberInfo typeMember = new(TypeIdentifierName, typeof(string), this);
             typeMember.DefineSQLInformation(new SQLInformation()
             {
                 SqlName = TypeIdentifierName,
@@ -85,8 +92,9 @@ namespace AventusSharp.Data.Storage.Default
             {
                 return obj.GetType().AssemblyQualifiedName;
             });
-
-            members.Insert(0, typeMember);
+            typeMember.IsUpdatable = false;
+            this.TypeMember = typeMember;
+            Members.Insert(0, typeMember);
         }
 
         private void LoadMembers(Type type)
@@ -95,32 +103,50 @@ namespace AventusSharp.Data.Storage.Default
             {
                 if (field.DeclaringType == type)
                 {
-                    TableMemberInfo temp = new TableMemberInfo(field, this);
-                    prepareMembers(temp);
+                    TableMemberInfo temp = new(field, this);
+                    PrepareMembers(temp);
                 }
             }
             foreach (PropertyInfo property in type.GetProperties())
             {
                 if (property.DeclaringType == type)
                 {
-                    TableMemberInfo temp = new TableMemberInfo(property, this);
-                    prepareMembers(temp);
+                    TableMemberInfo temp = new(property, this);
+                    PrepareMembers(temp);
                 }
             }
         }
-        private void prepareMembers(TableMemberInfo temp)
+        private void PrepareMembers(TableMemberInfo temp)
         {
             if (!temp.GetCustomAttributes(false).Any(o => o is NotInDB))
             {
                 if (temp.PrepareForSQL())
                 {
-                    members.Add(temp);
+                    Members.Add(temp);
                     if (temp.IsPrimary)
                     {
-                        primary = temp;
+                        Primary = temp;
                     }
                 }
             }
+        }
+
+        public bool IsChildOf(object o)
+        {
+            Type O = o.GetType();
+            if (Type.IsGenericType)
+            {
+                try
+                {
+                    Type T = Type.MakeGenericType(O);
+                    return O.IsSubclassOf(T);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            return O == Type;
         }
     }
 }

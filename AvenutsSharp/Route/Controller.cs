@@ -19,14 +19,14 @@ namespace AventusSharp.Route
 
         [HttpGet]
         [Route("api/[controller]/{id}")]
-        public T getById(int id)
+        public T GetById(int id)
         {
             return Storable<T>.GetById(id);
         }
 
         [HttpPost]
         [Route("api/[controller]")]
-        public T addFromJSON([FromBody] T body)
+        public T? AddFromJSON([FromBody] T body)
         {
             T? result = Storable<T>.Create(body);
             return result;
@@ -34,7 +34,7 @@ namespace AventusSharp.Route
 
         [HttpPut]
         [Route("api/[controller]/{id}")]
-        public T update(int id, [FromBody] T body)
+        public T? Update(int id, [FromBody] T body)
         {
             body.id = id;
             T? result = Storable<T>.Update(body);
@@ -43,7 +43,7 @@ namespace AventusSharp.Route
 
         [HttpDelete]
         [Route("api/[controller]/{id}")]
-        public T delete(int id)
+        public T? Delete(int id)
         {
             T item = Storable<T>.GetById(id);
             if (item != null)

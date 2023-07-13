@@ -12,23 +12,23 @@ namespace AventusSharp.WebSocket
     /// </summary>
     public class WebSocketData
     {
-        public IWebSocketInstance instance { get; set; }
+        public IWebSocketInstance Instance { get; set; }
         /// <summary>
         /// Socket
         /// </summary>
-        public WebSocketConnection socket { get; set; }
+        public WebSocketConnection Socket { get; set; }
         /// <summary>
         /// Data recieved in message
         /// </summary>
-        public JObject data { get; set; }
+        public JObject Data { get; set; }
         /// <summary>
         /// Metadata added in process
         /// </summary>
-        public Dictionary<string, object> metadata { get; set; }
+        public Dictionary<string, object> Metadata { get; set; }
         /// <summary>
         /// Unique identifier of the message
         /// </summary>
-        public string uid { get; set; }
+        public string Uid { get; set; }
         /// <summary>
         /// default constructor
         /// </summary>
@@ -37,11 +37,11 @@ namespace AventusSharp.WebSocket
         /// <param name="uid"></param>
         public WebSocketData(IWebSocketInstance instance, WebSocketConnection socket, JObject data, string uid)
         {
-            this.instance = instance;
-            this.socket = socket;
-            this.data = data;
-            this.uid = uid;
-            this.metadata = new Dictionary<string, object>();
+            Instance = instance;
+            Socket = socket;
+            Data = data;
+            Uid = uid;
+            Metadata = new Dictionary<string, object>();
         }
 
         #region parse data
@@ -51,11 +51,11 @@ namespace AventusSharp.WebSocket
         /// <typeparam name="T"></typeparam>
         /// <param name="propPath">Path where to find data</param>
         /// <returns></returns>
-        public T? getData<T>(string propPath = "")
+        public T? GetData<T>(string propPath = "")
         {
             try
             {
-                JToken? dataToUse = data;
+                JToken? dataToUse = Data;
                 string[] props = propPath.Split(".");
                 foreach (string prop in props)
                 {
@@ -65,7 +65,7 @@ namespace AventusSharp.WebSocket
                         if (dataToUse == null)
                         {
                             Console.WriteLine("Can't find path " + propPath + " in your data");
-                            return default(T);
+                            return default;
                         }
                     }
                 }
@@ -75,7 +75,7 @@ namespace AventusSharp.WebSocket
             {
                 Console.WriteLine(e);
             }
-            return default(T);
+            return default;
         }
 
         #endregion

@@ -9,10 +9,10 @@ namespace AventusSharp.Data.Manager
 {
     public interface IGenericDM
     {
-        Type getMainType();
-        List<Type> defineManualDependances();
+        Type GetMainType();
+        List<Type> DefineManualDependances();
         string Name { get; }
-        bool isInit { get; }
+        bool IsInit { get; }
 
         Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config);
         Task<bool> Init();
@@ -20,35 +20,40 @@ namespace AventusSharp.Data.Manager
         #region Get
         List<X> GetAll<X>() where X : notnull;
         ResultWithError<List<X>> GetAllWithError<X>() where X : notnull;
-        QueryBuilder<X>? CreateQuery<X>() where X : notnull;
-        UpdateBuilder<X>? CreateUpdate<X>() where X : notnull;
+        IQueryBuilder<X>? CreateQuery<X>() where X : notnull;
+        IUpdateBuilder<X>? CreateUpdate<X>() where X : notnull;
+        IDeleteBuilder<X>? CreateDelete<X>() where X : notnull;
 
+        object? GetById(int id);
         X GetById<X>(int id) where X : notnull;
         ResultWithError<X> GetByIdWithError<X>(int id) where X : notnull;
+
+        List<X> GetByIds<X>(List<int> ids) where X : notnull;
+        ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : notnull;
 
         List<X> Where<X>(Expression<Func<X, bool>> func) where X : notnull;
         ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : notnull;
         #endregion
 
         #region Create
-        List<X> Create<X>(List<X> values) where X : notnull;
-        ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : notnull;
-        X Create<X>(X value) where X : notnull;
-        ResultWithError<X> CreateWithError<X>(X value) where X : notnull;
+        List<X> Create<X>(List<X> values) where X : notnull, IStorable;
+        ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : notnull, IStorable;
+        X? Create<X>(X value) where X : notnull, IStorable;
+        ResultWithError<X> CreateWithError<X>(X value) where X : notnull, IStorable;
         #endregion
 
         #region Update
-        List<X> Update<X>(List<X> values) where X : notnull;
-        ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : notnull;
-        X Update<X>(X value) where X : notnull;
-        ResultWithError<X> UpdateWithError<X>(X value) where X : notnull;
+        List<X> Update<X>(List<X> values) where X : notnull, IStorable;
+        ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : notnull, IStorable;
+        X Update<X>(X value) where X : notnull, IStorable;
+        ResultWithError<X> UpdateWithError<X>(X value) where X : notnull, IStorable;
         #endregion
 
         #region Delete
-        List<X> Delete<X>(List<X> values) where X : notnull;
-        ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : notnull;
-        X Delete<X>(X value) where X : notnull;
-        ResultWithError<X> DeleteWithError<X>(X value) where X : notnull;
+        List<X> Delete<X>(List<X> values) where X : notnull, IStorable;
+        ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : notnull, IStorable;
+        X Delete<X>(X value) where X : notnull, IStorable;
+        ResultWithError<X> DeleteWithError<X>(X value) where X : notnull, IStorable;
         #endregion
 
     }
@@ -57,11 +62,14 @@ namespace AventusSharp.Data.Manager
         #region Get
         new List<X> GetAll<X>() where X : U;
         new ResultWithError<List<X>> GetAllWithError<X>() where X : U;
-        new QueryBuilder<X>? CreateQuery<X>() where X : U;
-        new UpdateBuilder<X>? CreateUpdate<X>() where X : U;
+        new IQueryBuilder<X>? CreateQuery<X>() where X : U;
+        new IUpdateBuilder<X>? CreateUpdate<X>() where X : U;
 
         new X? GetById<X>(int id) where X : U;
         new ResultWithError<X> GetByIdWithError<X>(int id) where X : U;
+
+        new List<X>? GetByIds<X>(List<int> ids) where X : U;
+        new ResultWithError<List<X>> GetByIdsWithError<X>(List<int> id) where X : U;
 
         new List<X> Where<X>(Expression<Func<X, bool>> func) where X : U;
         new ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U;
