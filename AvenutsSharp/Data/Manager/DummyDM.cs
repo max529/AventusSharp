@@ -49,7 +49,7 @@ namespace AventusSharp.Data.Manager
             throw new NotImplementedException();
         }
 
-        protected override Task<bool> Initialize()
+        protected override Task<VoidWithError> Initialize()
         {
             throw new NotImplementedException();
         }

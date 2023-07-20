@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -84,11 +85,11 @@ namespace AventusSharp.Data.Storage.Default
         #region connection
         public bool Connect()
         {
-            return ConnetWithError().Success;
+            return ConnectWithError().Success;
         }
-        public virtual ResultWithError<bool> ConnetWithError()
+        public virtual VoidWithError ConnectWithError()
         {
-            ResultWithError<bool> result = new();
+            VoidWithError result = new();
             try
             {
                 connection = GetConnection();
@@ -98,7 +99,6 @@ namespace AventusSharp.Data.Storage.Default
                     connection.Close();
                 }
                 IsConnectedOneTime = true;
-                result.Result = true;
             }
             catch (Exception e)
             {
@@ -357,7 +357,9 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 catch (Exception e)
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                    DataError error = new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo);
+                    error.Details.Add(command.CommandText);
+                    result.Errors.Add(error);
                     if (isNewTransaction)
                     {
                         ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
@@ -475,14 +477,19 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region init
-        public void CreateLinks()
+        public VoidWithError CreateLinks()
         {
+            VoidWithError result = new VoidWithError();
             if (!linksCreated)
             {
                 linksCreated = true;
                 foreach (TableInfo info in allTableInfos.Values.ToList())
                 {
-                    info.LoadDM();
+                    result = info.LoadDM();
+                    if (!result.Success)
+                    {
+                        return result;
+                    }
                     foreach (TableMemberInfo memberInfo in info.Members.ToList())
                     {
                         if (memberInfo.Link != TableMemberInfoLink.None && memberInfo.TableLinked == null && memberInfo.TableLinkedType != null)
@@ -495,13 +502,16 @@ namespace AventusSharp.Data.Storage.Default
                     }
                 }
             }
+            return result;
         }
-        public void AddPyramid(PyramidInfo pyramid)
+        public VoidWithError AddPyramid(PyramidInfo pyramid)
         {
-            AddPyramidLoop(pyramid, null, null, false);
+            linksCreated = false;
+            return AddPyramidLoop(pyramid, null, null, false);
         }
-        private void AddPyramidLoop(PyramidInfo pyramid, TableInfo? parent, List<TableMemberInfo>? membersToAdd, bool typeMemberCreated)
+        private VoidWithError AddPyramidLoop(PyramidInfo pyramid, TableInfo? parent, List<TableMemberInfo>? membersToAdd, bool typeMemberCreated)
         {
+            VoidWithError resultTemp;
             TableInfo classInfo = new(pyramid);
             if (pyramid.isForceInherit)
             {
@@ -509,7 +519,11 @@ namespace AventusSharp.Data.Storage.Default
                 membersToAdd.AddRange(classInfo.Members);
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    AddPyramidLoop(child, parent, membersToAdd, typeMemberCreated);
+                    resultTemp = AddPyramidLoop(child, parent, membersToAdd, typeMemberCreated);
+                    if(!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
                 }
             }
             else
@@ -575,11 +589,15 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    AddPyramidLoop(child, classInfo, null, typeMemberCreated);
+                    resultTemp = AddPyramidLoop(child, classInfo, null, typeMemberCreated);
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
                 }
             }
 
-
+            return new VoidWithError();
         }
         #endregion
 
@@ -726,18 +744,31 @@ namespace AventusSharp.Data.Storage.Default
                 for (int i = 0; i < queryResult.Result.Count; i++)
                 {
                     Dictionary<string, string> itemFields = queryResult.Result[i];
-                    object o = CreateObject(baseInfo, itemFields, queryBuilder.AllMembers);
-                    if (o is X oCasted)
+                    ResultWithError<object> resultTemp = CreateObject(baseInfo, itemFields, queryBuilder.AllMembers);
+                    if(resultTemp.Success && resultTemp.Result != null)
                     {
-                        result.Result.Add(oCasted);
+                        if (resultTemp.Result is X oCasted)
+                        {
+                            result.Result.Add(oCasted);
+                        }
+                        else
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Impossible to cast " + resultTemp.Result.GetType().Name + " into " + typeof(X).Name));
+                        }
                     }
+                    else
+                    {
+                        result.Errors.AddRange(resultTemp.Errors);
+                    }
+                    
                 }
             }
 
             return result;
         }
-        protected object CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields, bool allMembers)
+        protected ResultWithError<object> CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields, bool allMembers)
         {
+            ResultWithError<object> result = new ResultWithError<object>();
             string rootAlias = info.Alias;
             TableInfo rootTableInfo = info.TableInfo;
 
@@ -756,11 +787,17 @@ namespace AventusSharp.Data.Storage.Default
                 string fieldTypeName = rootAlias + "*" + TableInfo.TypeIdentifierName;
                 if (!itemFields.ContainsKey(fieldTypeName))
                 {
-                    throw new DataError(DataErrorCode.NoTypeIdentifierFoundInsideQuery, "Can't find the field " + TableInfo.TypeIdentifierName).GetException();
+                    result.Errors.Add(new DataError(DataErrorCode.NoTypeIdentifierFoundInsideQuery, "Can't find the field " + TableInfo.TypeIdentifierName));
+                    return result;
                 }
-
-                Type typeToCreate = Type.GetType(itemFields[fieldTypeName]) ?? throw new DataError(DataErrorCode.WrongType, "Can't find the type " + itemFields[fieldTypeName]).GetException();
-                o = TypeTools.CreateNewObj(typeToCreate);
+                
+                ResultWithError<Type> typeToCreate = TypeTools.GetTypeDataObject(itemFields[fieldTypeName]);
+                if(!typeToCreate.Success || typeToCreate.Result == null)
+                {
+                    result.Errors.AddRange(typeToCreate.Errors);
+                    return result;
+                }
+                o = TypeTools.CreateNewObj(typeToCreate.Result);
             }
             else
             {
@@ -791,18 +828,26 @@ namespace AventusSharp.Data.Storage.Default
                             else if (info.links.ContainsKey(memberInfo))
                             {
                                 // loaded from the query
-                                object oTemp = CreateObject(info.links[memberInfo], itemFields, allMembers);
-                                memberInfo.SetValue(o, oTemp);
+                                ResultWithError<object> oTemp = CreateObject(info.links[memberInfo], itemFields, allMembers);
+                                if (oTemp.Success && oTemp.Result != null)
+                                {
+                                    memberInfo.SetValue(o, oTemp.Result);
+                                }
+                                else
+                                {
+                                    result.Errors.AddRange(oTemp.Errors);
+                                }
                             }
                             else
                             {
-                                throw new Exception("impossible?");
+                                result.Errors.Add(new DataError(DataErrorCode.UnknowError, "impossible?"));
                             }
                         }
                     }
                 }
             }
-            return o;
+            result.Result = o;
+            return result;
         }
         public void LoadTableFieldQuery<X>(TableInfo tableInfo, string alias, DatabaseBuilderInfo baseInfo, List<string> path, List<Type> types, DatabaseQueryBuilder<X> queryBuilder) where X : IStorable
         {

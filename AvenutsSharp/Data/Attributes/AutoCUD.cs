@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AventusSharp.Attributes
+namespace AventusSharp.Data.Attributes
 {
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class AutoCUD : System.Attribute

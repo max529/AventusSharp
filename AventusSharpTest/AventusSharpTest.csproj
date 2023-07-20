@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Program\Logic\**" />
+    <EmbeddedResource Remove="Program\Logic\**" />
+    <None Remove="Program\Logic\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
     <PackageReference Include="NUnit" Version="3.13.1" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
@@ -15,10 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AvenutsSharp\AventusSharp.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Program\Logic\" />
   </ItemGroup>
 
 </Project>

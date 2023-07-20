@@ -1,5 +1,4 @@
-﻿using AventusSharp.Tools;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
@@ -8,14 +7,14 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-namespace AventusSharp.WebSocket
+namespace AventusSharp.Tools
 {
     /// <summary>
     /// Custom converter to add type when we need it (avoid dico and list bc crash in js)
     /// </summary>
     public class WriteTypeJsonConverter : JsonConverter
     {
-        private readonly List<string> propToRemove = new() { "_configurations" };
+        private readonly List<string> propToRemove = new() { };
 
         /// <summary>
         /// always true because we can always convert until object
@@ -74,7 +73,7 @@ namespace AventusSharp.WebSocket
                 {
                     IEnumerable? keys = (IEnumerable?)type.GetProperty("Keys")?.GetValue(value, null);
                     IEnumerable? values = (IEnumerable?)type.GetProperty("Values")?.GetValue(value, null);
-                    if(keys == null || values == null)
+                    if (keys == null || values == null)
                     {
                         return;
                     }

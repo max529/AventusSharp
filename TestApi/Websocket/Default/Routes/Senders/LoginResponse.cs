@@ -4,7 +4,7 @@ namespace TestApi.Websocket.Default.Routes.Senders
 {
     public class LoginResponse : WebSocketSender<LoginResponse, LoginResponse.Body>
     {
-        public override string defineName()
+        public override string DefineName()
         {
             return "/login/response";
         }

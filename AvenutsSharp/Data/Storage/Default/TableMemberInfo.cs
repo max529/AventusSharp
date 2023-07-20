@@ -1,6 +1,5 @@
-﻿using AventusSharp.Attributes;
+﻿using AventusSharp.Data.Attributes;
 using AventusSharp.Tools;
-using AvenutsSharp.Attributes;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Data;
 using AventusSharp.Data.Manager;
+using AvenutsSharp.Attributes.Data;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -491,7 +491,7 @@ namespace AventusSharp.Data.Storage.Default
         {
             try
             {
-                MemberInfo? member = GetRealMemmber(obj);
+                MemberInfo? member = GetRealMember(obj);
                 if (member is FieldInfo fieldInfo)
                 {
                     return fieldInfo.GetValue(obj);
@@ -518,7 +518,13 @@ namespace AventusSharp.Data.Storage.Default
         {
             try
             {
-                MemberInfo? member = GetRealMemmber(obj);
+                if (Link == TableMemberInfoLink.Simple && value is int)
+                {
+                    SetIntValueToStorable(obj, value);
+                    return;
+                }
+
+                MemberInfo? member = GetRealMember(obj);
                 if (member is FieldInfo fieldInfo)
                 {
                     fieldInfo.SetValue(obj, value);
@@ -534,6 +540,21 @@ namespace AventusSharp.Data.Storage.Default
                 new DataError(DataErrorCode.UnknowError, e).Print();
             }
         }
+
+        private void SetIntValueToStorable(object obj, object? value)
+        {
+            object? temp = GetValue(obj);
+            if (temp == null)
+            {
+                temp = Activator.CreateInstance(Type);
+                if(temp == null)
+                {
+                    throw new Exception("Can't create the type " + Type.Name);
+                }
+                SetValue(obj, temp);
+            }
+            TableLinked?.Primary?.SetValue(temp, value);
+        }
         /// <summary>
         /// Interface for ReflectedType
         /// </summary>
@@ -547,6 +568,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 else if (memberInfo is PropertyInfo propertyInfo)
                 {
+                    
                     return propertyInfo.ReflectedType;
                 }
                 return null;
@@ -559,20 +581,32 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        protected MemberInfo? GetRealMemmber(object obj)
+        protected MemberInfo? GetRealMember(object obj)
         {
-            MemberInfo? member = memberInfo;
-            if (member?.ReflectedType?.IsGenericType == true)
+            try
             {
-                Type typeToUse = obj.GetType();
-                if (!memberInfoByType.ContainsKey(typeToUse))
+                MemberInfo? member = memberInfo;
+                if (member?.ReflectedType?.IsGenericType == true)
                 {
-                    MemberInfo[] members = typeToUse.GetMember(member.Name);
-                    memberInfoByType.Add(typeToUse, members[0]);
+                    Type typeToUse = obj.GetType();
+                    if (!memberInfoByType.ContainsKey(typeToUse))
+                    {
+                        MemberInfo[] members = typeToUse.GetMember(member.Name);
+                        if(members.Length == 0)
+                        {
+                            return null;
+                        }
+                        memberInfoByType.Add(typeToUse, members[0]);
+                    }
+                    member = memberInfoByType[typeToUse];
                 }
-                member = memberInfoByType[typeToUse];
+                return member;
             }
-            return member;
+            catch(Exception e)
+            {
+                new DataError(DataErrorCode.UnknowError, e).Print();
+            }
+            return null;
         }
 
         #endregion

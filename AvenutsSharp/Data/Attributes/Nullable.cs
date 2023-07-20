@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AventusSharp.Attributes
+namespace AventusSharp.Data.Attributes
 {
     /// <summary>
     /// Attribute used to allow a null value for the Property

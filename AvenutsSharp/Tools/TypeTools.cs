@@ -1,6 +1,8 @@
-﻿using System;
+﻿using AventusSharp.Data;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 
 namespace AventusSharp.Tools
@@ -63,6 +65,26 @@ namespace AventusSharp.Tools
         public static T CreateNewObj<T>() where T : new()
         {
             return (T)CreateNewObj(typeof(T));
+        }
+
+        public static ResultWithError<Type> GetTypeDataObject(string fullname)
+        {
+            ResultWithError<Type> result = new ResultWithError<Type>();
+            Func<AssemblyName, Assembly?> func = (assemblieName) =>
+            {
+                Assembly? a = DataMainManager.searchingAssemblies.Find(a => a.FullName == assemblieName.FullName);
+                return a;
+            };
+            Type? typeToCreate = Type.GetType(fullname, func, null);
+            if (typeToCreate == null)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.WrongType, "Can't find the type " + fullname));
+            }
+            else
+            {
+                result.Result = typeToCreate;
+            }
+            return result;
         }
     }
 }

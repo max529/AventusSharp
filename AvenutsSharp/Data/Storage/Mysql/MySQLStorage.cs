@@ -31,9 +31,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return connection;
         }
 
-        public override ResultWithError<bool> ConnetWithError()
+        public override VoidWithError ConnectWithError()
         {
-            ResultWithError<bool> result = new();
+            VoidWithError result = new();
             try
             {
                 IsConnectedOneTime = true;
@@ -44,7 +44,6 @@ namespace AventusSharp.Data.Storage.Mysql
                     connection.Close();
                 }
                 IsConnectedOneTime = true;
-                result.Result = true;
             }
             catch (Exception e)
             {
@@ -80,7 +79,6 @@ namespace AventusSharp.Data.Storage.Mysql
                                 connection.Close();
                             }
                             IsConnectedOneTime = true;
-                            result.Result = true;
                         }
                         catch (Exception e2)
                         {

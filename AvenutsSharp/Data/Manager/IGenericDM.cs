@@ -14,8 +14,8 @@ namespace AventusSharp.Data.Manager
         string Name { get; }
         bool IsInit { get; }
 
-        Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config);
-        Task<bool> Init();
+        Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config);
+        Task<VoidWithError> Init();
 
         #region Get
         List<X> GetAll<X>() where X : notnull;

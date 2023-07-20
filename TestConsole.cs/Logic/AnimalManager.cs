@@ -12,7 +12,7 @@ using TestConsole.cs.Data.Abstract;
 
 namespace TestConsole.cs.Logic
 {
-    public class AnimalManager : DatabaseDM<AnimalManager, IAnimal>
+    public class AnimalManager : GenericDatabaseDM<AnimalManager, IAnimal>
     {
         public override List<Type> DefineManualDependances()
         {

@@ -6,21 +6,21 @@ namespace TestApi.Websocket.Default.Routes.Receivers
     public class Login : WebSocketReceiverAnswer<Login, Login.Body>
     {
 
-        public override string defineTrigger()
+        public override string DefineTrigger()
         {
             return "/login";
         }
 
-        public override void defineWebSockets()
+        public override void DefineWebSockets()
         {
-            setWebSocket<DefaultSocket>();
+            SetWebSocket<DefaultSocket>();
         }
-        public override void defineAnswers()
+        public override void DefineAnswers()
         {
-            setAnswer<LoginResponse>();
+            SetAnswer<LoginResponse>();
         }
 
-        public override async Task<IWebSocketSender> onMessage(WebSocketData socketData, Body message, WebSocketAnswerOptions options)
+        public override async Task<IWebSocketSender> OnMessage(WebSocketData socketData, Body message, WebSocketAnswerOptions options)
         {
             if (message.username == "root" && message.password == "root")
             {

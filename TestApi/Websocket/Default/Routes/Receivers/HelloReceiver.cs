@@ -11,22 +11,22 @@ namespace TestApi.Websocket.Default.Routes.Receivers
 {
     class HelloReceiver : WebSocketReceiverAnswer<HelloReceiver, EmptyBody>
     {
-        public override void defineAnswers()
+        public override void DefineAnswers()
         {
-            this.setAnswer<HelloSender>();
+            SetAnswer<HelloSender>();
         }
 
-        public override string defineTrigger()
+        public override string DefineTrigger()
         {
             return "/hello";
         }
 
-        public override void defineWebSockets()
+        public override void DefineWebSockets()
         {
-            setWebSocket<DefaultSocket>();
+            SetWebSocket<DefaultSocket>();
         }
 
-        public override async Task<IWebSocketSender> onMessage(WebSocketData socketData, EmptyBody message, WebSocketAnswerOptions options)
+        public override async Task<IWebSocketSender> OnMessage(WebSocketData socketData, EmptyBody message, WebSocketAnswerOptions options)
         {
             return new HelloSender();
         }

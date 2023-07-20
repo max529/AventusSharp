@@ -42,6 +42,7 @@ namespace AventusSharp.Data.Manager.DB.Update
                 ResultWithError<List<T>> resultQuery = DM.GetByIdsWithError<T>(resultTemp.Result);
                 if (resultQuery.Success && resultQuery.Result != null)
                 {
+                    // update data in cache
                     if (NeedUpdateField)
                     {
                         foreach (KeyValuePair<string, ParamsInfo> paramUpdated in UpdateParamsInfo)

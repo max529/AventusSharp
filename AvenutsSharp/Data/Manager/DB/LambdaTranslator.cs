@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -30,6 +31,14 @@ namespace AventusSharp.Data.Manager.DB
         private WhereGroup? currentGroup;
         private bool onParameter = false;
         private WhereGroupFctEnum fctMethodCall = WhereGroupFctEnum.None;
+        private List<Expression?> tree = new List<Expression?>();
+        private Expression? parentExpression
+        {
+            get
+            {
+                return tree.Count > 1 ? tree[tree.Count - 2] : null;
+            }
+        }
 
         public LambdaTranslator(ILambdaTranslatable databaseQueryBuilder)
         {
@@ -43,6 +52,15 @@ namespace AventusSharp.Data.Manager.DB
             Visit(expression);
 
             return queryGroupsBase;
+        }
+
+        [return: NotNullIfNotNull("node")]
+        public override Expression? Visit(Expression? node)
+        {
+            tree.Add(node);
+            Expression? result = base.Visit(node);
+            tree.RemoveAt(tree.Count - 1);
+            return result;
         }
 
         protected override Expression VisitUnary(UnaryExpression u)
@@ -282,6 +300,7 @@ namespace AventusSharp.Data.Manager.DB
 
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
+
             string methodName = node.Method.Name;
             Type? onType = node.Object?.Type;
             WhereGroupFctEnum? fct = null;
@@ -311,11 +330,16 @@ namespace AventusSharp.Data.Manager.DB
             }
             else if (methodName == "GetElement" && node.Method.DeclaringType == typeof(LambdaExtractVariables))
             {
+                
                 ConstantExpression on = transformToConstant(node.Object);
                 if (node.Arguments.Count == 1)
                 {
                     ConstantExpression param = transformToConstant(node.Arguments[0]);
                     object? result = node.Method.Invoke(on.Value, new object?[] { param.Value });
+                    if(parentExpression is BinaryExpression && param.Value != null && result != null)
+                    {
+                        SetQuickInfoToQueryBuilder(param.Value.ToString() ?? "", result.GetType());
+                    }
                     return Expression.Constant(result, node.Method.ReturnType);
                 }
             }
@@ -360,7 +384,6 @@ namespace AventusSharp.Data.Manager.DB
             currentGroup = queryGroups.LastOrDefault();
             return node;
         }
-
 
         private ConstantExpression transformToConstant(Expression? expression)
         {
@@ -420,6 +443,30 @@ namespace AventusSharp.Data.Manager.DB
                 MembersList = result,
                 Name = paramName,
                 TypeLvl0 = from,
+                Value = null,
+                FctMethodCall = fctMethodCall,
+            });
+
+            currentGroup?.Groups.Add(new WhereGroupConstantParameter(paramName));
+
+        }
+
+        private void SetQuickInfoToQueryBuilder(string paramName, Type type)
+        {
+            if (databaseBuilder.WhereParamsInfo.ContainsKey(paramName))
+            {
+                // already present
+                return;
+            }
+
+            DbType dbType = TableMemberInfo.GetDbType(type) ?? throw new Exception("Can't find a type to use inside sql for type " + type.Name);
+
+            databaseBuilder.WhereParamsInfo.Add(paramName, new ParamsInfo()
+            {
+                DbType = (DbType)dbType,
+                MembersList = new List<TableMemberInfo>(),
+                Name = paramName,
+                TypeLvl0 = type,
                 Value = null,
                 FctMethodCall = fctMethodCall,
             });

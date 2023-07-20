@@ -12,8 +12,8 @@ namespace AventusSharp.Data.Storage.Default
     public interface IDBStorage
     {
         public bool IsConnectedOneTime { get; }
-        public void CreateLinks();
-        public void AddPyramid(PyramidInfo pyramid);
+        public VoidWithError CreateLinks();
+        public VoidWithError AddPyramid(PyramidInfo pyramid);
         public TableInfo? GetTableInfo(Type type);
         public ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable;
         public ResultWithError<int> CreateFromBuilder<X>(DatabaseCreateBuilder<X> queryBuilder, X item) where X : IStorable;
@@ -26,7 +26,7 @@ namespace AventusSharp.Data.Storage.Default
         public ResultWithError<bool> CommitTransaction(DbTransaction transaction);
         public ResultWithError<bool> RollbackTransaction(DbTransaction transaction);
 
-        public bool Connect();
+        public VoidWithError ConnectWithError();
         public ResultWithError<bool> ResetStorage();
 
         public string GetDatabaseName();

@@ -1,4 +1,4 @@
-﻿namespace AventusSharp.Attributes
+﻿namespace AventusSharp.Data.Attributes
 {
     /// <summary>
     /// Attribute used for pushin the class fileds inside children

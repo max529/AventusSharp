@@ -16,8 +16,12 @@ namespace AventusSharp.Data.Manager
     public static class GenericDM
     {
         private static readonly Dictionary<Type, IGenericDM> dico = new();
+        private static readonly List<IGenericDM> dms = new();
 
-
+        public static List<Type> GetExistingDMTypes()
+        {
+            return dms.Select(v => v.GetType()).ToList();
+        }
         public static IGenericDM Get<U>() where U : IStorable
         {
             return Get(typeof(U));
@@ -30,13 +34,41 @@ namespace AventusSharp.Data.Manager
             }
             throw new DataError(DataErrorCode.DMNotExist, "Can't found a data manger for type " + U.Name).GetException();
         }
-        public static void Set(Type type, IGenericDM manager)
+        public static ResultWithError<IGenericDM> GetWithError<U>() where U : IStorable
         {
+            return GetWithError(typeof(U));
+        }
+        public static ResultWithError<IGenericDM> GetWithError(Type U)
+        {
+            ResultWithError<IGenericDM> result = new ResultWithError<IGenericDM>();
+            if (dico.ContainsKey(U))
+            {
+                result.Result = dico[U];
+                return result;
+            }
+            result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "Can't found a data manger for type " + U.Name));
+            return result;
+        }
+        public static VoidWithError Set(Type type, IGenericDM manager)
+        {
+            VoidWithError result = new VoidWithError();
             if (dico.ContainsKey(type))
             {
-                throw new DataError(DataErrorCode.DMAlreadyExist, "A manager already exists for type " + type.Name).GetException();
+                if (dico[type] != manager)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.DMAlreadyExist, "A manager already exists for type " + type.Name));
+                }
             }
-            dico[type] = manager;
+            else
+            {
+                if (!dms.Contains(manager))
+                {
+                    dms.Add(manager);
+                }
+                dico[type] = manager;
+            }
+            return result;
+
         }
     }
     public abstract class GenericDM<T, U> : IGenericDM<U> where T : IGenericDM<U>, new() where U : notnull, IStorable
@@ -53,11 +85,14 @@ namespace AventusSharp.Data.Manager
             mutexGetInstance.WaitOne();
             if (!instances.ContainsKey(typeof(T)))
             {
-                instances.Add(typeof(T), new T());
+                T dm = new T();
+                instances.Add(typeof(T), dm);
             }
             mutexGetInstance.ReleaseMutex();
             return instances[typeof(T)];
         }
+
+
         #endregion
 
         #region definition
@@ -89,8 +124,9 @@ namespace AventusSharp.Data.Manager
         }
 
         #region Config
-        public virtual Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        public virtual Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
+            VoidWithError result = new VoidWithError();
             PyramidInfo = pyramid;
             PyramidsInfo[pyramid.type] = pyramid;
             if (pyramid.aliasType != null)
@@ -98,49 +134,64 @@ namespace AventusSharp.Data.Manager
                 PyramidsInfo[pyramid.aliasType] = pyramid;
             }
             this.Config = config;
-            SetDMForType(pyramid, true);
-            return Task.FromResult(true);
+            result = SetDMForType(pyramid, true);
+            return Task.FromResult(result);
         }
 
-        private void SetDMForType(PyramidInfo pyramid, bool isRoot)
+        private VoidWithError SetDMForType(PyramidInfo pyramid, bool isRoot)
         {
+            VoidWithError result = new();
             if (!pyramid.isForceInherit || !isRoot)
             {
                 if (RootType == null)
                 {
                     RootType = pyramid.type;
                 }
-                GenericDM.Set(pyramid.type, this);
+                VoidWithError resultTemp = GenericDM.Set(pyramid.type, this);
+                if (!resultTemp.Success)
+                {
+                    return resultTemp;
+                }
                 PyramidsInfo[pyramid.type] = pyramid;
                 if (pyramid.aliasType != null)
                 {
-                    GenericDM.Set(pyramid.aliasType, this);
+                    resultTemp = GenericDM.Set(pyramid.aliasType, this);
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
                     PyramidsInfo[pyramid.aliasType] = pyramid;
                 }
             }
             foreach (PyramidInfo child in pyramid.children)
             {
-                SetDMForType(child, false);
+                VoidWithError resultTemp = SetDMForType(child, false);
+                if (!resultTemp.Success)
+                {
+                    return resultTemp;
+                }
             }
+            return result;
         }
 
-        public async Task<bool> Init()
+        public async Task<VoidWithError> Init()
         {
+            VoidWithError result = new();
             try
             {
-                if (await Initialize())
+                result = await Initialize();
+                if (result.Success)
                 {
                     IsInit = true;
-                    return true;
                 }
             }
             catch (Exception e)
             {
-                new DataError(DataErrorCode.UnknowError, e).Print();
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
             }
-            return false;
+            return result;
         }
-        protected abstract Task<bool> Initialize();
+        protected abstract Task<VoidWithError> Initialize();
         #endregion
 
         #region generic query
@@ -391,7 +442,7 @@ namespace AventusSharp.Data.Manager
             {
                 result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method CreateWithError"));
             }
-            
+
             return result;
         }
         /// <summary>
@@ -490,7 +541,7 @@ namespace AventusSharp.Data.Manager
             if (value is U)
             {
                 U? result = InvokeMethod<U, U>(new object[] { value });
-                if(result is X resultCasted)
+                if (result is X resultCasted)
                 {
                     return resultCasted;
                 }
@@ -521,7 +572,7 @@ namespace AventusSharp.Data.Manager
             ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
             if (resultTemp is IResultWithError resultWithError)
             {
-                if(resultWithError.Result is List<U> castedList)
+                if (resultWithError.Result is List<U> castedList)
                 {
                     result.Result = TransformList<U, X>(castedList);
                 }
@@ -593,7 +644,7 @@ namespace AventusSharp.Data.Manager
                 ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
                 if (resultTemp is IResultWithError resultWithError)
                 {
-                    if(resultWithError.Result is X castedItem)
+                    if (resultWithError.Result is X castedItem)
                     {
                         result.Result = castedItem;
                     }
@@ -784,9 +835,9 @@ namespace AventusSharp.Data.Manager
         protected List<Y> TransformList<X, Y>(List<X> input)
         {
             List<Y> result = new();
-            foreach(X item in input)
+            foreach (X item in input)
             {
-                if(item is Y casted)
+                if (item is Y casted)
                 {
                     result.Add(casted);
                 }
@@ -800,7 +851,7 @@ namespace AventusSharp.Data.Manager
             foreach (object param in parameters)
             {
                 Type type = param.GetType();
-                if(param is Expression exp && type.IsGenericType)
+                if (param is Expression exp && type.IsGenericType)
                 {
                     Type[] t = exp.Type.GetGenericArguments();
                     Type fctType = t.Length switch
@@ -859,7 +910,7 @@ namespace AventusSharp.Data.Manager
                             return false;
                         }
                     }
-                    
+
                     else if (parameterInfos[i].ParameterType != types[i])
                     {
                         return false;

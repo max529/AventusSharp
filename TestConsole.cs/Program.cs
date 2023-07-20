@@ -27,21 +27,24 @@ if (!storage.Connect())
     return;
 }
 storage.ResetStorage();
-Task<bool> registeringProcess = DataMainManager.Register(new DataManagerConfig()
+
+DataMainManager.Configure(config =>
 {
-    defaultStorage = storage,
-    defaultDM = typeof(DatabaseDMSimple<>),
-    log = new DataManagerConfigLog()
+    config.defaultStorage = storage;
+    config.defaultDM = typeof(DatabaseDM<>);
+    config.log = new DataManagerConfigLog()
     {
         monitorManagerInit = true,
-    },
-    preferLocalCache = true,
-    preferShortLink = true,
-    nullByDefault = false
+    };
+    config.preferLocalCache = true;
+    config.preferShortLink = true;
+    config.nullByDefault = false;
 });
 
+Task<VoidWithError> registeringProcess = DataMainManager.Init();
+
 registeringProcess.Wait();
-if (!registeringProcess.Result)
+if (!registeringProcess.Result.Success)
 {
     Console.WriteLine("something went wrong during loading");
     return;
@@ -57,7 +60,10 @@ EuropeanCountry swiss = new()
     shortName = "CH"
 };
 swiss.Create();
-
+// TODO manage auto-create / auto-update / auto-delete
+// TODO manage deleteOnCascade / DeleteSetNull
+// TODO manage reverse link [Attr]
+// TODO manage n-m links
 swiss.shortName = "CH2";
 
 Location home = new() { name = "Home", country = swiss };
@@ -101,23 +107,6 @@ Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
 Console.WriteLine("Creation done");
 #endregion
 
-Cat c1 = Cat.GetById(1);
-Console.WriteLine();
-PersonHuman ps = new PersonHuman()
-{
-    location = new Location()
-    {
-        id = 2
-    }
-};
-
-var temp = Cat.StartDelete().WhereWithParameters(c => c.id == ps.location.id);
-ps.location.id = 1;
-var res = temp.Prepare(ps).RunWithError();
-
-Cat c2 = Cat.GetById(1);
-Console.WriteLine();
-
 #region GetAll
 
 Console.WriteLine("GetAll");
@@ -160,12 +149,6 @@ Console.WriteLine("the first cat is " + cat1.name);
 Console.WriteLine("GetById done");
 #endregion
 
-//List<Cat> cats = Cat.Where(a => name == a.name && (a.id == 1));
-//foreach (Cat c in cats)
-//{
-//    Console.WriteLine("I found cat with where " + c.id + " named " + c.name);
-//}
-
 Console.ReadLine();
 
 #region Update
@@ -180,7 +163,6 @@ var test = Animal<IAnimal>.UpdateWithError(c);
 
 Console.WriteLine(felix.name);
 
-return;
 //maxime.firstname += "2";
 //PersonHuman.Update(maxime);
 
@@ -190,7 +172,6 @@ return;
 
 felix.name += "2";
 felix.Update();
-string newName = "newName";
 medor.name += "2";
 Animal<IAnimal>.Update(medor);
 
@@ -206,6 +187,9 @@ Console.ReadLine();
 
 #region Delete
 Console.WriteLine("Delete");
+
+var temp = home.DeleteWithError();
+Console.WriteLine("");
 
 PersonHuman.Delete(maxime);
 benjamin.Delete();

@@ -1,12 +1,9 @@
 ﻿using AventusSharp.Data.Manager;
-using AvenutsSharp.Attributes;
+using AventusSharp.Data.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -74,9 +71,19 @@ namespace AventusSharp.Data.Storage.Default
             LoadMembers(typeToLoad);
         }
 
-        public void LoadDM()
+        public VoidWithError LoadDM()
         {
-            DM = GenericDM.Get(Type);
+            VoidWithError result = new VoidWithError();
+            var resultTemp = GenericDM.GetWithError(Type);
+            if(resultTemp.Success && resultTemp.Result != null)
+            {
+                DM = resultTemp.Result;
+            }
+            else
+            {
+                result.Errors.AddRange(resultTemp.Errors);
+            }
+            return result;
         }
 
         public void AddTypeMember()

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AventusSharp.Attributes
+namespace AventusSharp.Data.Attributes
 {
     /// <summary>
     /// When the field below will be deleting the current item will be deleted too

@@ -8,7 +8,12 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Tools
 {
-    public class GenericError<T> where T : struct, IConvertible
+    public interface IGenericError
+    {
+        void Print();
+        Exception GetException();
+    }
+    public class GenericError<T> : IGenericError where T : struct, IConvertible
     {
         public T Code { get; set; }
 

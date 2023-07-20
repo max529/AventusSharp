@@ -10,7 +10,7 @@ using TestConsole.cs.Data.Abstract;
 
 namespace TestConsole.cs.Logic
 {
-    public class PersonManager : DatabaseDM<PersonManager, PersonHuman>
+    public class PersonManager : GenericDatabaseDM<PersonManager, PersonHuman>
     {
 
         protected override void DefineShortLinks<X>()

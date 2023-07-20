@@ -1,5 +1,5 @@
 ﻿using AventusSharp;
-using AventusSharp.Attributes;
+using AventusSharp.Data.Attributes;
 using AventusSharp.Data;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ namespace TestConsole.cs.Data
     {
         public string name { get; set; }
 
-        [AutoCreate, AutoUpdate]
+        [AutoCreate, AutoUpdate, AutoDelete]
         public ICountry country { get; set; }
     }
 }

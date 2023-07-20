@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AventusSharp.Attributes
+namespace AventusSharp.Data.Attributes
 {
     /**
      * Use it to add a link to your database (works only on int)

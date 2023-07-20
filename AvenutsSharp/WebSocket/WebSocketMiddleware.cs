@@ -25,9 +25,27 @@ namespace AventusSharp.WebSocket
         public static void Register(Assembly calling)
         {
             Type[] theList = calling.GetTypes();
+            List<Type> instances = new List<Type>();
+            List<Type> routes = new List<Type>();
+            foreach (Type theType in theList)
+            {
+                if(theType.Namespace != null)
+                {
+                    if (theType.GetInterfaces().Contains(typeof(IWebSocketInstance)))
+                    {
+                        instances.Add(theType);
+                    }
+                    else if(theType.GetInterfaces().Contains(typeof(IWebSocketReceiver)))
+                    {
+                        routes.Add(theType);
+                    }
+                }
+            }
+            Register(instances, routes);
+        }
 
-            IEnumerable<Type> instances = theList.Where(type => type.Namespace != null && type.GetInterfaces().Contains(typeof(IWebSocketInstance)));
-
+        public static void Register(IEnumerable<Type> instances, IEnumerable<Type> routes)
+        {
             foreach (Type instanceType in instances)
             {
                 if (instanceType.Name.StartsWith("<"))
@@ -47,8 +65,6 @@ namespace AventusSharp.WebSocket
                 Console.WriteLine("add ws router " + instance.GetSocketName());
                 routers.Add(instance.GetSocketName(), instance);
             }
-
-            IEnumerable<Type> routes = theList.Where(type => type.Namespace != null && type.GetInterfaces().Contains(typeof(IWebSocketReceiver)));
 
             foreach (Type routeType in routes)
             {

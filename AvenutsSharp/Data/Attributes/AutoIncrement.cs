@@ -1,9 +1,9 @@
 ﻿using System;
 
-namespace AvenutsSharp.Attributes
+namespace AvenutsSharp.Attributes.Data
 {
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class NotInDB : Attribute
+    public class AutoIncrement : System.Attribute
     {
     }
 }

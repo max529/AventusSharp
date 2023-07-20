@@ -1,13 +1,11 @@
-﻿using AventusSharp.Attributes;
+﻿using AventusSharp.Data.Attributes;
 using AventusSharp.Data.Manager;
 using AventusSharp.Data.Storage.Default;
-using AventusSharp.Tools;
-using AvenutsSharp.Attributes;
+using AvenutsSharp.Attributes.Data;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace AventusSharp.Data
 {
@@ -40,6 +38,10 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetAll<T>();
         }
+        public static ResultWithError<List<T>> GetAllWithError()
+        {
+            return GenericDM.Get<T>().GetAllWithError<T>();
+        }
         public static IQueryBuilder<T>? StartQuery()
         {
             return GenericDM.Get<T>().CreateQuery<T>();
@@ -59,10 +61,30 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetById<T>(id);
         }
+        public static ResultWithError<T> GetByIdWithError(int id)
+        {
+            return GenericDM.Get<T>().GetByIdWithError<T>(id);
+        }
+        public static List<T> GetByIds(List<int> ids)
+        {
+            return GenericDM.Get<T>().GetByIds<T>(ids);
+        }
+        public static ResultWithError<List<T>> GetByIdsWithError(List<int> ids)
+        {
+            return GenericDM.Get<T>().GetByIdsWithError<T>(ids);
+        }
+        public static ResultWithError<List<T>> GetByIdsWithError(params int[] ids)
+        {
+            return GenericDM.Get<T>().GetByIdsWithError<T>(ids.ToList());
+        }
 
         public static List<T> Where(Expression<Func<T, bool>> func)
         {
             return GenericDM.Get<T>().Where(func);
+        }
+        public static ResultWithError<List<T>> WhereWithError(Expression<Func<T, bool>> func)
+        {
+            return GenericDM.Get<T>().WhereWithError(func);
         }
 
         #region Create
@@ -230,11 +252,15 @@ namespace AventusSharp.Data
             if (this is T TThis)
             {
                 ResultWithError<T> result = GenericDM.Get<T>().UpdateWithError(TThis);
-                if (Equals(result.Result, this))
+                if (result.Success)
                 {
-                    return result.Errors;
+                    if (Equals(result.Result, this))
+                    {
+                        return result.Errors;
+                    }
+                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
                 }
-                return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
+                return result.Errors;
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
@@ -317,11 +343,15 @@ namespace AventusSharp.Data
             if (this is T TThis)
             {
                 ResultWithError<T> result = GenericDM.Get<T>().DeleteWithError(TThis);
-                if (Equals(result.Result, this))
+                if (result.Success)
                 {
-                    return result.Errors;
+                    if (Equals(result.Result, this))
+                    {
+                        return result.Errors;
+                    }
+                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
                 }
-                return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
+                return result.Errors;
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);

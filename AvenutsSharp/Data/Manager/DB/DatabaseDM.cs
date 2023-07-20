@@ -22,8 +22,63 @@ namespace AventusSharp.Data.Manager.DB
         public List<X> RemoveRecordsItems<X>(List<X> items) where X : IStorable;
     }
 
-    public class DatabaseDMSimple<T> : DatabaseDM<DatabaseDMSimple<T>, T> where T : IStorable { }
-    public class DatabaseDM<T, U> : GenericDM<T, U>, IDatabaseDM where T : IGenericDM<U>, new() where U : IStorable
+    public class DatabaseDM<U> : DatabaseDM<DatabaseDM<U>, U> where U : IStorable
+    {
+    }
+    public class DatabaseDM<T, U> : GenericDatabaseDM<T, U> where T : IGenericDM<U>, new() where U : IStorable
+    {
+        public override sealed Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        {
+            return base.SetConfiguration(pyramid, config);
+        }
+
+        public override sealed IDeleteBuilder<X> CreateDelete<X>()
+        {
+            return base.CreateDelete<X>();
+        }
+
+        public override sealed IQueryBuilder<X> CreateQuery<X>()
+        {
+            return base.CreateQuery<X>();
+        }
+        public override sealed IUpdateBuilder<X> CreateUpdate<X>()
+        {
+            return base.CreateUpdate<X>();
+        }
+        public override sealed ResultWithError<List<X>> CreateWithError<X>(List<X> values)
+        {
+            return base.CreateWithError(values);
+        }
+
+        public override sealed ResultWithError<List<X>> DeleteWithError<X>(List<X> values)
+        {
+            return base.DeleteWithError(values);
+        }
+
+        public override sealed ResultWithError<List<X>> GetAllWithError<X>()
+        {
+            return base.GetAllWithError<X>();
+        }
+        public override sealed ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids)
+        {
+            return base.GetByIdsWithError<X>(ids);
+        }
+        public override sealed ResultWithError<X> GetByIdWithError<X>(int id)
+        {
+            return base.GetByIdWithError<X>(id);
+        }
+
+        public override sealed ResultWithError<List<X>> UpdateWithError<X>(List<X> values)
+        {
+            return base.UpdateWithError(values);
+        }
+
+        public override sealed ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func)
+        {
+            return base.WhereWithError(func);
+        }
+    }
+    public class GenericDatabaseDM<T, U> : GenericDM<T, U>, IDatabaseDM where T : IGenericDM<U>, new() where U : IStorable
     {
         private Dictionary<int, U> Records { get; } = new Dictionary<int, U>();
 
@@ -75,19 +130,21 @@ namespace AventusSharp.Data.Manager.DB
 
         public bool IsShortLink(string path)
         {
-            if(ShortLinks == null)
+            if (ShortLinks == null)
             {
                 return NeedShortLink;
             }
             return ShortLinks.Contains(path);
         }
-        public override async Task<bool> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        public override async Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
+            VoidWithError result = new VoidWithError();
             storage = DefineStorage();
             storage ??= config.defaultStorage;
             if (storage == null)
             {
-                return false;
+                result.Errors.Add(new DataError(DataErrorCode.StorageNotFound, "Can't found a storage for " + Name));
+                return result;
             }
             bool? localCacheTemp = UseLocalCache();
             if (localCacheTemp == null)
@@ -110,34 +167,27 @@ namespace AventusSharp.Data.Manager.DB
             }
             if (!storage.IsConnectedOneTime)
             {
-                if (!storage.Connect())
+                VoidWithError resultTemp = storage.ConnectWithError();
+                if (!resultTemp.Success)
                 {
-                    return false;
+                    return resultTemp;
                 }
             }
             storage.AddPyramid(pyramid);
             return await base.SetConfiguration(pyramid, config);
 
         }
-        protected override Task<bool> Initialize()
+        protected override Task<VoidWithError> Initialize()
         {
+            VoidWithError result = new VoidWithError();
             if (storage != null)
             {
                 storage.CreateLinks();
-                VoidWithError result = storage.CreateTable(PyramidInfo);
-                if (result.Success)
-                {
-                    return Task.FromResult(true);
-                }
-
-                foreach (DataError error in result.Errors)
-                {
-                    error.Print();
-                }
-                return Task.FromResult(false);
+                result = storage.CreateTable(PyramidInfo);
+                return Task.FromResult(result);
             }
-            new DataError(DataErrorCode.StorageNotFound, "You must define a storage inside your DM " + GetType().Name).Print();
-            return Task.FromResult(false);
+            result.Errors.Add(new DataError(DataErrorCode.StorageNotFound, "You must define a storage inside your DM " + GetType().Name));
+            return Task.FromResult(result);
         }
 
 
@@ -180,13 +230,24 @@ namespace AventusSharp.Data.Manager.DB
             ResultWithError<List<X>> resultNoCache = GetAllWithErrorNoCache<X>();
             if (resultNoCache.Success && resultNoCache.Result != null)
             {
+                List<X> finalResult = new List<X>();
                 foreach (X newRecord in resultNoCache.Result)
                 {
                     if (!Records.ContainsKey(newRecord.id))
                     {
+                        finalResult.Add(newRecord);
                         Records.Add(newRecord.id, newRecord);
                     }
+                    else
+                    {
+                        U item = Records[newRecord.id];
+                        if (item is X casted)
+                        {
+                            finalResult.Add(casted);
+                        }
+                    }
                 }
+                resultNoCache.Result = finalResult;
                 GetAllDone.Add(type);
             }
             return resultNoCache;
@@ -504,7 +565,7 @@ namespace AventusSharp.Data.Manager.DB
                     {
                         DatabaseDeleteBuilder<X> query = new(Storage, this, NeedLocalCache, type);
                         query.WhereWithParameters(p => p.id == id);
-                        savedUpdateQuery[type] = query;
+                        savedDeleteQuery[type] = query;
                     }
 
                     ResultWithError<List<X>> resultTemp = ((DatabaseDeleteBuilder<X>)savedDeleteQuery[type]).Prepare(value.id).RunWithError();
