@@ -3,6 +3,7 @@ using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Mysql;
+using AventusSharp.Tools;
 using AventusSharp.WebSocket;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,7 @@ MySQLStorage storage = new(new StorageCredentials(
 {
     keepConnectionOpen = true,
 });
+
 if (!storage.Connect())
 {
     Console.WriteLine("Error during connection");
@@ -36,7 +38,7 @@ DataMainManager.Configure(config =>
     {
         monitorManagerInit = true,
     };
-    config.preferLocalCache = true;
+    config.preferLocalCache = false;
     config.preferShortLink = true;
     config.nullByDefault = false;
 });
@@ -44,12 +46,16 @@ DataMainManager.Configure(config =>
 Task<VoidWithError> registeringProcess = DataMainManager.Init();
 
 registeringProcess.Wait();
-if (!registeringProcess.Result.Success)
+VoidWithError appResult = registeringProcess.Result;
+
+if (!appResult.Success)
 {
-    Console.WriteLine("something went wrong during loading");
+    foreach (IGenericError error in appResult.Errors)
+    {
+        error.Print();
+    }
     return;
 }
-
 
 #region Creation
 Console.WriteLine("Creation ");
@@ -109,7 +115,9 @@ Console.WriteLine("Creation done");
 
 #region GetAll
 
+
 Console.WriteLine("GetAll");
+var t = PersonHuman.GetAllWithError();
 List<PersonHuman> people = PersonHuman.GetAll();
 Console.WriteLine("");
 foreach (PersonHuman p in people)

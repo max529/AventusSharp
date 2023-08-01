@@ -24,7 +24,7 @@ namespace AventusSharp.WebSocket
         private readonly System.Net.WebSockets.WebSocket webSocket;
         private readonly IWebSocketInstance instance;
         private WebSocketReceiveResult? result;
-        private readonly WriteTypeJsonConverter converter;
+        private readonly AventusJsonConverter converter;
         private readonly Dictionary<string, FileBodyElement> filesInProgress = new();
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace AventusSharp.WebSocket
             this.context = context;
             this.webSocket = webSocket;
             this.instance = instance;
-            converter = new WriteTypeJsonConverter();
+            converter = new AventusJsonConverter();
         }
         /// <summary>
         /// Start the WebSocket connection

@@ -42,7 +42,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         TableMemberInfo member = parentLink.Key.TypeMember;
                         fields.Add(alias + "." + member.SqlName + " `" + alias + "*" + member.SqlName + "`");
                     }
-                    joins.Add("INNER JOIN " + info.SqlTableName + " " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
+                    joins.Add("INNER JOIN `" + info.SqlTableName + "` " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
                     lastAlias = alias;
                     lastTableInfo = info;
                 }
@@ -63,7 +63,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                             TableMemberInfo member = child.TableInfo.TypeMember;
                             fields.Add(alias + "." + member.SqlName + " `" + alias + "*" + member.SqlName + "`");
                         }
-                        joins.Add("LEFT OUTER JOIN " + child.TableInfo.SqlTableName + " " + child.Alias + " ON " + parentAlias + "." + parentPrimName + "=" + alias + "." + primName);
+                        joins.Add("LEFT OUTER JOIN `" + child.TableInfo.SqlTableName + "` " + child.Alias + " ON " + parentAlias + "." + parentPrimName + "=" + alias + "." + primName);
                         loadChild(child.Children, alias, primName);
                     }
                 };
@@ -83,7 +83,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         continue;
                     }
-                    joins.Add("LEFT OUTER JOIN " + databaseQueryBuilderInfo.TableInfo.SqlTableName + " " + databaseQueryBuilderInfo.Alias + " ON " + baseInfo.Alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.Alias + "." + databaseQueryBuilderInfo.TableInfo.Primary?.SqlName);
+                    joins.Add("LEFT OUTER JOIN `" + databaseQueryBuilderInfo.TableInfo.SqlTableName + "` " + databaseQueryBuilderInfo.Alias + " ON " + baseInfo.Alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.Alias + "." + databaseQueryBuilderInfo.TableInfo.Primary?.SqlName);
                     path.Add(tableMemberInfo.Name);
                     types.Add(tableMemberInfo.Type);
                     loadInfo(databaseQueryBuilderInfo, path, types);
@@ -207,7 +207,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             }
 
             string sql = "SELECT " + string.Join(",", fields)
-                + " FROM " + mainInfo.TableInfo.SqlTableName + " " + mainInfo.Alias
+                + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
                 + joinTxt
                 + whereTxt;
 

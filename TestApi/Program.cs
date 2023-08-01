@@ -39,14 +39,14 @@ app.UseWebSockets(webSocketOptions);
 
 
 AventusSharp.WebSocket.WebSocketMiddleware.Register();
-AventusSharp.Route.RouterMiddleware.Register();
+AventusSharp.Routes.RouterMiddleware.Register();
 app.Use(async (context, next) =>
 {
     await AventusSharp.WebSocket.WebSocketMiddleware.OnRequest(context, next);
 });
 app.Use(async (context, next) =>
 {
-    await AventusSharp.Route.RouterMiddleware.OnRequest(context, next);
+    await AventusSharp.Routes.RouterMiddleware.OnRequest(context, next);
 });
 
 app.MapControllers();

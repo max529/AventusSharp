@@ -21,5 +21,10 @@ namespace TestConsole.cs.Logic
                 typeof(PersonHuman)
             };
         }
+
+        protected override bool? UseLocalCache()
+        {
+            return true;
+        }
     }
 }

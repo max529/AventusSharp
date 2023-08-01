@@ -143,6 +143,7 @@ namespace AventusSharp.Data.Manager
             VoidWithError result = new();
             if (!pyramid.isForceInherit || !isRoot)
             {
+                isRoot = false;
                 if (RootType == null)
                 {
                     RootType = pyramid.type;
@@ -165,7 +166,7 @@ namespace AventusSharp.Data.Manager
             }
             foreach (PyramidInfo child in pyramid.children)
             {
-                VoidWithError resultTemp = SetDMForType(child, false);
+                VoidWithError resultTemp = SetDMForType(child, isRoot);
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -224,10 +225,69 @@ namespace AventusSharp.Data.Manager
         #region Get
 
         #region GetAll
+        protected abstract ResultWithError<List<X>> GetAllLogic<X>() where X : U;
+
+        protected virtual List<DataError> CanGetAll()
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeGetAll()
+        {
+            try
+            {
+                BeforeGetAll();
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeGetAll()
+        {
+        }
+        private DataError? WrapperAfterGetAll<X>(ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterGetAll(result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterGetAll<X>(ResultWithError<List<X>> result) where X : U
+        {
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> GetAllWithError<X>() where X : U;
+        public ResultWithError<List<X>> GetAllWithError<X>() where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanGetAll();
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeGetAll();
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = GetAllLogic<X>();
+            error = WrapperAfterGetAll(result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -269,10 +329,70 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region GetById
+        protected abstract ResultWithError<X> GetByIdLogic<X>(int id) where X : U;
+
+        protected virtual List<DataError> CanGetById(int id)
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeGetById(int id)
+        {
+            try
+            {
+                BeforeGetById(id);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeGetById(int id)
+        {
+        }
+        private DataError? WrapperAfterGetById<X>(int id, ResultWithError<X> result) where X : U
+        {
+            try
+            {
+                AfterGetById(id, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterGetById<X>(int id, ResultWithError<X> result) where X : U
+        {
+        }
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<X> GetByIdWithError<X>(int id) where X : U;
+        public ResultWithError<X> GetByIdWithError<X>(int id) where X : U
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            List<DataError> errors = CanGetById(id);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeGetById(id);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = GetByIdLogic<X>(id);
+            error = WrapperAfterGetById(id, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -320,10 +440,70 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region GetByIds
+        protected abstract ResultWithError<List<X>> GetByIdsLogic<X>(List<int> ids) where X : U;
+
+        protected virtual List<DataError> CanGetByIds(List<int> ids)
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeGetByIds(List<int> ids)
+        {
+            try
+            {
+                BeforeGetByIds(ids);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeGetByIds(List<int> ids)
+        {
+        }
+        private DataError? WrapperAfterGetByIds<X>(List<int> ids, ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterGetByIds(ids, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterGetByIds<X>(List<int> ids, ResultWithError<List<X>> result) where X : U
+        {
+        }
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U;
+        public ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanGetByIds(ids);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeGetByIds(ids);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = GetByIdsLogic<X>(ids);
+            error = WrapperAfterGetByIds(ids, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -366,10 +546,71 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region Where
+        protected abstract ResultWithError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func) where X : U;
+
+        protected virtual List<DataError> CanWhere<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeWhere<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            try
+            {
+                BeforeWhere(func);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeWhere<X>(Expression<Func<X, bool>> func) where X : U
+        {
+        }
+        private DataError? WrapperAfterWhere<X>(Expression<Func<X, bool>> func, ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterWhere(func, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterWhere<X>(Expression<Func<X, bool>> func, ResultWithError<List<X>> result) where X : U
+        {
+        }
+
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U;
+        public ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanWhere(func);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeWhere(func);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = WhereLogic(func);
+            error = WrapperAfterWhere(func, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -414,10 +655,70 @@ namespace AventusSharp.Data.Manager
         #region Create
 
         #region List
+        protected abstract ResultWithError<List<X>> CreateLogic<X>(List<X> values) where X : U;
+        protected virtual List<DataError> CanCreate<X>(List<X> values) where X : U
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeCreate<X>(List<X> values) where X : U
+        {
+            try
+            {
+                BeforeCreate(values);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeCreate<X>(List<X> values) where X : U
+        {
+        }
+        private DataError? WrapperAfterCreate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterCreate(values, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterCreate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+        }
+
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U;
+        public ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanCreate(values);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeCreate(values);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = CreateLogic(values);
+            error = WrapperAfterCreate(values, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -427,15 +728,15 @@ namespace AventusSharp.Data.Manager
 
             List<U> valuesTemp = TransformList<X, U>(values);
             ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
-            if (resultTemp is IResultWithError resultCasted)
+            if (resultTemp != null)
             {
-                if (resultCasted.Result is List<U> castedList)
+                if (resultTemp.Result is List<U> castedList)
                 {
                     result.Result = TransformList<U, X>(castedList);
                 }
                 else
                 {
-                    result.Errors = resultCasted.Errors;
+                    result.Errors = resultTemp.Errors;
                 }
             }
             else
@@ -501,15 +802,15 @@ namespace AventusSharp.Data.Manager
             if (value is U)
             {
                 ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
-                if (resultTemp is IResultWithError resultCasted)
+                if (resultTemp != null)
                 {
-                    if (resultCasted.Result is X casted)
+                    if (resultTemp.Result is X casted)
                     {
                         result.Result = casted;
                     }
                     else
                     {
-                        result.Errors = resultCasted.Errors;
+                        result.Errors = resultTemp.Errors;
                     }
                 }
                 else
@@ -558,10 +859,70 @@ namespace AventusSharp.Data.Manager
         #region Update
 
         #region List
+        protected abstract ResultWithError<List<X>> UpdateLogic<X>(List<X> values) where X : U;
+        protected virtual List<DataError> CanUpdate<X>(List<X> values) where X : U
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeUpdate<X>(List<X> values) where X : U
+        {
+            try
+            {
+                BeforeUpdate(values);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeUpdate<X>(List<X> values) where X : U
+        {
+        }
+        private DataError? WrapperAfterUpdate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterUpdate(values, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterUpdate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+        }
+
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : U;
+        public ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanUpdate(values);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeUpdate(values);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = UpdateLogic(values);
+            error = WrapperAfterUpdate(values, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -570,15 +931,15 @@ namespace AventusSharp.Data.Manager
             ResultWithError<List<X>> result = new();
             List<U> valuesTemp = TransformList<X, U>(values);
             ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
-            if (resultTemp is IResultWithError resultWithError)
+            if (resultTemp != null)
             {
-                if (resultWithError.Result is List<U> castedList)
+                if (resultTemp.Result is List<U> castedList)
                 {
                     result.Result = TransformList<U, X>(castedList);
                 }
                 else
                 {
-                    result.Errors = resultWithError.Errors;
+                    result.Errors = resultTemp.Errors;
                 }
             }
             else
@@ -642,15 +1003,15 @@ namespace AventusSharp.Data.Manager
             if (value is U)
             {
                 ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
-                if (resultTemp is IResultWithError resultWithError)
+                if (resultTemp != null)
                 {
-                    if (resultWithError.Result is X castedItem)
+                    if (resultTemp.Result is X castedItem)
                     {
                         result.Result = castedItem;
                     }
                     else
                     {
-                        result.Errors = resultWithError.Errors;
+                        result.Errors = resultTemp.Errors;
                     }
                 }
                 else
@@ -696,10 +1057,69 @@ namespace AventusSharp.Data.Manager
         #region Delete
 
         #region List
+        protected abstract ResultWithError<List<X>> DeleteLogic<X>(List<X> values) where X : U;
+        protected virtual List<DataError> CanDelete<X>(List<X> values) where X : U
+        {
+            return new List<DataError>();
+        }
+        private DataError? WrapperBeforeDelete<X>(List<X> values) where X : U
+        {
+            try
+            {
+                BeforeDelete(values);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void BeforeDelete<X>(List<X> values) where X : U
+        {
+        }
+        private DataError? WrapperAfterDelete<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+            try
+            {
+                AfterDelete(values, result);
+                return null;
+            }
+            catch (Exception e)
+            {
+                return new DataError(DataErrorCode.UnknowError, e);
+            }
+        }
+        protected virtual void AfterDelete<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        {
+        }
+
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public abstract ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : U;
+        public ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : U
+        {
+            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            List<DataError> errors = CanDelete(values);
+            if (errors.Count > 0)
+            {
+                result.Errors = errors;
+                return result;
+            }
+            DataError? error = WrapperBeforeDelete(values);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            result = DeleteLogic(values);
+            error = WrapperAfterDelete(values, result);
+            if (error != null)
+            {
+                result.Errors.Add(error);
+                return result;
+            }
+            return result;
+        }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
@@ -708,15 +1128,15 @@ namespace AventusSharp.Data.Manager
             ResultWithError<List<X>> result = new();
             List<U> valuesTemp = TransformList<X, U>(values);
             ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
-            if (resultTemp is IResultWithError resultWithError)
+            if (resultTemp !=null)
             {
-                if (resultWithError.Result is List<U> castedList)
+                if (resultTemp.Result is List<U> castedList)
                 {
                     result.Result = TransformList<U, X>(castedList);
                 }
                 else
                 {
-                    result.Errors = resultWithError.Errors;
+                    result.Errors = resultTemp.Errors;
                 }
             }
             else
@@ -780,15 +1200,15 @@ namespace AventusSharp.Data.Manager
             if (value is U)
             {
                 ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
-                if (resultTemp is IResultWithError resultWithError)
+                if (resultTemp != null)
                 {
-                    if (resultWithError.Result is X castedItem)
+                    if (resultTemp.Result is X castedItem)
                     {
                         result.Result = castedItem;
                     }
                     else
                     {
-                        result.Errors = resultWithError.Errors;
+                        result.Errors = resultTemp.Errors;
                     }
                 }
                 else

@@ -8,6 +8,7 @@ using AventusSharp.Tools;
 using System.Threading.Tasks;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Attributes;
+using AventusSharp.Data.Manager.Dummy;
 
 namespace AventusSharp.Data
 {
@@ -20,6 +21,10 @@ namespace AventusSharp.Data
         public bool nullByDefault = false;
         public bool preferLocalCache = false;
         public bool preferShortLink = false;
+        public Func<Type, string> GetSQLTableName = (type) =>
+        {
+            return type.Name.Split('`')[0];
+        };
 
         public DataManagerConfig()
         {
@@ -54,7 +59,15 @@ namespace AventusSharp.Data
                     type = type.GetGenericTypeDefinition();
                     if (type.GetGenericArguments().Length == 1)
                     {
-                        DefaultDMType = type;
+                        Type[] constraints = type.GetGenericArguments()[0].GetGenericParameterConstraints();
+                        if (constraints.Length > 1 || constraints.Length == 0 || constraints[0] != typeof(IStorable))
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.DefaultDMGenericType, "Default DM (" + type.Name + ") must have only one generic type constraint of type IStorable"));
+                        }
+                        else
+                        {
+                            DefaultDMType = type;
+                        }
                     }
                     else
                     {
@@ -158,44 +171,48 @@ namespace AventusSharp.Data
                     storableMembersInfo.Add(new DataMemberInfo(property));
                 }
             }
-            
-            
+
+
             public async Task<VoidWithError> Init()
             {
                 VoidWithError resultTemp = new VoidWithError();
-
-                
-                resultTemp = GetAllManagers();
-                if (!resultTemp.Success)
+                try
                 {
-                    return resultTemp;
+                    resultTemp = GetAllManagers();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
+                    resultTemp = CalculateDataDependances();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
+                    resultTemp = OrderData();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
+                    resultTemp = MergeManager();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
+                    resultTemp = OrderedManager();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
+                    resultTemp = await InitManager();
+                    if (!resultTemp.Success)
+                    {
+                        return resultTemp;
+                    }
                 }
-                resultTemp = CalculateDataDependances();
-                if (!resultTemp.Success)
+                catch (Exception e)
                 {
-                    return resultTemp;
+                    resultTemp.Errors.Add(new(DataErrorCode.UnknowError, e));
                 }
-                resultTemp = OrderData();
-                if (!resultTemp.Success)
-                {
-                    return resultTemp;
-                }
-                resultTemp = MergeManager();
-                if (!resultTemp.Success)
-                {
-                    return resultTemp;
-                }
-                resultTemp = OrderedManager();
-                if (!resultTemp.Success)
-                {
-                    return resultTemp;
-                }
-                resultTemp = await InitManager();
-                if (!resultTemp.Success)
-                {
-                    return resultTemp;
-                }
-                
                 return resultTemp;
             }
 
@@ -217,7 +234,7 @@ namespace AventusSharp.Data
                     Type[] types = assembly.GetTypes();
                     foreach (Type type in types)
                     {
-                        if(type.GetInterfaces().Contains(typeof(IGenericDM)) && !type.IsAbstract && !type.IsGenericTypeDefinition && !managerTypes.Contains(type))
+                        if (type.GetInterfaces().Contains(typeof(IGenericDM)) && !type.IsAbstract && !type.IsGenericTypeDefinition && !managerTypes.Contains(type))
                         {
                             managerTypes.Add(type);
                         }
@@ -244,7 +261,7 @@ namespace AventusSharp.Data
                         time = new Stopwatch();
                         time.Restart();
                     }
-                    
+
                     MethodInfo? GetInstance = managerType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
                     if (GetInstance == null)
                     {
@@ -524,7 +541,7 @@ namespace AventusSharp.Data
                     if (waitingData[^1] == dataInformation)
                     {
                         // self referencing no error needed
-                        result.Result = - 1;
+                        result.Result = -1;
                         return result;
                     }
                     string msgError = "Infinite loop found for Data " + dataInformation.Name + "\n";
@@ -857,7 +874,8 @@ namespace AventusSharp.Data
                     )
                     {
                         dependances = dataInformation.dependances,
-                        aliasType = constraint
+                        aliasType = constraint,
+                        isForceInherit = dataInformation.IsForceInherit
                     };
                     result.Result = info;
                     if (parent != null)
@@ -872,7 +890,6 @@ namespace AventusSharp.Data
                             result = CreatePyramidStep(dataInformations[parent], pyramidFloors, aliasUsed);
                             if (result.Success && result.Result != null)
                             {
-                                result.Result.isForceInherit = true;
                                 if (pyramidFloors.ContainsKey(parent))
                                 {
                                     info.parent = pyramidFloors[parent];
@@ -884,9 +901,8 @@ namespace AventusSharp.Data
                                     return result;
                                 }
                             }
-                            else if(result.Errors.Count > 0)
+                            else if (result.Errors.Count > 0)
                             {
-                                result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why"));
                                 return result;
                             }
                         }
@@ -913,11 +929,11 @@ namespace AventusSharp.Data
                     try
                     {
                         ResultWithError<PyramidInfo> info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
-                        if(info.Success && info.Result != null)
+                        if (info.Success && info.Result != null)
                         {
                             result.Result ??= info.Result;
                         }
-                        else if(info.Errors.Count > 0)
+                        else if (info.Errors.Count > 0)
                         {
                             result.Errors.AddRange(info.Errors);
                             return result;
@@ -934,55 +950,62 @@ namespace AventusSharp.Data
             private ResultWithError<ManagerInformation> GetManager(DataInformation dataInformation)
             {
                 ResultWithError<ManagerInformation> result = new();
-                Type? dataType = dataInformation.Data;
-                if (dataType.IsGenericType)
+                try
                 {
-                    // type must be the interface
-                    ResultWithError<Type> resultTemp = GetTypeForGenericClass(dataType);
-                    if (!resultTemp.Success || resultTemp.Result == null )
+                    Type? dataType = dataInformation.Data;
+                    if (dataType.IsGenericType)
                     {
-                        result.Errors = resultTemp.Errors;
+                        // type must be the interface
+                        ResultWithError<Type> resultTemp = GetTypeForGenericClass(dataType);
+                        if (!resultTemp.Success || resultTemp.Result == null)
+                        {
+                            result.Errors = resultTemp.Errors;
+                            return result;
+                        }
+                        dataType = resultTemp.Result;
+                    }
+
+                    List<ManagerInformation> managers = managerInformations.ToList();
+                    foreach (ManagerInformation manager in managers)
+                    {
+                        if (manager.UsedForType(dataType))
+                        {
+                            result.Result = manager;
+                            return result;
+                        }
+                    }
+
+                    if (DefaultDMType == null)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "You must define a default DM"));
                         return result;
                     }
-                    dataType = resultTemp.Result;
-                }
-
-                List<ManagerInformation> managers = managerInformations.ToList();
-                foreach (ManagerInformation manager in managers)
-                {
-                    if (manager.UsedForType(dataType))
+                    Type simpleType = DefaultDMType.MakeGenericType(new Type[] { dataType });
+                    MethodInfo? GetInstance = simpleType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                    if (GetInstance == null)
                     {
-                        result.Result = manager;
+                        result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Your default DM doesn't have a method GetInstance"));
                         return result;
                     }
+                    IGenericDM? simpleManager = (IGenericDM?)GetInstance.Invoke(null, null);
+                    if (simpleManager == null)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "The methode GetInstance inside your default DM doesn't return a Generic DM"));
+                        return result;
+                    }
+                    ManagerInformation info = new(simpleManager)
+                    {
+                        dependances = new Dictionary<Type, List<string>>(),
+                        IsDummy = true,
+                    };
+                    info.AddDataInformation(dataInformation);
+                    managerInformations.Add(info);
+                    result.Result = info;
                 }
-
-                if (DefaultDMType == null)
+                catch (Exception e)
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "You must define a default DM"));
-                    return result;
+                    result.Errors.Add(new(DataErrorCode.UnknowError, e));
                 }
-                Type simpleType = DefaultDMType.MakeGenericType(new Type[] { dataType });
-                MethodInfo? GetInstance = simpleType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                if (GetInstance == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Your default DM doesn't have a method GetInstance"));
-                    return result;
-                }
-                IGenericDM? simpleManager = (IGenericDM?)GetInstance.Invoke(null, null);
-                if (simpleManager == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "The methode GetInstance inside your default DM doesn't return a Generic DM"));
-                    return result;
-                }
-                ManagerInformation info = new(simpleManager)
-                {
-                    dependances = new Dictionary<Type, List<string>>(),
-                    IsDummy = true,
-                };
-                info.AddDataInformation(dataInformation);
-                managerInformations.Add(info);
-                result.Result = info;
                 return result;
             }
 
@@ -1126,9 +1149,11 @@ namespace AventusSharp.Data
                 }
 
             }
+            
+            private bool? _IsForceInherit = null;
             public bool IsForceInherit
             {
-                get => Data.GetCustomAttributes(false).ToList().Exists(a => a is ForceInherit);
+                get => _IsForceInherit ??= Data.GetCustomAttributes(false).ToList().Exists(a => a is ForceInherit);
             }
 
 #pragma warning disable CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.

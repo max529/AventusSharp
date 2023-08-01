@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data;
+using AventusSharp.Data.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -13,6 +14,7 @@ namespace TestConsole.cs.Data.Abstract
     {
 
     }
+    [ForceInherit]
     public abstract class Animal<T> : Storable<T>, IAnimal, ITest where T : ITest, IAnimal
     {
         public string name { get; set; }

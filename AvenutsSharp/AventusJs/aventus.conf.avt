@@ -1,0 +1,13 @@
+{
+	"module": "AventusSharp",
+	"componentPrefix": "av",
+	"build": [
+		{
+			"name": "Main",
+			"inputPath": [
+				"./src/*"
+			],
+			"outputFile": "./dist/aventus_sharp.js"
+		}
+	]
+}

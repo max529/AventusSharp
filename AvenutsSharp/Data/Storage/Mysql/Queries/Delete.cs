@@ -91,7 +91,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     string alias = parentLink.Value;
                     TableInfo info = parentLink.Key;
 
-                    joins.Add("INNER JOIN " + info.SqlTableName + " " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
+                    joins.Add("INNER JOIN `" + info.SqlTableName + "` " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
                     lastAlias = alias;
                     lastTableInfo = info;
                     aliases.Insert(0, lastAlias + ".*");
@@ -211,7 +211,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 joinTxt = " " + joinTxt;
             }
 
-            string sql = "DELETE " + string.Join(",", aliases) + " FROM " + mainInfo.TableInfo.SqlTableName + " " + mainInfo.Alias
+            string sql = "DELETE " + string.Join(",", aliases) + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
                 + joinTxt
                 + whereTxt;
 

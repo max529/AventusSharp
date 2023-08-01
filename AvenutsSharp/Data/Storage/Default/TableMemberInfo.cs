@@ -7,7 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Data;
 using AventusSharp.Data.Manager;
-using AvenutsSharp.Attributes.Data;
+using AventusSharp.Attributes.Data;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -600,6 +600,12 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     member = memberInfoByType[typeToUse];
                 }
+
+                if (member == null || member.ReflectedType == null || !member.ReflectedType.IsInstanceOfType(obj))
+                {
+                    return null;
+                }
+
                 return member;
             }
             catch(Exception e)

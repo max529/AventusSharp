@@ -1,4 +1,4 @@
-﻿using AventusSharp.Route;
+﻿using AventusSharp.Routes;
 using TestApi.Data;
 
 namespace TestApi.Controllers

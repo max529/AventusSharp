@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data
 {
+    [Typescript]
     public enum DataErrorCode
     {
         DefaultDMGenericType,
@@ -32,7 +34,15 @@ namespace AventusSharp.Data
         WrongType,
         NoTypeIdentifierFoundInsideQuery,
         ItemNoExistInsideStorage,
-        ValidationError
+        ItemAlreadyExist,
+        ValidationError,
+        GetAllNotAllowed,
+        GetByIdNotAllowed,
+        GetByIdsNotAllowed,
+        WhereNotAllowed,
+        CreateNotAllowed,
+        UpdateNotAllowed,
+        DeleteNotAllowed
     }
     public class DataError : GenericError<DataErrorCode>
     {

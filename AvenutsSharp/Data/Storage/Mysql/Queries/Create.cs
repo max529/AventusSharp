@@ -47,7 +47,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     }
                 }
 
-                string sql = $"INSERT INTO {tableInfo.SqlTableName} ({string.Join(",", columns)}) VALUES ({string.Join(",", values)});";
+                string sql = $"INSERT INTO `{tableInfo.SqlTableName}` ({string.Join(",", columns)}) VALUES ({string.Join(",", values)});";
 
                 if (hasPrimaryResult)
                 {

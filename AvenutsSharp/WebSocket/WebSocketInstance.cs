@@ -22,7 +22,7 @@ namespace AventusSharp.WebSocket
         private readonly Dictionary<string, Func<WebSocketData, Task>> routes = new();
         private readonly List<Func<WebSocketData, Task>> middlewares;
         private readonly List<WebSocketConnection> connections;
-        private static readonly WriteTypeJsonConverter converter = new();
+        private static readonly AventusJsonConverter converter = new();
         private static readonly Dictionary<Type, IWebSocketInstance> instances = new();
 
         /// <summary>

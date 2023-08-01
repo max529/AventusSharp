@@ -1,7 +1,7 @@
-﻿using AventusSharp.Data.Attributes;
+﻿using AventusSharp.Attributes.Data;
+using AventusSharp.Data.Attributes;
 using AventusSharp.Data.Manager;
 using AventusSharp.Data.Storage.Default;
-using AvenutsSharp.Attributes.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +20,15 @@ namespace AventusSharp.Data
 #pragma warning restore IDE1006
 
         public List<string> IsValid(StorableAction action);
+
+        bool Create();
+        public List<DataError> CreateWithError();
+
+        bool Update();
+        public List<DataError> UpdateWithError();
+
+        public bool Delete();
+        public List<DataError> DeleteWithError();
     }
 
     [ForceInherit]
@@ -314,6 +323,26 @@ namespace AventusSharp.Data
                 return GenericDM.Get<T>().Delete(value);
             }
             return default;
+        }
+
+        public static T? Delete(int id)
+        {
+            ResultWithError<T> resultTemp = DeleteWithError(id);
+            if (resultTemp.Success && resultTemp.Result != null)
+            {
+                return resultTemp.Result;
+            }
+            return default;
+        }
+
+        public static ResultWithError<T> DeleteWithError(int id)
+        {
+            ResultWithError<T> resultTemp = GenericDM.Get<T>().GetByIdWithError<T>(id);
+            if (resultTemp.Success && resultTemp.Result != null)
+            {
+                resultTemp.Errors = resultTemp.Result.DeleteWithError();
+            }
+            return resultTemp;
         }
         /// <summary>
         /// Delete the value inside the DM and return it

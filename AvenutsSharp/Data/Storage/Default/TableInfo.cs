@@ -12,7 +12,7 @@ namespace AventusSharp.Data.Storage.Default
         public readonly static string TypeIdentifierName = "__type";
         public static string GetSQLTableName(Type type)
         {
-            return type.Name.Split('`')[0];
+            return DataMainManager.Config.GetSQLTableName(type);
         }
 
         /// <summary>

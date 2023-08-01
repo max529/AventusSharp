@@ -87,7 +87,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             {
                 sql += separator;
                 string joinedPrimary = string.Join(",", primaryConstraint);
-                string primaryProp = "\tCONSTRAINT PK_" + table.SqlTableName + " PRIMARY KEY (" + joinedPrimary + ")";
+                string primaryProp = "\tCONSTRAINT `PK_" + table.SqlTableName + "` PRIMARY KEY (" + joinedPrimary + ")";
                 sql += primaryProp;
             }
             if (foreignConstraint.Count > 0)

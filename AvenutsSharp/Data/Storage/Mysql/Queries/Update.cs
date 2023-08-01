@@ -30,7 +30,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         LoadTableFieldUpdate(info, alias, updateBuilder.UpdateParamsInfo);
                     }
-                    joins.Add("INNER JOIN " + info.SqlTableName + " " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
+                    joins.Add("INNER JOIN `" + info.SqlTableName + "` " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
                     lastAlias = alias;
                     lastTableInfo = info;
                 }
@@ -154,7 +154,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 joinTxt = " " + joinTxt;
             }
 
-            string sql = "UPDATE " + mainInfo.TableInfo.SqlTableName + " " + mainInfo.Alias
+            string sql = "UPDATE `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
                 + joinTxt
                 + " SET " + string.Join(",", fields)
                 + whereTxt;
@@ -167,7 +167,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 throw new Exception("Can't find Id... 0_o");
             }
             string idField = pair.Value + "." + pair.Key.SqlName;
-            updateBuilder.SqlQuery = "SELECT " + idField + " FROM " + mainInfo.TableInfo.SqlTableName + " " + mainInfo.Alias + joinTxt + whereTxt;
+            updateBuilder.SqlQuery = "SELECT " + idField + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias + joinTxt + whereTxt;
             return sql;
         }
 
