@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using AventusSharp.Tools;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -54,6 +55,11 @@ namespace AventusSharp.Data.Storage.Default
         /// </summary>
         /// <remarks></remarks>
         public TableMemberInfo? Primary { get; set; }
+        /// <summary>
+        /// List of reverse members for this class only
+        /// </summary>
+        /// <remarks></remarks>
+        public List<TableMemberInfo> ReverseMembers { get; private set; } = new List<TableMemberInfo>();
 
         public Type Type { get; private set; }
 
@@ -68,14 +74,18 @@ namespace AventusSharp.Data.Storage.Default
             {
                 IsAbstract = true;
             }
-            LoadMembers(typeToLoad);
         }
 
-        public VoidWithError LoadDM()
+        public VoidWithDataError Init()
         {
-            VoidWithError result = new VoidWithError();
+            return LoadMembers(Type);
+        }
+
+        public VoidWithDataError LoadDM()
+        {
+            VoidWithDataError result = new VoidWithDataError();
             var resultTemp = GenericDM.GetWithError(Type);
-            if(resultTemp.Success && resultTemp.Result != null)
+            if (resultTemp.Success && resultTemp.Result != null)
             {
                 DM = resultTemp.Result;
             }
@@ -104,14 +114,18 @@ namespace AventusSharp.Data.Storage.Default
             Members.Insert(0, typeMember);
         }
 
-        private void LoadMembers(Type type)
+        private VoidWithDataError LoadMembers(Type type)
         {
             foreach (FieldInfo field in type.GetFields())
             {
                 if (field.DeclaringType == type)
                 {
                     TableMemberInfo temp = new(field, this);
-                    PrepareMembers(temp);
+                    VoidWithDataError result = PrepareMembers(temp);
+                    if (!result.Success)
+                    {
+                        return result;
+                    }
                 }
             }
             foreach (PropertyInfo property in type.GetProperties())
@@ -119,23 +133,50 @@ namespace AventusSharp.Data.Storage.Default
                 if (property.DeclaringType == type)
                 {
                     TableMemberInfo temp = new(property, this);
-                    PrepareMembers(temp);
-                }
-            }
-        }
-        private void PrepareMembers(TableMemberInfo temp)
-        {
-            if (!temp.GetCustomAttributes(false).Any(o => o is NotInDB))
-            {
-                if (temp.PrepareForSQL())
-                {
-                    Members.Add(temp);
-                    if (temp.IsPrimary)
+                    VoidWithDataError result = PrepareMembers(temp);
+                    if (!result.Success)
                     {
-                        Primary = temp;
+                        return result;
                     }
                 }
             }
+            return new VoidWithDataError();
+        }
+        private VoidWithDataError PrepareMembers(TableMemberInfo temp)
+        {
+            List<object> attrs = temp.GetCustomAttributes(false);
+            bool isNormalMember = true;
+            foreach (object attr in attrs)
+            {
+                if (attr is NotInDB)
+                {
+                    isNormalMember = false;
+                }
+                else if (attr is ReverseLink reverseLinkAttr)
+                {
+                    VoidWithDataError result = temp.SetReverseLink(reverseLinkAttr);
+                    if (!result.Success)
+                    {
+                        return result;
+                    }
+                    ReverseMembers.Add(temp);
+                    isNormalMember = false;
+                }
+            }
+            if (isNormalMember)
+            {
+                VoidWithDataError result = temp.PrepareForSQL();
+                if (!result.Success)
+                {
+                    return result;
+                }
+                Members.Add(temp);
+                if (temp.IsPrimary)
+                {
+                    Primary = temp;
+                }
+            }
+            return new VoidWithDataError();
         }
 
         public bool IsChildOf(object o)

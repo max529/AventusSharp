@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Scriban;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace AventusSharp.Routes.Response
@@ -14,7 +17,7 @@ namespace AventusSharp.Routes.Response
         {
             this.viewName = viewName;
         }
-        public async Task send(HttpContext context)
+        async Task IResponse.send(HttpContext context)
         {
             string path = Path.Combine(directory, viewName);
             if (!path.EndsWith(".html"))

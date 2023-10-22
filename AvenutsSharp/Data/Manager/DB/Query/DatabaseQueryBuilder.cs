@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -13,19 +14,19 @@ namespace AventusSharp.Data.Manager.DB.Query
 
         public DatabaseQueryBuilder(IDBStorage storage) : base(storage)
         {
-           
+
         }
 
         public List<T> Run()
         {
-            ResultWithError<List<T>> result = Storage.QueryFromBuilder(this);
+            ResultWithDataError<List<T>> result = Storage.QueryFromBuilder(this);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
             }
             return new List<T>();
         }
-        public ResultWithError<List<T>> RunWithError()
+        public ResultWithDataError<List<T>> RunWithError()
         {
             return Storage.QueryFromBuilder(this);
         }
@@ -44,12 +45,12 @@ namespace AventusSharp.Data.Manager.DB.Query
 
         public IQueryBuilder<T> Prepare(params object[] objects)
         {
-           PrepareGeneric(objects);
+            PrepareGeneric(objects);
             return this;
         }
         public IQueryBuilder<T> SetVariable(string name, object value)
         {
-           SetVariableGeneric(name, value);
+            SetVariableGeneric(name, value);
             return this;
         }
 
@@ -65,6 +66,5 @@ namespace AventusSharp.Data.Manager.DB.Query
             IncludeGeneric(expression);
             return this;
         }
-
     }
 }

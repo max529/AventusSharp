@@ -1,4 +1,4 @@
-﻿using AventusSharp.Data;
+﻿using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data.Abstract;
 using AventusSharpTest.Test.AAB_Create;
@@ -32,10 +32,10 @@ namespace AventusSharpTest.Test.AAD_Update
         {
             Cat c = new()
             {
-                id = 1,
+                Id = 1,
                 name = "felix2"
             };
-            ResultWithError<IAnimal> resultWithError = Animal<IAnimal>.UpdateWithError(c);
+            ResultWithDataError<IAnimal> resultWithError = Animal<IAnimal>.UpdateWithError(c);
             NUnitExt.AssertNoError(resultWithError);
 
             IAnimal animal = resultWithError.Result;

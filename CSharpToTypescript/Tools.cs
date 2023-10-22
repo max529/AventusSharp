@@ -1,4 +1,6 @@
-﻿using AventusSharp.Tools.Attributes;
+﻿using AventusSharp.Data;
+using AventusSharp.Tools.Attributes;
+using CSharpToTypescript.Container;
 using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
@@ -84,15 +86,85 @@ namespace CSharpToTypescript
             return finalPathToImport;
         }
 
-
-        public static Type? GetCompiledType(ISymbol type) 
+        public static string GetFullName(ISymbol type)
+        {
+            List<string> parentNames = new List<string>();
+            ISymbol t = type;
+            while (t.ContainingType != null)
+            {
+                parentNames.Add(t.ContainingType.Name);
+                t = t.ContainingType;
+            }
+            if (parentNames.Count > 0)
+            {
+                return type.ContainingNamespace.ToString() + "." + string.Join("+", parentNames) + "+" + type.Name;
+            }
+            return type.ContainingNamespace.ToString() + "." + type.Name;
+        }
+        public static bool Is<X>(INamedTypeSymbol type, bool avoidInterface = false, bool avoidBaseAssembly = false)
+        {
+            bool result;
+            if (!avoidInterface)
+            {
+                result = type.AllInterfaces.ToList().Find(p => IsSameType<X>(p)) != null || Tools.GetFullName(type) == typeof(X).FullName;
+            }
+            else
+            {
+                result = type.AllInterfaces.ToList().Find(p => IsSameType<X>(p)) != null;
+            }
+            if (!result)
+            {
+                return false;
+            }
+            if (avoidBaseAssembly)
+            {
+                string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
+                if (type.IsGenericType)
+                {
+                    fullName += "`" + type.TypeParameters.Length;
+                }
+                Type? realType = ProjectManager.Config.compiledAssembly.GetType(fullName);
+                if (realType != null && realType.Assembly == typeof(IStorable).Assembly)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        public static Type? GetCompiledType(INamedTypeSymbol type)
         {
             string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
-            //if (type.IsGenericType)
-            //{
-            //    fullName += "`" + type.TypeParameters.Length;
-            //}
+            if (type.IsGenericType)
+            {
+                fullName += "`" + type.TypeParameters.Length;
+            }
+            fullName += ", " + type.ContainingAssembly.Name;
+            Type? realType = Type.GetType(fullName);
+            return realType;
+        }
+
+        public static INamedTypeSymbol? GetTypeSymbol(Type type)
+        {
+            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(type.FullName ?? "");
+            if (typeSymbol is INamedTypeSymbol namedType)
+            {
+                return namedType;
+            }
             return null;
+        }
+
+        public static bool IsSubclass(Type parent, Type child)
+        {
+            while (child != null && child != typeof(object))
+            {
+                var cur = child.IsGenericType ? child.GetGenericTypeDefinition() : child;
+                if (parent == cur)
+                {
+                    return true;
+                }
+                child = child.BaseType;
+            }
+            return false;
         }
     }
 }

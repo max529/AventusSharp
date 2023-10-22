@@ -1,9 +1,11 @@
 ﻿using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Manager.DB.Create;
 using AventusSharp.Data.Manager.DB.Delete;
+using AventusSharp.Data.Manager.DB.Exist;
 using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Manager.DB.Update;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
@@ -31,9 +33,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return connection;
         }
 
-        public override VoidWithError ConnectWithError()
+        public override VoidWithDataError ConnectWithError()
         {
-            VoidWithError result = new();
+            VoidWithDataError result = new();
             try
             {
                 IsConnectedOneTime = true;
@@ -99,9 +101,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return result;
         }
 
-        public override ResultWithError<DbCommand> CreateCmd(string sql)
+        public override ResultWithDataError<DbCommand> CreateCmd(string sql)
         {
-            ResultWithError<DbCommand> result = new();
+            ResultWithDataError<DbCommand> result = new();
             MySqlConnection? mySqlConnection = (MySqlConnection?)connection;
             if (mySqlConnection != null)
             {
@@ -121,9 +123,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return new MySqlParameter();
         }
 
-        public override ResultWithError<bool> ResetStorage()
+        public override ResultWithDataError<bool> ResetStorage()
         {
-            ResultWithError<bool> result = new();
+            ResultWithDataError<bool> result = new();
             string sql = "SELECT concat('DROP TABLE IF EXISTS `', table_name, '`;') as query FROM information_schema.tables WHERE table_schema = '" + this.database + "'; ";
             StorageQueryResult queryResult = Query(sql);
             if (!queryResult.Success)
@@ -174,6 +176,13 @@ namespace AventusSharp.Data.Storage.Mysql
 
         #endregion
 
+        #region exist
+        protected override string PrepareSQLForExist<X>(DatabaseExistBuilder<X> queryBuilder)
+        {
+            return Queries.Exist.PrepareSQL(queryBuilder, this);
+        }
+        #endregion
+
         #region create
         protected override List<DatabaseCreateBuilderInfo> PrepareSQLForCreate<X>(DatabaseCreateBuilder<X> createBuilder)
         {
@@ -182,7 +191,7 @@ namespace AventusSharp.Data.Storage.Mysql
         #endregion
 
         #region update
-        protected override string PrepareSQLForUpdate<X>(DatabaseUpdateBuilder<X> updateBuilder)
+        protected override DatabaseUpdateBuilderInfo PrepareSQLForUpdate<X>(DatabaseUpdateBuilder<X> updateBuilder)
         {
             return Queries.Update.PrepareSQL(updateBuilder, this);
         }
@@ -197,29 +206,7 @@ namespace AventusSharp.Data.Storage.Mysql
        
         #endregion
 
-        public string GetFctName(WhereGroupFctEnum fctEnum)
-        {
-            return fctEnum switch
-            {
-                WhereGroupFctEnum.Add => " + ",
-                WhereGroupFctEnum.And => " AND ",
-                WhereGroupFctEnum.ContainsStr or WhereGroupFctEnum.StartsWith or WhereGroupFctEnum.EndsWith => " LIKE ",
-                WhereGroupFctEnum.Divide => " / ",
-                WhereGroupFctEnum.Equal => " = ",
-                WhereGroupFctEnum.GreaterThan => " > ",
-                WhereGroupFctEnum.GreaterThanOrEqual => " >= ",
-                WhereGroupFctEnum.LessThan => " < ",
-                WhereGroupFctEnum.LessThanOrEqual => " <= ",
-                WhereGroupFctEnum.Multiply => " * ",
-                WhereGroupFctEnum.Not => " NOT ",
-                WhereGroupFctEnum.NotEqual => " <> ",
-                WhereGroupFctEnum.Or => " OR ",
-                WhereGroupFctEnum.Subtract => " - ",
-                WhereGroupFctEnum.ListContains => " IN ",
-                _ => "",
-            };
-        }
-
+        
         protected override object? TransformValueForFct(ParamsInfo paramsInfo)
         {
             if (paramsInfo.Value is string casted)

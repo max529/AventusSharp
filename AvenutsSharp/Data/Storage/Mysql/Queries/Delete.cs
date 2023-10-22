@@ -1,6 +1,7 @@
 ﻿using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Manager.DB.Delete;
 using AventusSharp.Data.Storage.Default;
+using Microsoft.AspNetCore.Http.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -62,8 +63,6 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 return result;
             }
 
-            Console.WriteLine(sql);
-
             DeleteQueryInfo infoFinal = new(
                 sql: sql,
                 getParams: func,
@@ -97,114 +96,10 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     aliases.Insert(0, lastAlias + ".*");
                 }
             }
-
             loadInfo(mainInfo);
 
-
-            string whereTxt = "";
-            if (deleteBuilder.Wheres != null)
-            {
-                string buildWhere(WhereGroup whereGroup, string whereTxt)
-                {
-                    whereTxt += "(";
-                    string subQuery = "";
-                    IWhereGroup? lastGroup = null;
-                    foreach (IWhereGroup queryGroup in whereGroup.Groups)
-                    {
-                        if (queryGroup is WhereGroup childWhereGroup)
-                        {
-                            subQuery += buildWhere(childWhereGroup, "");
-                        }
-                        else if (queryGroup is WhereGroupFct fctGroup)
-                        {
-                            subQuery += storage.GetFctName(fctGroup.Fct);
-                        }
-                        else if (queryGroup is WhereGroupConstantNull nullConst)
-                        {
-                            // special case for IS and IS NOT
-                            if (whereGroup.Groups.Count == 3)
-                            {
-                                WhereGroupFct? fctGrp = null;
-                                WhereGroupField? fieldGrp = null;
-                                for (int i = 0; i < whereGroup.Groups.Count; i++)
-                                {
-                                    if (whereGroup.Groups[i] is WhereGroupFct fctGrpTemp && (fctGrpTemp.Fct == WhereGroupFctEnum.Equal || fctGrpTemp.Fct == WhereGroupFctEnum.NotEqual))
-                                    {
-                                        fctGrp = fctGrpTemp;
-                                    }
-                                    else if (whereGroup.Groups[i] is WhereGroupField fieldGrpTemp)
-                                    {
-                                        fieldGrp = fieldGrpTemp;
-                                    }
-                                }
-
-                                if (fctGrp != null && fieldGrp != null)
-                                {
-                                    string action = fctGrp.Fct == WhereGroupFctEnum.Equal ? " IS NULL" : " IS NOT NULL";
-                                    subQuery = fieldGrp.Alias + "." + fieldGrp.TableMemberInfo.SqlName + action;
-                                    break;
-                                }
-                            }
-
-                            subQuery += "NULL";
-                        }
-                        else if (queryGroup is WhereGroupConstantBool boolConst)
-                        {
-                            subQuery += boolConst.Value ? "1" : "0";
-                        }
-                        else if (queryGroup is WhereGroupConstantString stringConst)
-                        {
-                            string strValue = "'" + stringConst.Value + "'";
-                            if (lastGroup is WhereGroupFct groupFct)
-                            {
-                                if (groupFct.Fct == WhereGroupFctEnum.StartsWith)
-                                {
-                                    strValue = "'" + stringConst.Value + "%'";
-                                }
-                                else if (groupFct.Fct == WhereGroupFctEnum.EndsWith)
-                                {
-                                    strValue = "'%" + stringConst.Value + "'";
-                                }
-                                else if (groupFct.Fct == WhereGroupFctEnum.ContainsStr)
-                                {
-                                    strValue = "'%" + stringConst.Value + "%'";
-                                }
-                            }
-                            subQuery += strValue;
-                        }
-                        else if (queryGroup is WhereGroupConstantDateTime dateTimeConst)
-                        {
-                            subQuery += "'" + dateTimeConst.Value.ToString("yyyy-MM-dd HH:mm:ss") + "'";
-                        }
-                        else if (queryGroup is WhereGroupConstantOther otherConst)
-                        {
-                            subQuery += otherConst.Value;
-                        }
-                        else if (queryGroup is WhereGroupConstantParameter paramConst)
-                        {
-                            subQuery += "@" + paramConst.Value;
-                        }
-                        else if (queryGroup is WhereGroupField fieldGrp)
-                        {
-                            subQuery += fieldGrp.Alias + "." + fieldGrp.TableMemberInfo.SqlName;
-                        }
-                        lastGroup = queryGroup;
-                    }
-                    whereTxt += subQuery;
-                    whereTxt += ")";
-                    return whereTxt;
-                }
-
-                foreach (WhereGroup whereGroup in deleteBuilder.Wheres)
-                {
-                    whereTxt += buildWhere(whereGroup, whereTxt);
-                }
-                if (whereTxt.Length > 1)
-                {
-                    whereTxt = " WHERE " + whereTxt;
-                }
-            }
-
+            string whereTxt = BuilderTools.Where(deleteBuilder.Wheres);
+            
             string joinTxt = string.Join(" ", joins);
             if (joinTxt.Length > 1)
             {
@@ -216,7 +111,6 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 + whereTxt;
 
 
-            Console.WriteLine(sql);
             return sql;
         }
 

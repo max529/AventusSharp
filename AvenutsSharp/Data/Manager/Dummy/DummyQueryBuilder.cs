@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AventusSharp.Tools;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
@@ -10,11 +11,12 @@ namespace AventusSharp.Data.Manager.Dummy
         {
             throw new NotImplementedException();
         }
-
+        
         public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> memberExpression)
         {
             throw new NotImplementedException();
         }
+
 
         public IQueryBuilder<T> Prepare(params object[] objects)
         {
@@ -26,7 +28,7 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
-        public ResultWithError<List<T>> RunWithError()
+        public ResultWithDataError<List<T>> RunWithError()
         {
             throw new NotImplementedException();
         }
@@ -41,9 +43,11 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
+
         public IQueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> func)
         {
             throw new NotImplementedException();
         }
+        
     }
 }

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CSharpToTypescript": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\Rayuki\\Core\\Core\\aventus.sharp.avt"
+    }
+  }
+}

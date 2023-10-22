@@ -7,7 +7,8 @@
 			"inputPath": [
 				"./src/*"
 			],
-			"outputFile": "./dist/aventus_sharp.js"
+			"outputPackage": "D:\\Aventus\\Aventus\\lib\\Aventus@Sharp.package.avt",
+			"hideWarnings": true
 		}
 	]
 }

@@ -23,6 +23,22 @@ namespace CSharpToTypescript
             fileName = Path.Combine(ProjectManager.Config.outputPath, fileName);
             return fileName;
         }
+        public static BaseContainer? GetContainer(ISymbol? symbol)
+        {
+            if (symbol == null) return null;
+
+            foreach (FileToWrite file in allFiles.Values)
+            {
+                foreach (BaseContainer container in file.types)
+                {
+                    if (Tools.GetFullName(symbol) == Tools.GetFullName(container.type))
+                    {
+                        return container;
+                    }
+                }
+            }
+            return null;
+        }
         public static void RegisterType(INamedTypeSymbol type)
         {
             string? fileName = GetFileName(type);
@@ -43,8 +59,32 @@ namespace CSharpToTypescript
             {
                 AddBaseContainer(result, fileName);
             }
+            else if (WithErrorContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
+            else if (GenericErrorContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
+            else if (WsEndPointContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
+            else if (WsEventContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
+            else if (WsRouterContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
+            else if (NormalClassContainer.Is(type, fileName, out result))
+            {
+                AddBaseContainer(result, fileName);
+            }
         }
-        private static void AddBaseContainer(BaseContainer? result, string fileName)
+        public static void AddBaseContainer(BaseContainer? result, string fileName)
         {
             if (result != null)
             {
@@ -58,6 +98,13 @@ namespace CSharpToTypescript
 
         public static void WriteAll()
         {
+            foreach (KeyValuePair<string, FileToWrite> file in allFiles)
+            {
+                foreach (BaseContainer container in file.Value.types)
+                {
+                    container.Write();
+                }
+            }
             foreach (KeyValuePair<string, FileToWrite> file in allFiles)
             {
                 file.Value.Resolve();
@@ -91,9 +138,8 @@ namespace CSharpToTypescript
 
         public void AddContainer(BaseContainer container)
         {
-            if (!types.Contains(container))
+            if (container.CanBeAdded && !types.Contains(container))
             {
-                container.Write();
                 types.Add(container);
 
                 string @namespace = "";
@@ -166,6 +212,21 @@ namespace CSharpToTypescript
                         }
                     }
                 }
+                foreach (KeyValuePair<string, List<string>> customImport in container.importedFiles)
+                {
+                    string relativePath = Tools.GetRelativePath(currentFileName, customImport.Key);
+                    if (!importByPath.ContainsKey(relativePath))
+                    {
+                        importByPath.Add(relativePath, new());
+                    }
+                    foreach(string importName in customImport.Value)
+                    {
+                        if (!importByPath[relativePath].Contains(importName))
+                        {
+                            importByPath[relativePath].Add(importName);
+                        }
+                    }
+                }
             }
         }
 
@@ -208,6 +269,7 @@ namespace CSharpToTypescript
             Dictionary<string, List<string>> imports = new();
             string path = Path.Combine(ProjectManager.Config.outputPath, "GeneratedRouter.lib.avt");
             string txt = "export const generatedHttpRoutes = [\r\n";
+            int nbRoute = 0;
             foreach (KeyValuePair<string, FileToWrite> file in allFiles)
             {
                 foreach (BaseContainer container in file.Value.types)
@@ -216,7 +278,8 @@ namespace CSharpToTypescript
                     {
                         if (!http.realType.IsAbstract)
                         {
-                            txt += "\t{ type: " + http.type.Name + ", path: \""+http.routePath+"\"},\r\n";
+                            nbRoute++;
+                            txt += "\t{ type: " + http.type.Name + ", path: \"" + http.routePath + "\"},\r\n";
                             string importFileName = GetFileName(http.type);
                             string relativePath = Tools.GetRelativePath(path, importFileName);
                             string importFile = relativePath + allFiles[importFileName].Extension;
@@ -241,7 +304,10 @@ export class GeneratedRouter extends Aventus.HttpRouter.WithRoute(generatedHttpR
                 importTxt += "import { " + string.Join(", ", pair.Value) + " } from \"" + pair.Key + "\";\r\n";
             }
             importTxt += "\r\n";
-            File.WriteAllText(path, importTxt + txt);
+            if (nbRoute > 0)
+            {
+                File.WriteAllText(path, importTxt + txt);
+            }
 
         }
     }

@@ -7,7 +7,7 @@ namespace AventusSharp.Tools.Attributes
     {
     }
 
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Enum | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Method | AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.All)]
     public class NoTypescript : Attribute
     {
 

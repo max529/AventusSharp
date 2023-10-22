@@ -1,6 +1,8 @@
-﻿using AventusSharp.Tools;
+﻿using AventusSharp.Data.Attributes;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -100,6 +102,20 @@ namespace AventusSharp.Data.Manager
             return new List<object>();
 
         }
+        
+        public T? GetAttribute<T>(bool inherit) where T : class
+        {
+            List<object> attrs = GetCustomAttributes(inherit);
+            foreach (object attr in attrs)
+            {
+                if (attr is T casted)
+                {
+                    return casted;
+                }
+            }
+            return null;
+        }
+
         /// <summary>
         /// Interface for GetValue
         /// </summary>

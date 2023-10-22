@@ -1,6 +1,7 @@
 ﻿using AventusSharp.Data;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -67,9 +68,9 @@ namespace AventusSharp.Tools
             return (T)CreateNewObj(typeof(T));
         }
 
-        public static ResultWithError<Type> GetTypeDataObject(string fullname)
+        public static ResultWithDataError<Type> GetTypeDataObject(string fullname)
         {
-            ResultWithError<Type> result = new ResultWithError<Type>();
+            ResultWithDataError<Type> result = new ResultWithDataError<Type>();
             Func<AssemblyName, Assembly?> func = (assemblieName) =>
             {
                 Assembly? a = DataMainManager.searchingAssemblies.Find(a => a.FullName == assemblieName.FullName);
@@ -85,6 +86,43 @@ namespace AventusSharp.Tools
                 result.Result = typeToCreate;
             }
             return result;
+        }
+
+
+
+        internal static string getMemberNameForType(Type type, Expression? exp)
+        {
+            if (exp is MemberExpression memberExpression)
+            {
+                if (type.IsInterface && memberExpression.Member.DeclaringType != null && memberExpression.Member.DeclaringType.GetInterfaces().Contains(type))
+                {
+                    return memberExpression.Member.Name;
+                }
+
+                if (memberExpression.Member.ReflectedType == type || memberExpression.Member.ReflectedType == type.BaseType)
+                {
+                    return memberExpression.Member.Name;
+                }
+
+                string memName = getMemberNameForType(type, memberExpression.Expression);
+                if (!string.IsNullOrEmpty(memName))
+                {
+                    return memName + "." + memberExpression.Member.Name;
+                }
+            }
+            return "";
+        }
+        /// <summary>
+        /// Get the string that corresponds to the member passes in <paramref name="memberAccess"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="memberAccess"></param>
+        /// <returns></returns>
+        public static string GetMemberName<T, TValue>(Expression<Func<T, TValue>> memberAccess)
+        {
+            return getMemberNameForType(typeof(T), memberAccess.Body);
+            //return ((MemberExpression)memberAccess.Body).Member.Name;
         }
     }
 }

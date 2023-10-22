@@ -1,5 +1,5 @@
-﻿using AventusSharp.Data;
-using AventusSharp.Data.Manager;
+﻿using AventusSharp.Data.Manager;
+using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data;
 using AventusSharpTest.Program.Data.Abstract;
@@ -26,7 +26,7 @@ namespace AventusSharpTest.Test.AAD_Update
                 color = "Pink"
             };
             int id = 1;
-            ResultWithError<List<Cat>> result = Cat.StartUpdate().Field(c => c.color).Where(c => c.id == id).RunWithError(c);
+            ResultWithDataError<List<Cat>> result = Cat.StartUpdate().Field(c => c.color).Where(c => c.Id == id).RunWithError(c);
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
@@ -42,9 +42,9 @@ namespace AventusSharpTest.Test.AAD_Update
                 color = "Orange"
             };
             int id = 1;
-            IUpdateBuilder<Cat> query = Cat.StartUpdate().Field(c => c.color).WhereWithParameters(c => c.id == id);
+            IUpdateBuilder<Cat> query = Cat.StartUpdate().Field(c => c.color).WhereWithParameters(c => c.Id == id);
             query.Prepare(3);
-            ResultWithError<List<Cat>> result = query.RunWithError(c);
+            ResultWithDataError<List<Cat>> result = query.RunWithError(c);
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
@@ -63,9 +63,9 @@ namespace AventusSharpTest.Test.AAD_Update
                 }
             };
             int id = 1;
-            ResultWithError<List<PersonHuman>> resultWithError = PersonHuman.StartUpdate()
+            ResultWithDataError<List<PersonHuman>> resultWithError = PersonHuman.StartUpdate()
                 .Field(p => p.location.name)
-                .Where(c => c.id == id)
+                .Where(c => c.Id == id)
                 .RunWithError(temp);
 
             NUnitExt.AssertNoError(resultWithError);

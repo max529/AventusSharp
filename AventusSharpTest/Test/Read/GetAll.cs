@@ -1,4 +1,4 @@
-﻿using AventusSharp.Data;
+﻿using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data;
 using AventusSharpTest.Program.Data.Abstract;
@@ -20,7 +20,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void SimpleGetAll()
         {
-            ResultWithError<List<PersonHuman>> peopleWithError = PersonHuman.GetAllWithError();
+            ResultWithDataError<List<PersonHuman>> peopleWithError = PersonHuman.GetAllWithError();
             NUnitExt.AssertNoError(peopleWithError);
             List<PersonHuman> people = peopleWithError.Result;
             Assert.IsTrue(people.Count == 2);
@@ -32,7 +32,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceGetAll()
         {
-            ResultWithError<List<IAnimal>> animalsWithError = Animal<IAnimal>.GetAllWithError();
+            ResultWithDataError<List<IAnimal>> animalsWithError = Animal<IAnimal>.GetAllWithError();
             NUnitExt.AssertNoError(animalsWithError);
 
             List<IAnimal> animals = animalsWithError.Result;
@@ -46,7 +46,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceChildGetAll()
         {
-            ResultWithError<List<Dog>> dogsWithError = Dog.GetAllWithError();
+            ResultWithDataError<List<Dog>> dogsWithError = Dog.GetAllWithError();
             NUnitExt.AssertNoError(dogsWithError);
 
             List<Dog> dogs = dogsWithError.Result;
@@ -58,7 +58,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceChildAbstractGetAll()
         {
-            ResultWithError<List<IFelin>> felinsWithError = Animal<IFelin>.GetAllWithError();
+            ResultWithDataError<List<IFelin>> felinsWithError = Animal<IFelin>.GetAllWithError();
             NUnitExt.AssertNoError(felinsWithError);
 
             List<IFelin> felins = felinsWithError.Result;

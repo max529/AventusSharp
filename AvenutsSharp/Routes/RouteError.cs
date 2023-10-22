@@ -1,9 +1,11 @@
 ﻿using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using System;
 using System.Runtime.CompilerServices;
 
 namespace AventusSharp.Routes
 {
+    [Typescript]
     public enum RouteErrorCode
     {
         UnknowError,
@@ -20,5 +22,14 @@ namespace AventusSharp.Routes
         {
             Message = exception.Message;
         }
+    }
+
+    public class VoidWithRouteError : VoidWithError<RouteError>
+    {
+
+    }
+    public class ResultWithRouteError<T> : ResultWithError<T, RouteError>
+    {
+
     }
 }

@@ -16,7 +16,7 @@ namespace AventusSharp.Data.Attributes
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class NotNullable : ValidationAttribute
     {
-        private string Msg { get; set; }
+        private string Msg;
         public NotNullable()
         {
             this.Msg = "";

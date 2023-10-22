@@ -7,6 +7,10 @@ namespace AventusSharp.Data.Attributes
     {
     }
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class AutoCRUD : System.Attribute
+    {
+    }
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class AutoCreate : System.Attribute
     {
     }
@@ -16,6 +20,10 @@ namespace AventusSharp.Data.Attributes
     }
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class AutoDelete : System.Attribute
+    {
+    }
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class AutoRead : System.Attribute
     {
     }
 }

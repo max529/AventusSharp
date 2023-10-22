@@ -1,4 +1,8 @@
 ﻿using AventusSharp.Data;
+using AventusSharp.Routes;
+using AventusSharp.Tools;
+using AventusSharp.WebSocket;
+using AventusSharp.WebSocket.Event;
 using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
@@ -15,12 +19,20 @@ namespace CSharpToTypescript.Container
         True,
         False
     }
-    internal abstract class BaseContainer
+    public abstract class BaseContainer
     {
         public List<ISymbol> unresolved = new List<ISymbol>();
+        public Dictionary<string, List<string>> importedFiles = new Dictionary<string, List<string>>();
         public string Namespace { get; private set; } = "";
         public INamedTypeSymbol type;
         public string Content { get; private set; } = "";
+
+        public bool CanBeAdded { get; protected set; } = true;
+
+        public bool IsConvertible { get; set; } = false;
+
+        protected Dictionary<string, string?> defaultValueForGenerics = new Dictionary<string, string?>();
+
         public BaseContainer(INamedTypeSymbol type)
         {
             this.type = type;
@@ -125,6 +137,18 @@ namespace CSharpToTypescript.Container
             }
             return string.Join("\r\n", result);
         }
+
+        public virtual string GetTypeName(Type type, int depth = 0, bool genericExtendsConstraint = false)
+        {
+            string name = "";
+            INamedTypeSymbol? symbol = Tools.GetTypeSymbol(type);
+            if(symbol != null)
+            {
+                name = GetTypeName(symbol, depth, genericExtendsConstraint);
+            }
+            return name;
+        }
+
         public virtual string GetTypeName(ISymbol type, int depth = 0, bool genericExtendsConstraint = false)
         {
             string name = "";
@@ -147,19 +171,25 @@ namespace CSharpToTypescript.Container
             {
                 name = type.ToString() ?? "";
             }
-            if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            bool isFull;
+            name = GetVariantTypeName(type, depth, genericExtendsConstraint, name, out isFull);
+            
+            if (!isFull && type is INamedTypeSymbol namedType && namedType.IsGenericType)
             {
                 name = name.Split("<")[0];
                 name = DetermineGenericType(namedType, name, depth, genericExtendsConstraint);
             }
-            name = Replacer(name);
-
+            //name = Replacer(name);
+            if (type is ITypeSymbol typeSymbol && typeSymbol.NullableAnnotation == NullableAnnotation.Annotated)
+            {
+                name += "?";
+            }
             return name;
         }
         protected string DetermineGenericType(INamedTypeSymbol type, string name, int depth, bool genericExtendsConstraint)
         {
             int i = 0;
-            if(type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IStorable>(p)) != null)
+            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IStorable>(p)) != null)
             {
                 i = 1;
             }
@@ -195,10 +225,16 @@ namespace CSharpToTypescript.Container
                             extends.Add(extendsTemp);
                         }
                     }
+                    string result = type.Name;
                     if (extends.Count > 0)
                     {
-                        return type.Name + " extends " + string.Join(", ", extends);
+                        result += " extends " + string.Join(", ", extends);
                     }
+                    if (defaultValueForGenerics.ContainsKey(type.Name) && !string.IsNullOrEmpty(defaultValueForGenerics[type.Name]))
+                    {
+                        result += " = " + defaultValueForGenerics[type.Name];
+                    }
+                    return result;
                 }
             }
 
@@ -212,22 +248,90 @@ namespace CSharpToTypescript.Container
                 .Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(X).FullName) != null;
         }
 
-        public string Replacer(string input)
+        public string GetVariantTypeName(ISymbol type, int depth, bool genericExtendsConstraint, string name, out bool isFull)
         {
-            input = input.Replace("int", "number");
-            input = input.Replace("double", "number");
-            input = input.Replace("float", "number");
-            input = input.Replace("decimal", "number");
-            input = input.Replace("bool", "boolean");
-            input = input.Replace("String", "string");
-            input = input.Replace("Boolean", "boolean");
-            input = input.Replace("AventusSharp.Data.IStorable", "Aventus.IData");
-            input = new Regex("AventusSharp\\.Data\\.Storable<.*?>").Replace(input, "Aventus.Data");
-            input = new Regex("AventusSharp\\.Data\\.ResultWithError<(.*?)>").Replace(input, "Aventus.GenericResultWithError<$1>");
-            input = new Regex("System\\.Collections\\.Generic\\.List<(.*?)>").Replace(input, "$1[]");
+            isFull = false;
+            string fullName = Tools.GetFullName(type);
+            string result = name;
+            if (fullName == typeof(int).FullName) result = "number";
+            else if (fullName == typeof(double).FullName) result = "number";
+            else if (fullName == typeof(float).FullName) result = "number";
+            else if (fullName == typeof(decimal).FullName) result = "number";
+            else if (fullName == typeof(bool).FullName) result = "boolean";
+            else if (fullName == typeof(string).FullName) result = "string";
+            else if (fullName == typeof(Enum).FullName) result = "Aventus.Enum";
+            else if (fullName == typeof(DateTime).FullName) result = "Date";
+            else if (fullName == typeof(IStorable).FullName) result = "Aventus.IData";
+            else if (fullName == typeof(GenericError).FullName) result = "Aventus.GenericError";
+            else if (fullName == typeof(Route).FullName) result = "Aventus.HttpRoute";
+            else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.Socket.WsEvent";
+            else if (fullName == typeof(WsRoute).FullName) result = "AventusSharp.Socket.WsRoute";
+            else if (fullName == typeof(WsEndPoint).FullName) result = "AventusSharp.Socket.WsEndPoint";
+            else if (fullName == typeof(List<>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedType)
+            {
+                isFull = true;
+                result = DetermineGenericType(namedType, "", depth, genericExtendsConstraint);
 
+                if (result.StartsWith("<"))
+                {
+                    result = result.Substring(1, result.Length - 2);
+                }
+                result += "[]";
+            }
 
-            return input;
+            result = applyReplacer(ProjectManager.Config.replacer.all, fullName, result);
+            return CustomReplacer(type, fullName, result);
+        }
+        protected virtual string? CustomReplacer(ISymbol type, string fullname, string? result)
+        {
+            return result;
+        }
+
+        protected string? applyReplacer(ProjectConfigReplacerPart part, string fullname, string? result)
+        {
+            foreach (KeyValuePair<string, ProjectConfigReplacerInfo> info in part.type)
+            {
+                if (info.Key == fullname)
+                {
+                    result = info.Value.result;
+                    if (!string.IsNullOrEmpty(info.Value.file))
+                    {
+                        string file = ProjectManager.Config.AbsoluteUrl(info.Value.file);
+                        if (!importedFiles.ContainsKey(file))
+                        {
+                            importedFiles[file] = new();
+                        }
+                        if (!importedFiles[file].Contains(result))
+                        {
+                            importedFiles[file].Add(result);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            foreach (KeyValuePair<string, ProjectConfigReplacerInfo> info in part.result)
+            {
+                if (info.Key == result)
+                {
+                    result = info.Value.result;
+                    if (!string.IsNullOrEmpty(info.Value.file))
+                    {
+                        string file = ProjectManager.Config.AbsoluteUrl(info.Value.file);
+                        if (!importedFiles.ContainsKey(file))
+                        {
+                            importedFiles[file] = new();
+                        }
+                        if (!importedFiles[file].Contains(result))
+                        {
+                            importedFiles[file].Add(result);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            return result;
         }
     }
 }

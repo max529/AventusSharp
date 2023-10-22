@@ -36,7 +36,7 @@ namespace AventusSharp.Routes
         [Route("api/[controller]/{id}")]
         public T? Update(int id, [FromBody] T body)
         {
-            body.id = id;
+            body.Id = id;
             T? result = Storable<T>.Update(body);
             return result;
         }

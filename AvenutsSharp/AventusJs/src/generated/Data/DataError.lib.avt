@@ -1,0 +1,55 @@
+import { VoidWithError, ResultWithError } from '../Tools/ResultWithError.lib.avt';
+
+namespace Data {
+
+	export enum DataErrorCode {
+		DefaultDMGenericType,
+		DMOnlyForceInherit,
+		TypeNotStorable,
+		TypeTooMuchStorable,
+		GenericNotAbstract,
+		ParentNotAbstract,
+		InfiniteLoop,
+		InterfaceNotUnique,
+		SelfReferecingDependance,
+		DMNotExist,
+		DMAlreadyExist,
+		MethodNotFound,
+		StorageDisconnected,
+		StorageNotFound,
+		NoConnectionInsideStorage,
+		TypeNotExistInsideStorage,
+		UnknowError,
+		NoItemProvided,
+		NoTransactionInProgress,
+		WrongType,
+		NoTypeIdentifierFoundInsideQuery,
+		ItemNoExistInsideStorage,
+		ItemAlreadyExist,
+		ValidationError,
+		GetAllNotAllowed,
+		GetByIdNotAllowed,
+		GetByIdsNotAllowed,
+		WhereNotAllowed,
+		CreateNotAllowed,
+		UpdateNotAllowed,
+		DeleteNotAllowed,
+		NumberOfItemsNotMatching
+	}
+
+	@Convertible()
+	export class DataError extends Aventus.GenericError<DataErrorCode>  {
+		public static get Fullname(): string { return "AventusSharp.Data.DataError, AventusSharp"; }
+	}
+
+	@Convertible()
+	export class VoidWithDataError extends VoidWithError<DataError>  {
+		public static override get Fullname(): string { return "AventusSharp.Data.VoidWithDataError, AventusSharp"; }
+	}
+
+	@Convertible()
+	export class ResultWithDataError<T> extends ResultWithError<T, DataError>  {
+		public static override get Fullname(): string { return "AventusSharp.Data.ResultWithDataError, AventusSharp"; }
+	}
+
+}

@@ -32,6 +32,7 @@ namespace AventusSharp.Data.Manager.DB
     public class WhereGroup : IWhereGroup
     {
         public List<IWhereGroup> Groups { get; set; } = new List<IWhereGroup>();
+        public bool negate = false;
 
     }
     public class WhereGroupFct : IWhereGroup
@@ -127,7 +128,7 @@ namespace AventusSharp.Data.Manager.DB
                 }
                 if(valueToSet is IStorable storable)
                 {
-                    valueToSet = storable.id;
+                    valueToSet = storable.Id;
                 }
 
                 this.Value = valueToSet;
@@ -236,6 +237,8 @@ namespace AventusSharp.Data.Manager.DB
         public List<DatabaseBuilderInfoChild> Children { get; set; } = new List<DatabaseBuilderInfoChild>();
 
         public Dictionary<TableMemberInfo, DatabaseBuilderInfo> links = new();
+
+        public List<TableMemberInfo> ReverseLinks { get; set; } = new List<TableMemberInfo>();
         
         public DatabaseBuilderInfo(string alias, TableInfo tableInfo)
         {
@@ -262,6 +265,24 @@ namespace AventusSharp.Data.Manager.DB
             }
             result = new KeyValuePair<TableMemberInfo?, string>(memberInfo, aliasTemp);
             return result;
+        }
+
+        public TableMemberInfo? GetReverseTableMemberInfo(string field)
+        {
+            TableMemberInfo? memberInfo = null;
+            memberInfo = TableInfo.ReverseMembers.Find(m => m.Name == field);
+            if (memberInfo == null)
+            {
+                foreach (KeyValuePair<TableInfo, string> parent in Parents)
+                {
+                    memberInfo = parent.Key.Members.Find(m => m.Name == field);
+                    if (memberInfo != null)
+                    {
+                        break;
+                    }
+                }
+            }
+            return memberInfo;
         }
     }
 

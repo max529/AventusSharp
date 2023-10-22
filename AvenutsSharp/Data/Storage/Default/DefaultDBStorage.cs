@@ -1,8 +1,11 @@
-﻿using AventusSharp.Data.Manager.DB;
+﻿using AventusSharp.Data.Manager;
+using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Manager.DB.Create;
 using AventusSharp.Data.Manager.DB.Delete;
+using AventusSharp.Data.Manager.DB.Exist;
 using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Manager.DB.Update;
+using AventusSharp.Data.Storage.Mysql.Queries;
 using AventusSharp.Tools;
 using System;
 using System.Collections;
@@ -59,6 +62,7 @@ namespace AventusSharp.Data.Storage.Default
         private bool linksCreated;
         private DbTransaction? transaction;
         public bool IsConnectedOneTime { get; protected set; }
+        public bool Debug { get; set; }
 
         private readonly Dictionary<Type, TableInfo> allTableInfos = new();
         public TableInfo? GetTableInfo(Type type)
@@ -87,9 +91,9 @@ namespace AventusSharp.Data.Storage.Default
         {
             return ConnectWithError().Success;
         }
-        public virtual VoidWithError ConnectWithError()
+        public virtual VoidWithDataError ConnectWithError()
         {
-            VoidWithError result = new();
+            VoidWithDataError result = new();
             try
             {
                 connection = GetConnection();
@@ -107,9 +111,9 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-        public abstract ResultWithError<bool> ResetStorage();
+        public abstract ResultWithDataError<bool> ResetStorage();
         protected abstract DbConnection GetConnection();
-        public abstract ResultWithError<DbCommand> CreateCmd(string sql);
+        public abstract ResultWithDataError<DbCommand> CreateCmd(string sql);
         public abstract DbParameter GetDbParameter();
         public void Close()
         {
@@ -141,7 +145,7 @@ namespace AventusSharp.Data.Storage.Default
 
         public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            ResultWithError<DbCommand> commandResult = CreateCmd(sql);
+            ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
             if (commandResult.Result != null)
             {
                 StorageExecutResult result = Execute(commandResult.Result, null, callerPath, callerNo);
@@ -178,14 +182,14 @@ namespace AventusSharp.Data.Storage.Default
                 DbTransaction? transaction = this.transaction;
                 if (transaction == null)
                 {
-                    ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
+                    ResultWithDataError<BeginTransactionResult> resultTransaction = BeginTransaction();
                     result.Errors.AddRange(resultTransaction.Errors);
-                    if (!result.Success)
+                    if (!result.Success || resultTransaction.Result == null)
                     {
                         return result;
                     }
-                    transaction = resultTransaction.Result;
-                    isNewTransaction = true;
+                    transaction = resultTransaction.Result.transaction;
+                    isNewTransaction = resultTransaction.Result.isNew;
                 }
 
                 command.Transaction = transaction;
@@ -200,16 +204,28 @@ namespace AventusSharp.Data.Storage.Default
                             {
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
+                            if (Debug)
+                            {
+                                Console.WriteLine();
+                                Console.WriteLine(command.CommandText);
+                                Console.WriteLine();
+                            }
                             command.ExecuteNonQuery();
                         }
                     }
                     else
                     {
+                        if (Debug)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine(command.CommandText);
+                            Console.WriteLine();
+                        }
                         command.ExecuteNonQuery();
                     }
                     if (isNewTransaction)
                     {
-                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
+                        ResultWithDataError<bool> transactionResult = CommitTransaction(transaction);
                         result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
@@ -218,7 +234,7 @@ namespace AventusSharp.Data.Storage.Default
                     result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
                     if (isNewTransaction)
                     {
-                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
+                        ResultWithDataError<bool> transactionResult = RollbackTransaction(transaction);
                         result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
@@ -237,7 +253,7 @@ namespace AventusSharp.Data.Storage.Default
         }
         public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            ResultWithError<DbCommand> commandResult = CreateCmd(sql);
+            ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
             if (commandResult.Result != null)
             {
                 StorageQueryResult result = Query(commandResult.Result, null, callerPath, callerNo);
@@ -275,14 +291,14 @@ namespace AventusSharp.Data.Storage.Default
                 DbTransaction? transaction = this.transaction;
                 if (transaction == null)
                 {
-                    ResultWithError<DbTransaction> resultTransaction = BeginTransaction();
+                    ResultWithDataError<BeginTransactionResult> resultTransaction = BeginTransaction();
                     result.Errors.AddRange(resultTransaction.Errors);
-                    if (!result.Success)
+                    if (!result.Success || resultTransaction.Result == null)
                     {
                         return result;
                     }
-                    transaction = resultTransaction.Result;
-                    isNewTransaction = true;
+                    transaction = resultTransaction.Result.transaction;
+                    isNewTransaction = resultTransaction.Result.isNew;
                 }
 
                 command.Transaction = transaction;
@@ -298,7 +314,12 @@ namespace AventusSharp.Data.Storage.Default
                                 command.Parameters[parameter.Key].Value = parameter.Value;
                             }
 
-
+                            if (Debug)
+                            {
+                                Console.WriteLine();
+                                Console.WriteLine(command.CommandText);
+                                Console.WriteLine();
+                            }
                             using IDataReader reader = command.ExecuteReader();
                             while (reader.Read())
                             {
@@ -325,6 +346,12 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     else
                     {
+                        if (Debug)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine(command.CommandText);
+                            Console.WriteLine();
+                        }
                         using IDataReader reader = command.ExecuteReader();
                         while (reader.Read())
                         {
@@ -351,7 +378,7 @@ namespace AventusSharp.Data.Storage.Default
 
                     if (isNewTransaction)
                     {
-                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
+                        ResultWithDataError<bool> transactionResult = CommitTransaction(transaction);
                         result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
@@ -362,7 +389,7 @@ namespace AventusSharp.Data.Storage.Default
                     result.Errors.Add(error);
                     if (isNewTransaction)
                     {
-                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
+                        ResultWithDataError<bool> transactionResult = RollbackTransaction(transaction);
                         result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
@@ -379,9 +406,9 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-        public ResultWithError<DbTransaction> BeginTransaction()
+        public ResultWithDataError<BeginTransactionResult> BeginTransaction()
         {
-            ResultWithError<DbTransaction> result = new();
+            ResultWithDataError<BeginTransactionResult> result = new();
             if (connection == null)
             {
                 result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
@@ -389,8 +416,15 @@ namespace AventusSharp.Data.Storage.Default
             }
             try
             {
-                transaction ??= connection.BeginTransaction();
-                result.Result = transaction;
+                if(transaction == null)
+                {
+                    transaction = connection.BeginTransaction();
+                    result.Result = new BeginTransactionResult(true, transaction);
+                }
+                else
+                {
+                    result.Result = new BeginTransactionResult(false, transaction);
+                }
             }
             catch (Exception e)
             {
@@ -398,13 +432,13 @@ namespace AventusSharp.Data.Storage.Default
             }
             return result;
         }
-        public ResultWithError<bool> CommitTransaction()
+        public ResultWithDataError<bool> CommitTransaction()
         {
             return CommitTransaction(transaction);
         }
-        public ResultWithError<bool> CommitTransaction(DbTransaction? transaction)
+        public ResultWithDataError<bool> CommitTransaction(DbTransaction? transaction)
         {
-            ResultWithError<bool> result = new();
+            ResultWithDataError<bool> result = new();
             if (transaction == null)
             {
                 result.Result = true;
@@ -436,13 +470,13 @@ namespace AventusSharp.Data.Storage.Default
             }
             return result;
         }
-        public ResultWithError<bool> RollbackTransaction()
+        public ResultWithDataError<bool> RollbackTransaction()
         {
             return RollbackTransaction(transaction);
         }
-        public ResultWithError<bool> RollbackTransaction(DbTransaction? transaction)
+        public ResultWithDataError<bool> RollbackTransaction(DbTransaction? transaction)
         {
-            ResultWithError<bool> result = new();
+            ResultWithDataError<bool> result = new();
             if (transaction == null)
             {
                 result.Result = true;
@@ -477,9 +511,9 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region init
-        public VoidWithError CreateLinks()
+        public VoidWithDataError CreateLinks()
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             if (!linksCreated)
             {
                 linksCreated = true;
@@ -490,7 +524,7 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         return result;
                     }
-                    foreach (TableMemberInfo memberInfo in info.Members.ToList())
+                    foreach (TableMemberInfo memberInfo in info.Members)
                     {
                         if (memberInfo.Link != TableMemberInfoLink.None && memberInfo.TableLinked == null && memberInfo.TableLinkedType != null)
                         {
@@ -498,21 +532,45 @@ namespace AventusSharp.Data.Storage.Default
                             {
                                 memberInfo.TableLinked = allTableInfos[memberInfo.TableLinkedType];
                             }
+                            else
+                            {
+                                result.Errors.Add(new DataError(DataErrorCode.TypeNotFound, "Can't find the type " + memberInfo.TableLinkedType + " to create link with " + memberInfo.Name + " on " + memberInfo.TableInfo.SqlTableName));
+                            }
+                        }
+                    }
+                    foreach (TableMemberInfo reversMember in info.ReverseMembers)
+                    {
+                        if (reversMember.ReverseLinkType != null && allTableInfos.ContainsKey(reversMember.ReverseLinkType))
+                        {
+                            VoidWithDataError resultTemp = reversMember.PrepareReverseLink(allTableInfos[reversMember.ReverseLinkType]);
+                            if (!resultTemp.Success)
+                            {
+                                result.Errors.AddRange(resultTemp.Errors);
+                            }
+                        }
+                        else
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.TypeNotFound, "Can't find the type " + reversMember.ReverseLinkType + " to create revserse link with " + reversMember.Name + " on " + reversMember.TableInfo.SqlTableName));
                         }
                     }
                 }
             }
             return result;
         }
-        public VoidWithError AddPyramid(PyramidInfo pyramid)
+        public VoidWithDataError AddPyramid(PyramidInfo pyramid)
         {
             linksCreated = false;
             return AddPyramidLoop(pyramid, null, null, false);
         }
-        private VoidWithError AddPyramidLoop(PyramidInfo pyramid, TableInfo? parent, List<TableMemberInfo>? membersToAdd, bool typeMemberCreated)
+        private VoidWithDataError AddPyramidLoop(PyramidInfo pyramid, TableInfo? parent, List<TableMemberInfo>? membersToAdd, bool typeMemberCreated)
         {
-            VoidWithError resultTemp;
+            VoidWithDataError resultTemp;
             TableInfo classInfo = new(pyramid);
+            resultTemp = classInfo.Init();
+            if (!resultTemp.Success)
+            {
+                return resultTemp;
+            }
             if (pyramid.isForceInherit)
             {
                 membersToAdd ??= new List<TableMemberInfo>();
@@ -520,7 +578,7 @@ namespace AventusSharp.Data.Storage.Default
                 foreach (PyramidInfo child in pyramid.children)
                 {
                     resultTemp = AddPyramidLoop(child, parent, membersToAdd, typeMemberCreated);
-                    if(!resultTemp.Success)
+                    if (!resultTemp.Success)
                     {
                         return resultTemp;
                     }
@@ -537,13 +595,13 @@ namespace AventusSharp.Data.Storage.Default
                     foreach (TableMemberInfo memberInfo in membersToAdd.ToList())
                     {
                         memberInfo.ChangeTableInfo(classInfo);
-                        if (memberInfo.Name == "createdDate")
+                        if (memberInfo.Name == TypeTools.GetMemberName((Storable<IStorable> s) => s.CreatedDate))
                         {
                             membersToAdd.Remove(memberInfo);
                             memberInfo.IsUpdatable = false;
                             createdDate = memberInfo;
                         }
-                        else if (memberInfo.Name == "updatedDate")
+                        else if (memberInfo.Name == TypeTools.GetMemberName((Storable<IStorable> s) => s.UpdatedDate))
                         {
                             membersToAdd.Remove(memberInfo);
                             updatedDate = memberInfo;
@@ -597,7 +655,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
 
-            return new VoidWithError();
+            return new VoidWithDataError();
         }
         #endregion
 
@@ -657,7 +715,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
             StorageQueryResult result = new();
-            ResultWithError<DbCommand> cmdResult = CreateCmd(sqlToExecute);
+            ResultWithDataError<DbCommand> cmdResult = CreateCmd(sqlToExecute);
             result.Errors.AddRange(cmdResult.Errors);
             if (!result.Success || cmdResult.Result == null)
             {
@@ -673,7 +731,7 @@ namespace AventusSharp.Data.Storage.Default
                 cmd.Parameters.Add(parameter);
                 if (parameterInfo.Value == QueryParameterType.GrabValue)
                 {
-                    if (Regex.IsMatch(parameterInfo.Key.Name, "(^|\\.)updatedDate$") || Regex.IsMatch(parameterInfo.Key.Name, "(^|\\.)createdDate$"))
+                    if (Regex.IsMatch(parameterInfo.Key.Name, "(^|\\.)UpdatedDate$") || Regex.IsMatch(parameterInfo.Key.Name, "(^|\\.)CreatedDate$"))
                     {
                         parameterInfo.Key.Value = DateTime.Now;
                         if (item != null)
@@ -718,9 +776,9 @@ namespace AventusSharp.Data.Storage.Default
 
         #region Get
         protected abstract string PrepareSQLForQuery<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable;
-        public ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable
+        public ResultWithDataError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable
         {
-            ResultWithError<List<X>> result = new();
+            ResultWithDataError<List<X>> result = new();
 
             string sql = "";
             if (queryBuilder.Sql != null)
@@ -744,8 +802,8 @@ namespace AventusSharp.Data.Storage.Default
                 for (int i = 0; i < queryResult.Result.Count; i++)
                 {
                     Dictionary<string, string> itemFields = queryResult.Result[i];
-                    ResultWithError<object> resultTemp = CreateObject(baseInfo, itemFields, queryBuilder.AllMembers);
-                    if(resultTemp.Success && resultTemp.Result != null)
+                    ResultWithDataError<object> resultTemp = CreateObject(baseInfo, itemFields, queryBuilder.AllMembers);
+                    if (resultTemp.Success && resultTemp.Result != null)
                     {
                         if (resultTemp.Result is X oCasted)
                         {
@@ -760,15 +818,15 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         result.Errors.AddRange(resultTemp.Errors);
                     }
-                    
+
                 }
             }
 
             return result;
         }
-        protected ResultWithError<object> CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields, bool allMembers)
+        protected ResultWithDataError<object> CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields, bool allMembers)
         {
-            ResultWithError<object> result = new ResultWithError<object>();
+            ResultWithDataError<object> result = new ResultWithDataError<object>();
             string rootAlias = info.Alias;
             TableInfo rootTableInfo = info.TableInfo;
 
@@ -790,9 +848,9 @@ namespace AventusSharp.Data.Storage.Default
                     result.Errors.Add(new DataError(DataErrorCode.NoTypeIdentifierFoundInsideQuery, "Can't find the field " + TableInfo.TypeIdentifierName));
                     return result;
                 }
-                
-                ResultWithError<Type> typeToCreate = TypeTools.GetTypeDataObject(itemFields[fieldTypeName]);
-                if(!typeToCreate.Success || typeToCreate.Result == null)
+
+                ResultWithDataError<Type> typeToCreate = TypeTools.GetTypeDataObject(itemFields[fieldTypeName]);
+                if (!typeToCreate.Success || typeToCreate.Result == null)
                 {
                     result.Errors.AddRange(typeToCreate.Errors);
                     return result;
@@ -816,6 +874,10 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         memberInfo.SetSqlValue(o, itemFields[key]);
                     }
+                    else if (memberInfo.Link == TableMemberInfoLink.SimpleInt)
+                    {
+                        memberInfo.SetSqlValue(o, itemFields[key]);
+                    }
                     else if (memberInfo.Link == TableMemberInfoLink.Simple)
                     {
                         if (itemFields[key] != "")
@@ -828,7 +890,7 @@ namespace AventusSharp.Data.Storage.Default
                             else if (info.links.ContainsKey(memberInfo))
                             {
                                 // loaded from the query
-                                ResultWithError<object> oTemp = CreateObject(info.links[memberInfo], itemFields, allMembers);
+                                ResultWithDataError<object> oTemp = CreateObject(info.links[memberInfo], itemFields, allMembers);
                                 if (oTemp.Success && oTemp.Result != null)
                                 {
                                     memberInfo.SetValue(o, oTemp.Result);
@@ -843,6 +905,18 @@ namespace AventusSharp.Data.Storage.Default
                                 result.Errors.Add(new DataError(DataErrorCode.UnknowError, "impossible?"));
                             }
                         }
+                    }
+                }
+            }
+            foreach (TableMemberInfo reverse in info.ReverseLinks)
+            {
+                object? prim = reverse.TableInfo.Primary?.GetValue(o);
+                if (prim is int id)
+                {
+                    VoidWithDataError reverseResult = reverse.ReverseQuery(id, o);
+                    if (!reverseResult.Success)
+                    {
+                        result.Errors.AddRange(reverseResult.Errors);
                     }
                 }
             }
@@ -883,6 +957,10 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         baseInfo.Members.Add(member, new DatabaseBuilderInfoMember(member, alias, this));
                     }
+                    else if (member.Link == TableMemberInfoLink.SimpleInt)
+                    {
+                        baseInfo.Members.Add(member, new DatabaseBuilderInfoMember(member, alias, this));
+                    }
                     else if (member.Link == TableMemberInfoLink.Simple)
                     {
                         DatabaseBuilderInfoMember info = new(member, alias, this);
@@ -905,20 +983,56 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
 
+            foreach (TableMemberInfo member in tableInfo.ReverseMembers)
+            {
+                if (member.IsAutoRead)
+                {
+                    baseInfo.ReverseLinks.Add(member);
+                }
+            }
         }
+        #endregion
+
+        #region Exist
+        protected abstract string PrepareSQLForExist<X>(DatabaseExistBuilder<X> queryBuilder) where X : IStorable;
+        public ResultWithDataError<bool> ExistFromBuilder<X>(DatabaseExistBuilder<X> queryBuilder) where X : IStorable
+        {
+            ResultWithDataError<bool> result = new();
+
+            string sql = "";
+            if (queryBuilder.Sql != null)
+            {
+                sql = queryBuilder.Sql;
+            }
+            else
+            {
+                sql = PrepareSQLForExist(queryBuilder);
+                queryBuilder.Sql = sql;
+            }
+
+            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
+
+            result.Errors.AddRange(queryResult.Errors);
+            if (queryResult.Success && queryResult.Result.Count > 0 && queryResult.Result[0].ContainsKey("nb"))
+            {
+                result.Result = int.Parse(queryResult.Result[0]["nb"]) > 0;
+            }
+            return result;
+        }
+
         #endregion
 
         #region Table
         protected abstract string PrepareSQLCreateTable(TableInfo table);
         protected abstract string PrepareSQLCreateIntermediateTable(TableMemberInfo tableMember);
-        public VoidWithError CreateTable(PyramidInfo pyramid)
+        public VoidWithDataError CreateTable(PyramidInfo pyramid)
         {
-            VoidWithError result = new();
+            VoidWithDataError result = new();
             if (!pyramid.isForceInherit)
             {
                 if (allTableInfos.ContainsKey(pyramid.type))
                 {
-                    VoidWithError resultTemp = CreateTable(allTableInfos[pyramid.type]);
+                    VoidWithDataError resultTemp = CreateTable(allTableInfos[pyramid.type]);
                     result.Errors.AddRange(resultTemp.Errors);
                 }
                 else
@@ -930,16 +1044,16 @@ namespace AventusSharp.Data.Storage.Default
             {
                 foreach (PyramidInfo child in pyramid.children)
                 {
-                    VoidWithError resultTemp = CreateTable(child);
+                    VoidWithDataError resultTemp = CreateTable(child);
                     result.Errors.AddRange(resultTemp.Errors);
                 }
             }
             return result;
         }
-        public VoidWithError CreateTable(TableInfo table)
+        public VoidWithDataError CreateTable(TableInfo table)
         {
-            VoidWithError result = new();
-            ResultWithError<bool> tableExist = TableExist(table);
+            VoidWithDataError result = new();
+            ResultWithDataError<bool> tableExist = TableExist(table);
             result.Errors.AddRange(tableExist.Errors);
             if (tableExist.Success && !tableExist.Result)
             {
@@ -955,33 +1069,33 @@ namespace AventusSharp.Data.Storage.Default
                 foreach (TableMemberInfo member in members)
                 {
                     intermediateQuery = PrepareSQLCreateIntermediateTable(member);
-                    StorageExecutResult resultTempInter = Execute(sql);
+                    StorageExecutResult resultTempInter = Execute(intermediateQuery);
                     result.Errors.AddRange(resultTempInter.Errors);
                 }
             }
             foreach (TableInfo child in table.Children)
             {
-                VoidWithError resultTemp = CreateTable(child);
+                VoidWithDataError resultTemp = CreateTable(child);
                 result.Errors.AddRange(resultTemp.Errors);
             }
             return result;
         }
 
-        public ResultWithError<bool> TableExist(PyramidInfo pyramid)
+        public ResultWithDataError<bool> TableExist(PyramidInfo pyramid)
         {
             if (allTableInfos.ContainsKey(pyramid.type))
             {
                 return TableExist(allTableInfos[pyramid.type]);
             }
-            ResultWithError<bool> result = new();
+            ResultWithDataError<bool> result = new();
             result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + pyramid.type));
             result.Result = false;
             return result;
         }
         protected abstract string PrepareSQLTableExist(TableInfo table);
-        public ResultWithError<bool> TableExist(TableInfo table)
+        public ResultWithDataError<bool> TableExist(TableInfo table)
         {
-            ResultWithError<bool> result = new();
+            ResultWithDataError<bool> result = new();
             string sql = PrepareSQLTableExist(table);
             StorageQueryResult queryResult = Query(sql);
             result.Errors.AddRange(queryResult.Errors);
@@ -998,9 +1112,9 @@ namespace AventusSharp.Data.Storage.Default
         #region Create
 
         protected abstract List<DatabaseCreateBuilderInfo> PrepareSQLForCreate<X>(DatabaseCreateBuilder<X> createBuilder) where X : IStorable;
-        public ResultWithError<int> CreateFromBuilder<X>(DatabaseCreateBuilder<X> createBuilder, X item) where X : IStorable
+        public ResultWithDataError<int> CreateFromBuilder<X>(DatabaseCreateBuilder<X> createBuilder, X item) where X : IStorable
         {
-            ResultWithError<int> result = new()
+            ResultWithDataError<int> result = new()
             {
                 Result = 0
             };
@@ -1021,6 +1135,7 @@ namespace AventusSharp.Data.Storage.Default
             }
 
             #region create
+            List<TableMemberInfo> reverseMembers = new List<TableMemberInfo>();
             int id = 0;
             foreach (DatabaseCreateBuilderInfo query in queries)
             {
@@ -1037,7 +1152,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
 
                 StorageQueryResult createResult = QueryGeneric(StorableAction.Create, sql, parametersCreate, item);
-                
+
                 if (!createResult.Success)
                 {
                     result.Errors.AddRange(createResult.Errors);
@@ -1045,13 +1160,51 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 else if (query.HasPrimaryResult && createResult.Result != null)
                 {
-                    id = int.Parse(createResult.Result[0]["id"]);
+                    id = int.Parse(createResult.Result[0][Storable.Id]);
                 }
+                reverseMembers.AddRange(query.ReverseMembers);
             }
 
             if (result.Errors.Count == 0)
             {
                 result.Result = id;
+
+                foreach (TableMemberInfo reverseMember in reverseMembers)
+                {
+                    object? reverseO = reverseMember.GetValue(item);
+                    if (reverseO is IList reverseList)
+                    {
+                        foreach (object reverseItem in reverseList)
+                        {
+                            if (reverseItem is IStorable reverseStorable)
+                            {
+                                if (reverseStorable.Id == 0 && reverseMember.IsAutoCreate)
+                                {
+                                    reverseMember.SetReverseId(reverseStorable, id);
+                                    reverseStorable.Create();
+                                }
+                                else if (reverseMember.IsAutoUpdate)
+                                {
+                                    reverseMember.SetReverseId(reverseStorable, id);
+                                    reverseStorable.Update();
+                                }
+                            }
+                        }
+                    }
+                    else if (reverseO is IStorable reverseStorable)
+                    {
+                        if (reverseStorable.Id == 0 && reverseMember.IsAutoCreate)
+                        {
+                            reverseMember.SetReverseId(reverseStorable, id);
+                            reverseStorable.Create();
+                        }
+                        else if (reverseMember.IsAutoUpdate)
+                        {
+                            reverseMember.SetReverseId(reverseStorable, id);
+                            reverseStorable.Update();
+                        }
+                    }
+                }
             }
             #endregion
 
@@ -1061,10 +1214,10 @@ namespace AventusSharp.Data.Storage.Default
         #endregion
 
         #region Update
-        protected abstract string PrepareSQLForUpdate<X>(DatabaseUpdateBuilder<X> updateBuilder) where X : IStorable;
-        public ResultWithError<List<int>> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> updateBuilder, X item) where X : IStorable
+        protected abstract DatabaseUpdateBuilderInfo PrepareSQLForUpdate<X>(DatabaseUpdateBuilder<X> updateBuilder) where X : IStorable;
+        public ResultWithDataError<List<int>> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> updateBuilder, X item) where X : IStorable
         {
-            ResultWithError<List<int>> result = new()
+            ResultWithDataError<List<int>> result = new()
             {
                 Result = new List<int>()
             };
@@ -1073,15 +1226,15 @@ namespace AventusSharp.Data.Storage.Default
                 result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "Please provide an item to use for update"));
                 return result;
             }
-            string sql;
-            if (updateBuilder.Sql != null)
+            DatabaseUpdateBuilderInfo updateInfo;
+            if (updateBuilder.Query != null)
             {
-                sql = updateBuilder.Sql;
+                updateInfo = updateBuilder.Query;
             }
             else
             {
-                sql = PrepareSQLForUpdate(updateBuilder);
-                updateBuilder.Sql = sql;
+                updateInfo = PrepareSQLForUpdate(updateBuilder);
+                updateBuilder.Query = updateInfo;
             }
 
 
@@ -1098,7 +1251,7 @@ namespace AventusSharp.Data.Storage.Default
                 parametersUpdate.Add(parameterInfo.Value, QueryParameterType.GrabValue);
             }
             #region query elements that will be updated
-            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, updateBuilder.SqlQuery, parametersQuery);
+            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, updateInfo.QuerySql, parametersQuery);
             List<int> list = new();
             if (!queryResult.Success)
             {
@@ -1109,16 +1262,68 @@ namespace AventusSharp.Data.Storage.Default
             {
                 foreach (Dictionary<string, string> row in queryResult.Result)
                 {
-                    if (row.ContainsKey("id"))
+                    if (row.ContainsKey(Storable.Id))
                     {
-                        list.Add(int.Parse(row["id"]));
+                        list.Add(int.Parse(row[Storable.Id]));
+                    }
+                }
+            }
+
+            foreach (TableMemberInfo reverseMember in updateInfo.ReverseMembers)
+            {
+                Dictionary<int, IStorable> oldList = new Dictionary<int, IStorable>();
+                foreach (int id in list)
+                {
+                    ResultWithDataError<List<IStorable>> resultTemp = reverseMember.ReverseQuery(id);
+                    if (resultTemp.Result != null)
+                    {
+                        foreach (IStorable itemTemp in resultTemp.Result)
+                        {
+                            if (!oldList.ContainsKey(itemTemp.Id))
+                            {
+                                oldList[itemTemp.Id] = itemTemp;
+                            }
+                        }
+                    }
+                }
+
+                object? currentListO = reverseMember.GetValue(item);
+                if (currentListO is IList currentList)
+                {
+                    foreach (IStorable itemTemp in currentList)
+                    {
+                        if (itemTemp.Id == 0 && reverseMember.IsAutoCreate)
+                        {
+                            foreach (int id in list)
+                            {
+                                itemTemp.Id = 0;
+                                reverseMember.SetReverseId(itemTemp, id);
+                                itemTemp.Create();
+                            }
+                        }
+                        else if (oldList.ContainsKey(itemTemp.Id))
+                        {
+                            if (reverseMember.IsAutoUpdate)
+                            {
+                                itemTemp.Update();
+                            }
+                            oldList.Remove(itemTemp.Id);
+                        }
+                    }
+                }
+
+                if (reverseMember.IsAutoDelete)
+                {
+                    foreach (KeyValuePair<int, IStorable> missing in oldList)
+                    {
+                        missing.Value.Delete();
                     }
                 }
             }
             #endregion
 
             #region update
-            StorageQueryResult updateResult = QueryGeneric(StorableAction.Update, sql, parametersUpdate, item);
+            StorageQueryResult updateResult = QueryGeneric(StorableAction.Update, updateInfo.UpdateSql, parametersUpdate, item);
             if (!updateResult.Success)
             {
                 result.Errors.AddRange(updateResult.Errors);
@@ -1135,9 +1340,9 @@ namespace AventusSharp.Data.Storage.Default
 
         #region Delete
         protected abstract string PrepareSQLForDelete<X>(DatabaseDeleteBuilder<X> deleteBuilder) where X : IStorable;
-        public VoidWithError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> deleteBuilder) where X : IStorable
+        public VoidWithDataError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> deleteBuilder) where X : IStorable
         {
-            VoidWithError result = new();
+            VoidWithDataError result = new();
             string sql;
             if (deleteBuilder.Sql != null)
             {
@@ -1179,13 +1384,13 @@ namespace AventusSharp.Data.Storage.Default
         /// <param name="table"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        public ResultWithError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data)
+        public ResultWithDataError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data)
         {
             Type typeX = typeof(X);
             if (allTableInfos.ContainsKey(typeX))
             {
                 TableInfo table = allTableInfos[typeX];
-                ResultWithError<Dictionary<TableInfo, IList>> result = new()
+                ResultWithDataError<Dictionary<TableInfo, IList>> result = new()
                 {
                     Result = new Dictionary<TableInfo, IList>()
                 };
@@ -1222,7 +1427,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             else
             {
-                ResultWithError<Dictionary<TableInfo, IList>> result = new();
+                ResultWithDataError<Dictionary<TableInfo, IList>> result = new();
                 result.Errors.Add(new DataError(DataErrorCode.TypeNotExistInsideStorage, "Can't find the type " + typeX + " inside the storage " + GetType().Name));
                 return result;
             }
@@ -1237,27 +1442,27 @@ namespace AventusSharp.Data.Storage.Default
         /// <param name="defaultValue"></param>
         /// <param name="action"></param>
         /// <returns></returns>
-        public ResultWithError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithError<Y>> action)
+        public ResultWithDataError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithDataError<Y>> action)
         {
-            ResultWithError<DbTransaction> transactionResult = BeginTransaction();
-            if (!transactionResult.Success)
+            ResultWithDataError<BeginTransactionResult> transactionResult = BeginTransaction();
+            if (!transactionResult.Success || transactionResult.Result == null)
             {
-                ResultWithError<Y> resultError = new()
+                ResultWithDataError<Y> resultError = new()
                 {
                     Result = defaultValue,
                     Errors = transactionResult.Errors
                 };
                 return resultError;
             }
-            ResultWithError<Y> resultTemp = action();
-            if (resultTemp.Success)
+            ResultWithDataError<Y> resultTemp = action();
+            if (resultTemp.Success && transactionResult.Result.isNew)
             {
-                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result);
+                ResultWithDataError<bool> commitResult = CommitTransaction(transactionResult.Result.transaction);
                 resultTemp.Errors.AddRange(commitResult.Errors);
             }
-            else
+            else if(transactionResult.Result.isNew)
             {
-                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result);
+                ResultWithDataError<bool> commitResult = RollbackTransaction(transactionResult.Result.transaction);
                 resultTemp.Errors.AddRange(commitResult.Errors);
             }
             if (!resultTemp.Success)
@@ -1282,5 +1487,18 @@ namespace AventusSharp.Data.Storage.Default
         }
 
         #endregion
+    }
+
+
+    public class BeginTransactionResult
+    {
+        public bool isNew;
+        public DbTransaction transaction;
+
+        public BeginTransactionResult(bool isNew, DbTransaction transaction)
+        {
+            this.isNew = isNew;
+            this.transaction = transaction;
+        }
     }
 }

@@ -20,7 +20,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             }
 
             string? intermediateTableName = Utils.GetIntermediateTablename(memberInfo);
-            if(intermediateTableName == null)
+            if(intermediateTableName == null || instance.Primary == null || link.Primary == null)
             {
                 return "";
             }
@@ -30,53 +30,39 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             List<string> foreignConstraint = new();
             string separator = ",\r\n";
 
-            List<TableMemberInfo> prims = instance.Members.Where(f => f.IsPrimary).ToList();
-            List<string> primsName = prims.Select(prim => prim.SqlName).ToList();
-            List<string> intermediatePrimsNameTmp = new();
-            foreach (TableMemberInfo prim in prims)
-            {
-                string intermediateName = "`" + prim.SqlName + "_" + instance.SqlTableName + "`";
-                string schemaProp = "\t" + intermediateName + " " + prim.SqlTypeTxt;
+            string intermediateName = "`" + instance.SqlTableName + "_" + instance.Primary.SqlName + "`";
+            string schemaProp = "\t" + intermediateName + " " + instance.Primary.SqlTypeTxt;
+            string constraintName = "`FK_" + intermediateTableName + "_" + instance.SqlTableName+"`";
 
-                intermediatePrimsNameTmp.Add(intermediateName);
-                primaryConstraint.Add(intermediateName);
-                schema.Add(schemaProp);
-            }
-            string constraintName = "FK_" + string.Join("_", intermediatePrimsNameTmp).Replace("`", "").Replace("`", "") + "_" + intermediateTableName + "_" + instance.SqlTableName;
+            primaryConstraint.Add(intermediateName);
+            schema.Add(schemaProp);
+            
             constraintName = Utils.CheckConstraint(constraintName);
-            string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", intermediatePrimsNameTmp) + ") REFERENCES `" + instance.SqlTableName + "` (" + string.Join(", ", primsName) + ")";
-
+            string constraintProp = "\t" + "CONSTRAINT " + constraintName + " FOREIGN KEY (" + intermediateName + ") REFERENCES `" + instance.SqlTableName + "` (" + instance.Primary.SqlName + ")";
             foreignConstraint.Add(constraintProp);
 
 
-            prims = link.Members.Where(f => f.IsPrimary).ToList();
-            primsName = prims.Select(prim => prim.SqlName).ToList();
-            intermediatePrimsNameTmp = new List<string>();
-            foreach (TableMemberInfo prim in prims)
-            {
-                //member.name usefull if link is same class as instance
-                string intermediateName = "`" + memberInfo.SqlName + "*" + prim.SqlName + "_" + link.SqlTableName + "`";
-                string schemaProp = "\t" + intermediateName + " " + prim.SqlTypeTxt;
 
-                intermediatePrimsNameTmp.Add(intermediateName);
-                primaryConstraint.Add(intermediateName);
-                schema.Add(schemaProp);
-            }
+            intermediateName = "`" + link.SqlTableName + "_" + link.Primary.SqlName + "`";
+            schemaProp = "\t" + intermediateName + " " + link.Primary.SqlTypeTxt;
+            constraintName = "`FK_" + intermediateTableName + "_" + link.SqlTableName + "`";
 
-            constraintName = "FK_" + string.Join("_", intermediatePrimsNameTmp).Replace("`", "").Replace("`", "") + "_" + intermediateTableName + "_" + link.SqlTableName;
+            primaryConstraint.Add(intermediateName);
+            schema.Add(schemaProp);
+
             constraintName = Utils.CheckConstraint(constraintName);
-            constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", intermediatePrimsNameTmp) + ") REFERENCES `" + link.SqlTableName + "` (" + string.Join(", ", primsName) + ")";
-
+            constraintProp = "\t" + "CONSTRAINT " + constraintName + " FOREIGN KEY (" + intermediateName + ") REFERENCES `" + link.SqlTableName + "` (" + link.Primary.SqlName + ")";
             foreignConstraint.Add(constraintProp);
+            
 
 
-            string sql = "CREATE TABLE " + intermediateTableName + " (\r\n";
+            string sql = "CREATE TABLE `" + intermediateTableName + "` (\r\n";
             sql += string.Join(separator, schema);
             if (primaryConstraint.Count > 0)
             {
                 sql += separator;
                 string joinedPrimary = string.Join(",", primaryConstraint);
-                string primaryProp = "\tCONSTRAINT PK_" + intermediateTableName + " PRIMARY KEY (" + joinedPrimary + ")";
+                string primaryProp = "\tCONSTRAINT `PK_" + intermediateTableName + "` PRIMARY KEY (" + joinedPrimary + ")";
                 sql += primaryProp;
             }
             if (foreignConstraint.Count > 0)

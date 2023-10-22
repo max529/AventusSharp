@@ -1,8 +1,10 @@
 ﻿using AventusSharp.Data.Manager.DB.Create;
 using AventusSharp.Data.Manager.DB.Delete;
+using AventusSharp.Data.Manager.DB.Exist;
 using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Manager.DB.Update;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,12 +24,12 @@ namespace AventusSharp.Data.Manager.DB
         public List<X> RemoveRecordsItems<X>(List<X> items) where X : IStorable;
     }
 
-    public class DatabaseDM<U> : DatabaseDM<DatabaseDM<U>, U> where U : IStorable
+    public class SimpleDatabaseDM<U> : DatabaseDM<SimpleDatabaseDM<U>, U> where U : IStorable
     {
     }
     public class DatabaseDM<T, U> : GenericDatabaseDM<T, U> where T : IGenericDM<U>, new() where U : IStorable
     {
-        public override sealed Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        public override sealed Task<VoidWithDataError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
             return base.SetConfiguration(pyramid, config);
         }
@@ -45,42 +47,42 @@ namespace AventusSharp.Data.Manager.DB
         {
             return base.CreateUpdate<X>();
         }
-        protected override sealed ResultWithError<List<X>> CreateLogic<X>(List<X> values)
+        protected override sealed ResultWithDataError<List<X>> CreateLogic<X>(List<X> values)
         {
             return base.CreateLogic(values);
         }
 
-        protected override sealed ResultWithError<List<X>> DeleteLogic<X>(List<X> values)
+        protected override sealed ResultWithDataError<List<X>> DeleteLogic<X>(List<X> values)
         {
             return base.DeleteLogic(values);
         }
 
-        protected override sealed ResultWithError<List<X>> GetAllLogic<X>()
+        protected override sealed ResultWithDataError<List<X>> GetAllLogic<X>()
         {
             return base.GetAllLogic<X>();
         }
-        protected override sealed ResultWithError<List<X>> GetByIdsLogic<X>(List<int> ids)
+        protected override sealed ResultWithDataError<List<X>> GetByIdsLogic<X>(List<int> ids)
         {
             return base.GetByIdsLogic<X>(ids);
         }
-        protected override sealed ResultWithError<X> GetByIdLogic<X>(int id)
+        protected override sealed ResultWithDataError<X> GetByIdLogic<X>(int id)
         {
             return base.GetByIdLogic<X>(id);
         }
 
-        protected override sealed ResultWithError<List<X>> UpdateLogic<X>(List<X> values)
+        protected override sealed ResultWithDataError<List<X>> UpdateLogic<X>(List<X> values)
         {
             return base.UpdateLogic(values);
         }
 
-        protected override sealed ResultWithError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
+        protected override sealed ResultWithDataError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
         {
             return base.WhereLogic(func);
         }
     }
     public class GenericDatabaseDM<T, U> : GenericDM<T, U>, IDatabaseDM where T : IGenericDM<U>, new() where U : IStorable
     {
-        private Dictionary<int, U> Records { get; } = new Dictionary<int, U>();
+        private readonly Dictionary<int, U> Records = new Dictionary<int, U>();
 
         public bool NeedLocalCache { get; private set; } = false;
         public bool NeedShortLink { get; private set; } = false;
@@ -136,9 +138,9 @@ namespace AventusSharp.Data.Manager.DB
             }
             return ShortLinks.Contains(path);
         }
-        public override async Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        public override async Task<VoidWithDataError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             storage = DefineStorage();
             storage ??= config.defaultStorage;
             if (storage == null)
@@ -167,7 +169,7 @@ namespace AventusSharp.Data.Manager.DB
             }
             if (!storage.IsConnectedOneTime)
             {
-                VoidWithError resultTemp = storage.ConnectWithError();
+                VoidWithDataError resultTemp = storage.ConnectWithError();
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -177,9 +179,9 @@ namespace AventusSharp.Data.Manager.DB
             return await base.SetConfiguration(pyramid, config);
 
         }
-        protected override Task<VoidWithError> Initialize()
+        protected override Task<VoidWithDataError> Initialize()
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             if (storage != null)
             {
                 storage.CreateLinks();
@@ -200,7 +202,7 @@ namespace AventusSharp.Data.Manager.DB
         }
 
         private readonly Dictionary<Type, object> savedGetAllQuery = new();
-        protected override ResultWithError<List<X>> GetAllLogic<X>()
+        protected override ResultWithDataError<List<X>> GetAllLogic<X>()
         {
             if (NeedLocalCache)
             {
@@ -208,13 +210,13 @@ namespace AventusSharp.Data.Manager.DB
             }
             return GetAllWithErrorNoCache<X>();
         }
-        protected ResultWithError<List<X>> GetAllWithErrorCache<X>() where X : U
+        protected ResultWithDataError<List<X>> GetAllWithErrorCache<X>() where X : U
         {
             Type type = typeof(X);
             Type rootType = typeof(U);
             if (GetAllDone.Contains(rootType) || GetAllDone.Contains(type))
             {
-                ResultWithError<List<X>> result = new()
+                ResultWithDataError<List<X>> result = new()
                 {
                     Result = new List<X>()
                 };
@@ -227,20 +229,20 @@ namespace AventusSharp.Data.Manager.DB
                 }
                 return result;
             }
-            ResultWithError<List<X>> resultNoCache = GetAllWithErrorNoCache<X>();
+            ResultWithDataError<List<X>> resultNoCache = GetAllWithErrorNoCache<X>();
             if (resultNoCache.Success && resultNoCache.Result != null)
             {
                 List<X> finalResult = new List<X>();
                 foreach (X newRecord in resultNoCache.Result)
                 {
-                    if (!Records.ContainsKey(newRecord.id))
+                    if (!Records.ContainsKey(newRecord.Id))
                     {
                         finalResult.Add(newRecord);
-                        Records.Add(newRecord.id, newRecord);
+                        Records.Add(newRecord.Id, newRecord);
                     }
                     else
                     {
-                        U item = Records[newRecord.id];
+                        U item = Records[newRecord.Id];
                         if (item is X casted)
                         {
                             finalResult.Add(casted);
@@ -252,7 +254,7 @@ namespace AventusSharp.Data.Manager.DB
             }
             return resultNoCache;
         }
-        protected ResultWithError<List<X>> GetAllWithErrorNoCache<X>() where X : U
+        protected ResultWithDataError<List<X>> GetAllWithErrorNoCache<X>() where X : U
         {
             Type x = typeof(X);
             if (!savedGetAllQuery.ContainsKey(x))
@@ -264,7 +266,7 @@ namespace AventusSharp.Data.Manager.DB
 
 
         private readonly Dictionary<Type, object> savedGetByIdQuery = new();
-        protected override ResultWithError<X> GetByIdLogic<X>(int id)
+        protected override ResultWithDataError<X> GetByIdLogic<X>(int id)
         {
             if (NeedLocalCache)
             {
@@ -273,38 +275,38 @@ namespace AventusSharp.Data.Manager.DB
             return GetByIdWithErrorNoCache<X>(id);
         }
 
-        public ResultWithError<X> GetByIdWithErrorCache<X>(int id) where X : U
+        public ResultWithDataError<X> GetByIdWithErrorCache<X>(int id) where X : U
         {
             if (Records.ContainsKey(id) && Records[id] is X casted)
             {
-                ResultWithError<X> result = new()
+                ResultWithDataError<X> result = new()
                 {
                     Result = casted
                 };
                 return result;
             }
-            ResultWithError<X> resultNoCache = GetByIdWithErrorNoCache<X>(id);
+            ResultWithDataError<X> resultNoCache = GetByIdWithErrorNoCache<X>(id);
             if (resultNoCache.Success && resultNoCache.Result != null)
             {
-                Records[resultNoCache.Result.id] = resultNoCache.Result;
+                Records[resultNoCache.Result.Id] = resultNoCache.Result;
             }
             return resultNoCache;
         }
-        public ResultWithError<X> GetByIdWithErrorNoCache<X>(int id) where X : U
+        public ResultWithDataError<X> GetByIdWithErrorNoCache<X>(int id) where X : U
         {
-            ResultWithError<X> result = new();
+            ResultWithDataError<X> result = new();
 
             Type x = typeof(X);
             if (!savedGetByIdQuery.ContainsKey(x))
             {
                 DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
-                queryBuilderTemp.WhereWithParameters(i => i.id == id);
+                queryBuilderTemp.WhereWithParameters(i => i.Id == id);
                 savedGetByIdQuery[x] = queryBuilderTemp;
             }
 
             DatabaseQueryBuilder<X> queryBuilder = (DatabaseQueryBuilder<X>)savedGetByIdQuery[x];
-            queryBuilder.SetVariable("id", id);
-            ResultWithError<List<X>> resultTemp = queryBuilder.RunWithError();
+            queryBuilder.SetVariable(Storable.Id, id);
+            ResultWithDataError<List<X>> resultTemp = queryBuilder.RunWithError();
 
             if (resultTemp.Success)
             {
@@ -325,7 +327,7 @@ namespace AventusSharp.Data.Manager.DB
         }
 
         private readonly Dictionary<Type, object> savedGetByIdsQuery = new();
-        protected override ResultWithError<List<X>> GetByIdsLogic<X>(List<int> ids)
+        protected override ResultWithDataError<List<X>> GetByIdsLogic<X>(List<int> ids)
         {
             if (NeedLocalCache)
             {
@@ -334,9 +336,9 @@ namespace AventusSharp.Data.Manager.DB
             return GetByIdsWithErrorNoCache<X>(ids);
         }
 
-        public ResultWithError<List<X>> GetByIdsWithErrorCache<X>(List<int> ids) where X : U
+        public ResultWithDataError<List<X>> GetByIdsWithErrorCache<X>(List<int> ids) where X : U
         {
-            ResultWithError<List<X>> result = new()
+            ResultWithDataError<List<X>> result = new()
             {
                 Result = new List<X>()
             };
@@ -357,14 +359,14 @@ namespace AventusSharp.Data.Manager.DB
             }
             if (missingIds.Count > 0)
             {
-                ResultWithError<List<X>> resultNoCache = GetByIdsWithErrorNoCache<X>(missingIds);
+                ResultWithDataError<List<X>> resultNoCache = GetByIdsWithErrorNoCache<X>(missingIds);
                 if (resultNoCache.Success && resultNoCache.Result != null)
                 {
                     foreach (X item in resultNoCache.Result)
                     {
-                        if (!Records.ContainsKey(item.id))
+                        if (!Records.ContainsKey(item.Id))
                         {
-                            Records.Add(item.id, item);
+                            Records.Add(item.Id, item);
                         }
                         result.Result.Add(item);
                     }
@@ -377,25 +379,25 @@ namespace AventusSharp.Data.Manager.DB
             }
             return result;
         }
-        public ResultWithError<List<X>> GetByIdsWithErrorNoCache<X>(List<int> ids) where X : U
+        public ResultWithDataError<List<X>> GetByIdsWithErrorNoCache<X>(List<int> ids) where X : U
         {
             Type x = typeof(X);
             if (!savedGetByIdsQuery.ContainsKey(x))
             {
                 DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
-                queryBuilderTemp.WhereWithParameters(i => ids.Contains(i.id));
+                queryBuilderTemp.WhereWithParameters(i => ids.Contains(i.Id));
                 savedGetByIdsQuery[x] = queryBuilderTemp;
             }
 
             DatabaseQueryBuilder<X> queryBuilder = (DatabaseQueryBuilder<X>)savedGetByIdsQuery[x];
             queryBuilder.SetVariable("ids", ids);
-            ResultWithError<List<X>> resultTemp = queryBuilder.RunWithError();
+            ResultWithDataError<List<X>> resultTemp = queryBuilder.RunWithError();
 
             return resultTemp;
         }
 
 
-        protected override ResultWithError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
+        protected override ResultWithDataError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
         {
             if (NeedLocalCache)
             {
@@ -404,13 +406,13 @@ namespace AventusSharp.Data.Manager.DB
             return WhereWithErrorNoCache(func);
         }
 
-        public ResultWithError<List<X>> WhereWithErrorCache<X>(Expression<Func<X, bool>> func) where X : U
+        public ResultWithDataError<List<X>> WhereWithErrorCache<X>(Expression<Func<X, bool>> func) where X : U
         {
             Type type = typeof(X);
             Type rootType = typeof(U);
             if (GetAllDone.Contains(rootType) || GetAllDone.Contains(type))
             {
-                ResultWithError<List<X>> result = new()
+                ResultWithDataError<List<X>> result = new()
                 {
                     Result = new List<X>()
                 };
@@ -437,7 +439,7 @@ namespace AventusSharp.Data.Manager.DB
             return WhereWithErrorNoCache(func);
         }
 
-        public ResultWithError<List<X>> WhereWithErrorNoCache<X>(Expression<Func<X, bool>> func) where X : U
+        public ResultWithDataError<List<X>> WhereWithErrorNoCache<X>(Expression<Func<X, bool>> func) where X : U
         {
             DatabaseQueryBuilder<X> queryBuilder = new(Storage);
             queryBuilder.Where(func);
@@ -446,14 +448,22 @@ namespace AventusSharp.Data.Manager.DB
 
         #endregion
 
+        #region Exist
+        public override IExistBuilder<X> CreateExist<X>()
+        {
+            return new DatabaseExistBuilder<X>(Storage);
+        }
+
+        #endregion
+
         #region Create
-        
+
         private readonly Dictionary<Type, object> savedCreateQuery = new();
-        protected override ResultWithError<List<X>> CreateLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> CreateLogic<X>(List<X> values)
         {
             return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                ResultWithError<List<X>> result = new()
+                ResultWithDataError<List<X>> result = new()
                 {
                     Result = new List<X>()
                 };
@@ -467,12 +477,12 @@ namespace AventusSharp.Data.Manager.DB
                         savedCreateQuery[type] = query;
                     }
 
-                    ResultWithError<X> resultTemp = ((DatabaseCreateBuilder<X>)savedCreateQuery[type]).RunWithError(value);
+                    ResultWithDataError<X> resultTemp = ((DatabaseCreateBuilder<X>)savedCreateQuery[type]).RunWithError(value);
                     if (resultTemp.Success && resultTemp.Result != null)
                     {
                         if (NeedLocalCache)
                         {
-                            Records[resultTemp.Result.id] = resultTemp.Result;
+                            Records[resultTemp.Result.Id] = resultTemp.Result;
                         }
                         result.Result.Add(resultTemp.Result);
                     }
@@ -493,11 +503,11 @@ namespace AventusSharp.Data.Manager.DB
             return new DatabaseUpdateBuilder<X>(Storage, this, NeedLocalCache);
         }
         private readonly Dictionary<Type, object> savedUpdateQuery = new();
-        protected override ResultWithError<List<X>> UpdateLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> UpdateLogic<X>(List<X> values)
         {
             return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                ResultWithError<List<X>> result = new()
+                ResultWithDataError<List<X>> result = new()
                 {
                     Result = new List<X>()
                 };
@@ -508,11 +518,11 @@ namespace AventusSharp.Data.Manager.DB
                     if (!savedUpdateQuery.ContainsKey(type))
                     {
                         DatabaseUpdateBuilder<X> query = new(Storage, this, NeedLocalCache, type);
-                        query.WhereWithParameters(p => p.id == id);
+                        query.WhereWithParameters(p => p.Id == id);
                         savedUpdateQuery[type] = query;
                     }
 
-                    ResultWithError<List<X>> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.id).RunWithError(value);
+                    ResultWithDataError<List<X>> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.Id).RunWithError(value);
                     if (resultTemp.Success && resultTemp.Result?.Count > 0)
                     {
                         result.Result.Add(resultTemp.Result[0]);
@@ -534,11 +544,11 @@ namespace AventusSharp.Data.Manager.DB
             return new DatabaseDeleteBuilder<X>(Storage, this, NeedLocalCache);
         }
         private readonly Dictionary<Type, object> savedDeleteQuery = new();
-        protected override ResultWithError<List<X>> DeleteLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> DeleteLogic<X>(List<X> values)
         {
             return Storage.RunInsideTransaction(new List<X>(), delegate ()
             {
-                ResultWithError<List<X>> result = new()
+                ResultWithDataError<List<X>> result = new()
                 {
                     Result = new List<X>()
                 };
@@ -549,11 +559,11 @@ namespace AventusSharp.Data.Manager.DB
                     if (!savedDeleteQuery.ContainsKey(type))
                     {
                         DatabaseDeleteBuilder<X> query = new(Storage, this, NeedLocalCache, type);
-                        query.WhereWithParameters(p => p.id == id);
+                        query.WhereWithParameters(p => p.Id == id);
                         savedDeleteQuery[type] = query;
                     }
 
-                    ResultWithError<List<X>> resultTemp = ((DatabaseDeleteBuilder<X>)savedDeleteQuery[type]).Prepare(value.id).RunWithError();
+                    ResultWithDataError<List<X>> resultTemp = ((DatabaseDeleteBuilder<X>)savedDeleteQuery[type]).Prepare(value.Id).RunWithError();
                     if (resultTemp.Success && resultTemp.Result?.Count > 0)
                     {
                         result.Result.Add(resultTemp.Result[0]);
@@ -586,10 +596,10 @@ namespace AventusSharp.Data.Manager.DB
             List<X> result = new();
             foreach (X item in items)
             {
-                if (item is U && Records.ContainsKey(item.id) && Records[item.id] is X casted)
+                if (item is U && Records.ContainsKey(item.Id) && Records[item.Id] is X casted)
                 {
                     result.Add(casted);
-                    Records.Remove(item.id);
+                    Records.Remove(item.Id);
                 }
             }
             return result;

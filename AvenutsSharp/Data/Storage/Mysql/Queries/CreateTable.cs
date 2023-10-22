@@ -15,6 +15,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             List<string> schema = new();
             List<string> primaryConstraint = new();
             List<string> foreignConstraint = new();
+            List<string> uniqueConstraint = new();
             string separator = ",\r\n";
 
             // key is sql_table_name
@@ -25,6 +26,10 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 if (member.Link != TableMemberInfoLink.Multiple)
                 {
                     string schemaProp = "\t`" + member.SqlName + "` " + member.SqlTypeTxt;
+                    if (member.SqlTypeTxt == "varchar(MAX)")
+                    {
+                        schemaProp = "\t`" + member.SqlName + "` TEXT";
+                    }
                     if (!member.IsNullable)
                     {
                         schemaProp += " NOT NULL";
@@ -40,7 +45,14 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         primaryConstraint.Add("`" + member.SqlName + "`");
                     }
 
-                    if (member.Link == TableMemberInfoLink.Simple || member.Link == TableMemberInfoLink.Parent)
+                    if (member.IsUnique)
+                    {
+                        string constraintName = "UC_" + member.SqlName + "_" + table.SqlTableName;
+                        uniqueConstraint.Add("\tCONSTRAINT `" + constraintName + "` UNIQUE (`" + member.SqlName + "`)");
+                    }
+
+                    TableMemberInfoLink[] links = new TableMemberInfoLink[] { TableMemberInfoLink.Simple, TableMemberInfoLink.SimpleInt, TableMemberInfoLink.Parent };
+                    if (links.Contains(member.Link))
                     {
                         if (member.TableLinked != null)
                         {
@@ -72,7 +84,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     string constraintName = "FK_" + string.Join("_", pri.Value.Select(field => field.SqlName)) + "_" + table.SqlTableName + "_" + primary.Key;
                     constraintName = Utils.CheckConstraint(constraintName);
                     string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked?.Primary?.SqlName + "`")) + ")";
-                    if(deleteOnCascade)
+                    if (deleteOnCascade)
                     {
                         // TODO pour les tests mais doit être calculé du côté manager (seulement si stocker dans la RAM?)
                         constraintProp += " ON DELETE CASCADE";
@@ -95,11 +107,15 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 sql += separator;
                 sql += string.Join(separator, foreignConstraint);
             }
+            if (uniqueConstraint.Count > 0)
+            {
+                sql += separator;
+                sql += string.Join(separator, uniqueConstraint);
+            }
             sql += ")";
-            Console.WriteLine(sql);
             return sql;
         }
 
-        
+
     }
 }

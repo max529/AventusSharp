@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AventusSharp.Tools;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -7,10 +8,11 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager
 {
+
     public interface IQueryBuilder<T>
     {
         public List<T> Run();
-        public ResultWithError<List<T>> RunWithError();
+        public ResultWithDataError<List<T>> RunWithError();
 
         public IQueryBuilder<T> Prepare(params object[] objects);
         public IQueryBuilder<T> SetVariable(string name, object value);

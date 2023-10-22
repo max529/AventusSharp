@@ -14,7 +14,7 @@ namespace CSharpToTypescript.Container
             result = null;
             if (type.BaseType != null && type.BaseType.Name == typeof(Enum).Name)
             {
-                if (Tools.ExportToTypesript(type, false))
+                if (Tools.ExportToTypesript(type, ProjectManager.Config.exportEnumByDefault))
                 {
                     result = new EnumContainer(type);
                 }

@@ -1,36 +1,36 @@
-﻿using AventusSharp.Data;
-using AventusSharp.Data.Attributes;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿//using AventusSharp.Data;
+//using AventusSharp.Data.Attributes;
+//using System;
+//using System.Collections.Generic;
+//using System.Text;
 
-namespace TestConsole.cs.Data.Abstract
-{
-    public interface IAnimal : IStorable, ITest
-    {
-        string name { get; set; }
-    }
-    public interface ITest
-    {
+//namespace TestConsole.cs.Data.Abstract
+//{
+//    public interface IAnimal : IStorable, ITest
+//    {
+//        string name { get; set; }
+//    }
+//    public interface ITest
+//    {
 
-    }
-    [ForceInherit]
-    public abstract class Animal<T> : Storable<T>, IAnimal, ITest where T : ITest, IAnimal
-    {
-        public string name { get; set; }
-    }
+//    }
+//    [ForceInherit]
+//    public abstract class Animal<T> : Storable<T>, IAnimal, ITest where T : ITest, IAnimal
+//    {
+//        public string name { get; set; }
+//    }
 
-    public interface IFelin: IAnimal { }
-    public abstract class Felin<T> : Animal<T>, IFelin, ITest where T : IFelin, ITest
-    {
-        public string color { get; set; }
-    }
+//    public interface IFelin: IAnimal { }
+//    public abstract class Felin<T> : Animal<T>, IFelin, ITest where T : IFelin, ITest
+//    {
+//        public string color { get; set; }
+//    }
 
-    public class Cat : Felin<Cat>
-    {
-    }
-    public class Dog : Animal<Dog>
-    {
+//    public class Cat : Felin<Cat>
+//    {
+//    }
+//    public class Dog : Animal<Dog>
+//    {
 
-    }
-}
+//    }
+//}

@@ -7,11 +7,16 @@ using System.Threading.Tasks;
 
 namespace TestApi.Websocket.Default
 {
-    public class DefaultSocket : WebSocketInstance<DefaultSocket>
+    public class DefaultSocket : WsEndPoint
     {
-        public override string GetSocketName()
+        public override string Path()
         {
-            return "/";
+            return "/ws";
+        }
+
+        public override bool Main()
+        {
+            return true;
         }
     }
 }

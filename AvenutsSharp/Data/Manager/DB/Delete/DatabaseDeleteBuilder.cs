@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,7 +26,7 @@ namespace AventusSharp.Data.Manager.DB.Delete
 
         public List<T>? Run()
         {
-            ResultWithError<List<T>> result = RunWithError();
+            ResultWithDataError<List<T>> result = RunWithError();
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -33,9 +34,9 @@ namespace AventusSharp.Data.Manager.DB.Delete
             return null;
         }
 
-        public ResultWithError<List<T>> RunWithError()
+        public ResultWithDataError<List<T>> RunWithError()
         {
-            ResultWithError<List<T>> result = new();
+            ResultWithDataError<List<T>> result = new();
             if (whereFunc != null)
             {
                 result = DM.WhereWithError<T>(whereFunc);
@@ -47,7 +48,7 @@ namespace AventusSharp.Data.Manager.DB.Delete
 
             if (result.Success && result.Result != null)
             {
-                VoidWithError resultTemp = Storage.DeleteFromBuilder(this);
+                VoidWithDataError resultTemp = Storage.DeleteFromBuilder(this);
                 if (resultTemp.Success && DM is IDatabaseDM databaseDM)
                 {
                     if (NeedDeleteField)

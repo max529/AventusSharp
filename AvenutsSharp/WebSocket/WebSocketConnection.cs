@@ -1,15 +1,17 @@
 ﻿using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
+using System;
+using AventusSharp.WebSocket.Request;
+using Scriban.Parsing;
 
 namespace AventusSharp.WebSocket
 {
@@ -18,14 +20,11 @@ namespace AventusSharp.WebSocket
     /// </summary>
     public class WebSocketConnection
     {
-        private static readonly char fileDelimiter = '°';
         public static bool DisplayMsg { get; set; }
         private readonly HttpContext context;
         private readonly System.Net.WebSockets.WebSocket webSocket;
-        private readonly IWebSocketInstance instance;
+        private readonly WsEndPoint instance;
         private WebSocketReceiveResult? result;
-        private readonly AventusJsonConverter converter;
-        private readonly Dictionary<string, FileBodyElement> filesInProgress = new();
 
         /// <summary>
         /// get context of the request
@@ -50,12 +49,11 @@ namespace AventusSharp.WebSocket
         /// <param name="webSocket">websocket create</param>
         /// <param name="instance">Instance of WebsocketInstance (parent)</param>
         /// <param name="ownerId">Owner id</param>
-        public WebSocketConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket, IWebSocketInstance instance)
+        public WebSocketConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket, WsEndPoint instance)
         {
             this.context = context;
             this.webSocket = webSocket;
             this.instance = instance;
-            converter = new AventusJsonConverter();
         }
         /// <summary>
         /// Start the WebSocket connection
@@ -73,115 +71,55 @@ namespace AventusSharp.WebSocket
 
                 while (!result.CloseStatus.HasValue)
                 {
-                    if (buffer[0] == fileDelimiter)
-                    {
-                        byte[] uidBuff = buffer.Take(10).ToArray();
-                        byte[] lastBuff = buffer.Skip(buffer.Length - 12).Take(11).ToArray();
-                        string uid = Encoding.UTF8.GetString(uidBuff);
-                        string lastPart = Encoding.UTF8.GetString(lastBuff);
-                        if (lastPart == uid + fileDelimiter)
-                        {
-                            // end
-                            filesInProgress[uid].Stream.Write(buffer, 10, buffer.Length - 21);
-                            filesInProgress[uid].Stream.Close();
-                            filesInProgress[uid].Stream.Dispose();
-                            filesInProgress.Remove(uid);
-                            JObject obj = new()
-                            {
-                                ["uid"] = "uid"
-                            };
-                            _ = this.Send("/file_uploaded", (object)obj);
-                        }
-                        else
-                        {
-                            filesInProgress[uid].Stream.Write(buffer, 10, buffer.Length - 10);
-                        }
 
+                    websocketHasError = false;
+                    byte[] buffTemp = new byte[result.Count];
+                    for (int i = 0; i < buffTemp.Length; i++)
+                    {
+                        buffTemp[i] = buffer[i];
                     }
-                    else
+                    msg += Encoding.UTF8.GetString(buffTemp);
+                    if (result.EndOfMessage)
                     {
-                        websocketHasError = false;
-                        byte[] buffTemp = new byte[result.Count];
-                        for (int i = 0; i < buffTemp.Length; i++)
+                        try
                         {
-                            buffTemp[i] = buffer[i];
-                        }
-                        msg += Encoding.UTF8.GetString(buffTemp);
-                        if (result.EndOfMessage)
-                        {
-                            try
-                            {
 
-                                JObject o = JObject.Parse(msg);
-                                if (o["channel"]?.ToString() == "ping")
+                            JObject o = JObject.Parse(msg);
+                            if (o["channel"]?.ToString() == "ping")
+                            {
+                                _ = Send("pong", (object)new JObject());
+                            }
+                            else
+                            {
+                                if (DisplayMsg)
                                 {
-                                    _ = Send("pong", (object)new JObject());
+                                    Console.WriteLine("on a reçu sur " + o["channel"], "onMessage");
                                 }
-                                else if (o["channel"]?.ToString() == "/register_file_upload")
+                                string? channel = o["channel"]?.ToString();
+                                if (channel == null)
                                 {
-                                    JObject data = new();
-                                    string? dataObjectString = o["data"]?.ToString();
-                                    string? filename = o["filename"]?.ToString();
-                                    string? uid = o["uid"]?.ToString();
-                                    if (dataObjectString == null || filename == null || uid == null)
-                                    {
-                                        return;
-                                    }
-                                    data = JObject.Parse(dataObjectString);
-                                    // create temp
-                                    string tempFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
-                                    if (!Directory.Exists(tempFolder))
-                                    {
-                                        Directory.CreateDirectory(tempFolder);
-                                    }
-                                    // prepare file
-                                    string filePath = Path.Combine(tempFolder, filename);
-                                    int i = 0;
-                                    while (File.Exists(filePath))
-                                    {
-                                        List<string> splitted = filename.Split(".").ToList();
-                                        splitted.Insert(splitted.Count - 1, i + "");
-                                        i++;
-                                        filePath = Path.Combine(tempFolder, string.Join(".", splitted));
-                                    }
-                                    FileBodyElement fileBody = new (filename, new FileStream(filePath, FileMode.Create), filePath);
-                                    filesInProgress[uid] = fileBody;
-                                    _ = this.Send("/register_file_upload/done", (object)new JObject(), uid);
+                                    return;
+                                }
+
+                                string? bodyTxt = o.ContainsKey("data") ? o["data"]?.ToString() : null;
+                                WebSocketRouterBody body = new(bodyTxt);
+
+                                string? uid = o.ContainsKey("uid") ? o["uid"]?.ToString() : null;
+                                if (uid != null)
+                                {
+                                    await instance.Route(this, channel, body, uid.ToString());
                                 }
                                 else
                                 {
-                                    if (DisplayMsg)
-                                    {
-                                        Console.WriteLine("on a reçu sur " + o["channel"], "onMessage");
-                                    }
-                                    string? channel = o["channel"]?.ToString();
-                                    if (channel == null)
-                                    {
-                                        return;
-                                    }
-                                    JObject data = new();
-                                    string? objString = o.ContainsKey("data") ? o["data"]?.ToString() : null;
-                                    if (objString != null)
-                                    {
-                                        data = JObject.Parse(objString);
-                                    }
-                                    string? uid = o.ContainsKey("uid") ? o["uid"]?.ToString() : null;
-                                    if (uid != null)
-                                    {
-                                        await instance.Route(this, channel, data, uid.ToString());
-                                    }
-                                    else
-                                    {
-                                        await instance.Route(this, channel, data);
-                                    }
+                                    await instance.Route(this, channel, body);
                                 }
                             }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine("Error on parse message from socket : " + e.Message, "errorParsingMessage");
-                            }
-                            msg = "";
                         }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Error on parse message from socket : " + e.Message, "errorParsingMessage");
+                        }
+                        msg = "";
                     }
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 }
@@ -208,11 +146,7 @@ namespace AventusSharp.WebSocket
         /// <returns></returns>
         private async Task Send(string eventName, JObject o, string? uid = null)
         {
-            if (o.ContainsKey("$type"))
-            {
-                o.Remove("$type");
-            }
-            string data = o.ToString(Newtonsoft.Json.Formatting.None);
+            string data = o.ToString(Formatting.None);
             JObject toSend = new()
             {
                 { "channel", eventName },
@@ -222,9 +156,19 @@ namespace AventusSharp.WebSocket
             {
                 toSend.Add("uid", uid);
             }
-
             byte[] dataToSend = Encoding.UTF8.GetBytes(toSend.ToString(Newtonsoft.Json.Formatting.None));
 
+            await Send(dataToSend);
+        }
+
+        /// <summary>
+        /// Send a msg though this connection
+        /// </summary>
+        /// <param name="eventName">Event name</param>
+        /// <param name="dataToSend">Object to send</param>
+        /// <returns></returns>
+        internal async Task Send(byte[] dataToSend)
+        {
             try
             {
                 if (webSocket.State == WebSocketState.Open || webSocket.State == WebSocketState.CloseReceived)
@@ -243,31 +187,16 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        public async Task Send(string eventName, object obj, string? uid = null)
+        public async Task Send(string eventName, object? obj = null, string? uid = null)
         {
             try
             {
-                //obj = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(obj, settings), settings);
-                string json = JsonConvert.SerializeObject(obj, converter);
-                JObject jObject = JObject.Parse(json);
-                await Send(eventName, jObject, uid);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-        }
-
-        public async Task Send(string eventName, string keyName, object obj, string? uid = null)
-        {
-            try
-            {
-                string json = JsonConvert.SerializeObject(obj, converter);
-                JToken jTok = JToken.Parse(json);
-                JObject jObject = new()
+                JObject jObject = new JObject();
+                if (obj != null)
                 {
-                    { keyName, jTok }
-                };
+                    string json = JsonConvert.SerializeObject(obj, instance.converter);
+                    jObject = JObject.Parse(json);
+                }
                 await Send(eventName, jObject, uid);
             }
             catch (Exception e)
@@ -275,24 +204,8 @@ namespace AventusSharp.WebSocket
                 Console.WriteLine(e);
             }
         }
-
 
         #endregion
-
-
-        private class FileBodyElement
-        {
-            public string Filename { get; private set; }
-            public FileStream Stream { get; private set; }
-            public string PathTemp { get; private set; }
-
-            public FileBodyElement(string filename, FileStream stream, string pathTemp)
-            {
-                Filename = filename;
-                Stream = stream;
-                PathTemp = pathTemp;
-            }
-        }
     }
 
 

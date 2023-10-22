@@ -18,7 +18,7 @@ namespace AventusSharp.Data.Storage.Mysql.Tools
             {
                 return null;
             }
-            return from.SqlTableName + "_" + to.SqlTableName + "_" + member.SqlName + "_link";
+            return from.SqlTableName + "_" + to.SqlTableName;
         }
 
         private static readonly Random random = new();

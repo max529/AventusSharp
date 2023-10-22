@@ -1,0 +1,8 @@
+namespace Data {
+	export abstract class Storable extends Aventus.Data implements Aventus.IData {
+		public id: number = 0;
+		public createdDate: Date = new Date();
+		public updatedDate: Date = new Date();
+	}
+
+}

@@ -5,11 +5,11 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AventusSharp.Data;
 using AventusSharp.Routes.Attributes;
 using AventusSharp.Routes.Form;
 using AventusSharp.Routes.Request;
 using AventusSharp.Routes.Response;
+using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 
@@ -17,8 +17,8 @@ namespace AventusSharp.Routes
 {
     public static class RouterMiddleware
     {
-        private static Dictionary<Type, IRouter> routerInstances = new Dictionary<Type, IRouter>();
-        private static Dictionary<string, RouterInfo> routesInfo = new Dictionary<string, RouterInfo>();
+        private static Dictionary<Type, IRoute> routerInstances = new Dictionary<Type, IRoute>();
+        private static Dictionary<string, RouteInfo> routesInfo = new Dictionary<string, RouteInfo>();
         private static Action<RouterConfig> configAction = (config) => { };
         private static bool configLoaded = false;
         internal static RouterConfig config = new RouterConfig();
@@ -41,7 +41,7 @@ namespace AventusSharp.Routes
 
         public static void Register(Assembly assembly)
         {
-            List<Type> types = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IRouter))).ToList();
+            List<Type> types = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IRoute))).ToList();
             Register(types);
         }
 
@@ -59,18 +59,23 @@ namespace AventusSharp.Routes
 
                 if (!t.IsAbstract)
                 {
-                    IRouter? routerTemp = (IRouter?)Activator.CreateInstance(t);
+                    IRoute? routerTemp = (IRoute?)Activator.CreateInstance(t);
                     if (routerTemp != null)
                     {
                         routerInstances[t] = routerTemp;
                     }
 
                     List<MethodInfo> methods = t.GetMethods()
-                                                .Where(p => p.GetCustomAttributes().Where(p1 => p1 is Attributes.Route).Count() > 0)
+                                                //.Where(p => p.GetCustomAttributes().Where(p1 => p1 is Attributes.Path).Count() > 0)
                                                 .ToList();
 
                     foreach (MethodInfo method in methods)
                     {
+                        string fullName = method.DeclaringType?.Assembly.FullName ?? "";
+                        if (!method.IsPublic || fullName.StartsWith("System."))
+                        {
+                            continue;
+                        }
                         List<RouterParameterInfo> fctParams = new List<RouterParameterInfo>();
                         ParameterInfo[] parameters = method.GetParameters();
                         foreach (ParameterInfo parameter in parameters)
@@ -81,12 +86,17 @@ namespace AventusSharp.Routes
                             });
                         }
 
-                        List<Attribute> routesAttribute = new List<Attribute>();
+                        List<string> routes = new List<string>();
                         List<Attribute> methodsAttribute = method.GetCustomAttributes().ToList();
                         List<MethodType> methodsToUse = new List<MethodType>();
                         foreach (Attribute methodAttribute in methodsAttribute)
                         {
-                            if (methodAttribute is Attributes.Route) { routesAttribute.Add(methodAttribute); }
+                            if (methodAttribute is Attributes.Path pathAttr) {
+                                if (!routes.Contains(pathAttr.pattern))
+                                {
+                                    routes.Add(pathAttr.pattern);
+                                }
+                            }
                             else if (methodAttribute is Get) { methodsToUse.Add(MethodType.Get); }
                             else if (methodAttribute is Post) { methodsToUse.Add(MethodType.Post); }
                             else if (methodAttribute is Put) { methodsToUse.Add(MethodType.Put); }
@@ -97,30 +107,35 @@ namespace AventusSharp.Routes
                         {
                             methodsToUse.Add(MethodType.Get);
                         }
-                        foreach (Attribute routeAttribute in routesAttribute)
+                        if(routes.Count == 0)
+                        {
+                            string defaultName = Tools.GetDefaultMethodUrl(method);
+                            routes.Add(defaultName);
+                        }
+                        foreach (string route in routes)
                         {
                             foreach (MethodType methodType in methodsToUse)
                             {
                                 Dictionary<string, RouterParameterInfo> @params = fctParams.ToDictionary(p => p.name, p => p);
-                                Attributes.Route r = (Attributes.Route)routeAttribute;
-                                string urlPattern = r.pattern;
-
+                                string urlPattern = route;
 
                                 Regex regex = transformPattern(urlPattern, @params, t);
 
-                                RouterInfo info = new RouterInfo(regex, methodType, method, routerInstances[t], parameters.Length);
+                                RouteInfo info = new RouteInfo(regex, methodType, method, routerInstances[t], parameters.Length);
                                 info.parameters = @params;
 
 
                                 if (!routesInfo.ContainsKey(info.UniqueKey))
                                 {
-                                    Console.WriteLine("Add " + info.ToString());
+                                    if (config.PrintRoute)
+                                        Console.WriteLine("Add " + info.ToString());
                                     routesInfo.Add(info.UniqueKey, info);
                                 }
                                 else
                                 {
-                                    Console.WriteLine("Add " + info.ToString());
-                                    RouterInfo otherInfo = routesInfo[info.UniqueKey];
+                                    if (config.PrintRoute)
+                                        Console.WriteLine("Add " + info.ToString());
+                                    RouteInfo otherInfo = routesInfo[info.UniqueKey];
                                     throw new Exception(info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")");
                                 }
                             }
@@ -143,13 +158,19 @@ namespace AventusSharp.Routes
         }
         public static string ReplaceFunction(string urlPattern, Type t)
         {
-            MatchCollection matchingFct = new Regex("\\[.*?\\]").Matches(urlPattern);
+            MatchCollection matchingFct = new Regex("\\[a-zA-Z0-9_*?\\]").Matches(urlPattern);
             if (matchingFct.Count > 0)
             {
                 foreach (Match match in matchingFct)
                 {
                     string value = match.Value.Replace("[", "").Replace("]", "");
-                    object? o = t.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance)?.Invoke(routerInstances[t], Array.Empty<object>());
+                    MethodInfo? method = t.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if(method == null)
+                    {
+                        Console.WriteLine("Can't find method " + value + " on " + t.FullName);
+                        continue;
+                    }
+                    object? o = method.Invoke(routerInstances[t], Array.Empty<object>());
                     if (o != null)
                     {
                         urlPattern = urlPattern.Replace(match.Value, o.ToString());
@@ -216,16 +237,17 @@ namespace AventusSharp.Routes
         {
             string url = context.Request.Path.ToString().ToLower();
 
-            foreach (KeyValuePair<string, RouterInfo> routeInfo in routesInfo)
+            foreach (KeyValuePair<string, RouteInfo> routeInfo in routesInfo)
             {
-                RouterInfo routerInfo = routeInfo.Value;
+                RouteInfo routerInfo = routeInfo.Value;
 
                 if (routerInfo.method.ToString().ToLower() == context.Request.Method.ToLower())
                 {
                     Match match = routerInfo.pattern.Match(url);
                     if (match.Success)
                     {
-                        Console.WriteLine("trigger " + routerInfo.ToString());
+                        if (config.PrintTrigger)
+                            Console.WriteLine("trigger " + routerInfo.ToString());
                         RouterBody? body = null;
                         object?[] param = new object[routerInfo.nbParamsFunction];
                         foreach (RouterParameterInfo parameter in routerInfo.parameters.Values)
@@ -252,7 +274,7 @@ namespace AventusSharp.Routes
                                             if (body == null)
                                             {
                                                 body = new RouterBody(context);
-                                                VoidWithError<RouteError> resultTemp = await body.Parse();
+                                                VoidWithRouteError resultTemp = await body.Parse();
                                                 if (!resultTemp.Success)
                                                 {
                                                     context.Response.StatusCode = 422;
@@ -270,7 +292,14 @@ namespace AventusSharp.Routes
                                             }
                                             else
                                             {
-                                                value = body.GetData(parameter.type, parameter.name);
+                                                ResultWithRouteError<object> bodyPart = body.GetData(parameter.type, parameter.name);
+                                                if (!bodyPart.Success)
+                                                {
+                                                    context.Response.StatusCode = 422;
+                                                    await new Json(bodyPart).send(context);
+                                                    return;
+                                                }
+                                                value = bodyPart.Result;
                                             }
 
                                         }
@@ -301,7 +330,7 @@ namespace AventusSharp.Routes
                         if (routerInfo.action.ReturnType == typeof(void))
                         {
                             routerInfo.action.Invoke(routerInfo.router, param);
-                            context.Response.StatusCode = 200;
+                            context.Response.StatusCode = 204;
                         }
                         else
                         {
@@ -311,7 +340,7 @@ namespace AventusSharp.Routes
                                 task.Wait();
                                 if (!o.GetType().IsGenericType)
                                 {
-                                    context.Response.StatusCode = 200;
+                                    context.Response.StatusCode = 204;
                                     return;
                                 }
                                 o = o.GetType().GetProperty("Result")?.GetValue(o);

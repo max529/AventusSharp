@@ -32,6 +32,8 @@ namespace AventusSharp.Data.Manager.DB
         private bool onParameter = false;
         private WhereGroupFctEnum fctMethodCall = WhereGroupFctEnum.None;
         private List<Expression?> tree = new List<Expression?>();
+
+        private bool nextGroupNegate = false;
         private Expression? parentExpression
         {
             get
@@ -68,7 +70,10 @@ namespace AventusSharp.Data.Manager.DB
             switch (u.NodeType)
             {
                 case ExpressionType.Not:
-                    currentGroup?.Groups.Add(new WhereGroupFct(WhereGroupFctEnum.Not));
+                    if (currentGroup != null)
+                        currentGroup.Groups.Add(new WhereGroupFct(WhereGroupFctEnum.Not));
+                    else
+                        nextGroupNegate = true;
                     Visit(u.Operand);
                     break;
                 case ExpressionType.Convert:
@@ -92,6 +97,11 @@ namespace AventusSharp.Data.Manager.DB
             WhereGroup newGroup = new();
             currentGroup?.Groups.Add(newGroup);
             currentGroup = newGroup;
+            if (nextGroupNegate)
+            {
+                currentGroup.negate = true;
+                nextGroupNegate = false;
+            }
             if (queryGroups.Count == 0)
             {
                 queryGroupsBase.Add(newGroup);
@@ -171,6 +181,10 @@ namespace AventusSharp.Data.Manager.DB
                             foreach (object o in list)
                             {
                                 tupple.Add(o.ToString());
+                            }
+                            if (tupple.Count == 0)
+                            {
+                                tupple.Add("''");
                             }
                             string valueTxt = "(" + string.Join(",", tupple) + ")";
                             currentGroup?.Groups.Add(new WhereGroupConstantOther(valueTxt));
@@ -301,6 +315,15 @@ namespace AventusSharp.Data.Manager.DB
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
 
+            List<Type> listAllowed = new List<Type>()
+            {
+                typeof(List<int>),
+                typeof(List<decimal>),
+                typeof(List<double>),
+                typeof(List<float>),
+                typeof(List<string>),
+                typeof(List<bool>),
+            };
             string methodName = node.Method.Name;
             Type? onType = node.Object?.Type;
             WhereGroupFctEnum? fct = null;
@@ -320,7 +343,7 @@ namespace AventusSharp.Data.Manager.DB
                     fct = WhereGroupFctEnum.EndsWith;
                 }
             }
-            else if (onType == typeof(List<int>))
+            else if (onType != null && listAllowed.Contains(onType))
             {
                 if (methodName == "Contains")
                 {
@@ -328,15 +351,16 @@ namespace AventusSharp.Data.Manager.DB
                     reverse = true;
                 }
             }
+
             else if (methodName == "GetElement" && node.Method.DeclaringType == typeof(LambdaExtractVariables))
             {
-                
+
                 ConstantExpression on = transformToConstant(node.Object);
                 if (node.Arguments.Count == 1)
                 {
                     ConstantExpression param = transformToConstant(node.Arguments[0]);
                     object? result = node.Method.Invoke(on.Value, new object?[] { param.Value });
-                    if(parentExpression is BinaryExpression && param.Value != null && result != null)
+                    if (parentExpression is BinaryExpression && param.Value != null && result != null)
                     {
                         SetQuickInfoToQueryBuilder(param.Value.ToString() ?? "", result.GetType());
                     }
@@ -352,6 +376,11 @@ namespace AventusSharp.Data.Manager.DB
             WhereGroup newGroup = new();
             currentGroup?.Groups.Add(newGroup);
             currentGroup = newGroup;
+            if (nextGroupNegate)
+            {
+                currentGroup.negate = true;
+                nextGroupNegate = false;
+            }
             if (queryGroups.Count == 0)
             {
                 queryGroupsBase.Add(newGroup);
@@ -408,6 +437,18 @@ namespace AventusSharp.Data.Manager.DB
         {
             List<DataMemberInfo> members = variableAccess;
             List<TableMemberInfo> result = new();
+
+            foreach (DataMemberInfo member in members.ToList())
+            {
+                if (member.Type != null && member.Type.Name.StartsWith("<>"))
+                {
+                    members.Remove(member);
+                }
+            }
+            if(members.Count == 0)
+            {
+                throw new Exception("No member found");
+            }
 
             Type from = members[0].Type ?? throw new Exception("The first members for query " + string.Join(".", members.Select(m => m.Name) + " has no type"));
             string paramName = string.Join(".", variableAccess.Select(v => v.Name));
@@ -559,10 +600,7 @@ namespace AventusSharp.Data.Manager.DB
             }
             throw new Exception("Can't find variable " + name);
         }
-        //public static Expression<Func<Dictionary<string, object?>, X>> CreateLambda<X>(string name)
-        //{
-        //    return source => source.Where(s => s.Key == name && s is X).Select(s => (X)s.Value).First();
-        //}
+
         protected override Expression VisitMember(MemberExpression m)
         {
             bool isBase = types.Count == 0;

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AventusSharp.Tools;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
@@ -16,7 +17,7 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
-        public ResultWithError<List<T>> RunWithError()
+        public ResultWithDataError<List<T>> RunWithError()
         {
             throw new NotImplementedException();
         }

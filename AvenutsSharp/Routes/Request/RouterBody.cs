@@ -1,4 +1,4 @@
-﻿using AventusSharp.Data;
+﻿using AventusSharp.Tools;
 using HttpMultipartParser;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
@@ -22,20 +22,19 @@ namespace AventusSharp.Routes.Request
         }
 
 
-        internal async Task<VoidWithError<RouteError>> Parse()
+        internal async Task<VoidWithRouteError> Parse()
         {
-            VoidWithError<RouteError> result = new VoidWithError<RouteError>();
-            string? contentType = context.Request.ContentType;
+            VoidWithRouteError result = new ();
+            string? contentType = context.Request.ContentType?.ToLower();
             if (!string.IsNullOrEmpty(contentType))
             {
-
                 if (contentType.StartsWith("multipart/form-data"))
                 {
                     return await ParseMultiPartForm();
                 }
-                if (contentType.StartsWith("application/json "))
+                if (contentType.StartsWith("application/json"))
                 {
-                    return ParseJson();
+                    return await ParseJson();
                 }
                 result.Errors.Add(new RouteError(RouteErrorCode.FormContentTypeUnknown, "The content type " + contentType + " can't be parsed"));
             }
@@ -46,9 +45,9 @@ namespace AventusSharp.Routes.Request
             return result;
         }
 
-        private async Task<VoidWithError<RouteError>> ParseMultiPartForm()
+        private async Task<VoidWithRouteError> ParseMultiPartForm()
         {
-            VoidWithError<RouteError> result = new();
+            VoidWithRouteError result = new();
             try
             {
                 Dictionary<string, string> bodyJSON = new Dictionary<string, string>();
@@ -99,10 +98,10 @@ namespace AventusSharp.Routes.Request
                     }
                 };
 
-                data = JObject.Parse("{" + string.Join(",", bodyJSON.Select(p => "\""+p.Key+ "\":\"" + p.Value + "\"")) + "}");
-
                 // You can parse synchronously:
                 await parser.RunAsync();
+                data = JObject.Parse("{" + string.Join(",", bodyJSON.Select(p => "\"" + p.Key + "\":\"" + p.Value + "\"")) + "}");
+
             }
             catch (Exception e)
             {
@@ -111,17 +110,18 @@ namespace AventusSharp.Routes.Request
             return result;
         }
 
-        private VoidWithError<RouteError> ParseJson()
+        private async Task<VoidWithRouteError> ParseJson()
         {
-            VoidWithError<RouteError> result = new();
+            VoidWithRouteError result = new();
             try
             {
+                context.Request.EnableBuffering();
                 string jsonString = String.Empty;
-
+                
                 context.Request.Body.Position = 0;
                 using (var inputStream = new StreamReader(context.Request.Body))
                 {
-                    jsonString = inputStream.ReadToEnd();
+                    jsonString = await inputStream.ReadToEndAsync();
                 }
                 data = JObject.Parse(jsonString);
             }
@@ -151,22 +151,25 @@ namespace AventusSharp.Routes.Request
         /// <typeparam name="T"></typeparam>
         /// <param name="propPath">Path where to find data</param>
         /// <returns></returns>
-        public ResultWithError<RouteError, object> GetData(Type type, string propPath = "")
+        public ResultWithRouteError<object> GetData(Type type, string propPath)
         {
-            ResultWithError<RouteError, object> result = new ResultWithError<RouteError, object>();
-            try
-            {
-                object? temp = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(data), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects, });
-                if (type.IsInstanceOfType(temp))
-                {
-                    result.Result = temp;
-                    return result;
-                }
-            }
-            catch (Exception e)
-            {
-                result.Errors.Add(new RouteError(RouteErrorCode.UnknowError, e));
-            }
+            ResultWithRouteError<object> result = new ();
+            //try
+            //{
+            //    object? temp = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(data), new JsonSerializerSettings { 
+            //        TypeNameHandling = TypeNameHandling.Objects,
+            //        NullValueHandling = NullValueHandling.Ignore,
+            //    });
+            //    if (type.IsInstanceOfType(temp))
+            //    {
+            //        result.Result = temp;
+            //        return result;
+            //    }
+            //}
+            //catch (Exception e)
+            //{
+            //    result.Errors.Add(new RouteError(RouteErrorCode.UnknowError, e));
+            //}
 
             try
             {
@@ -184,8 +187,15 @@ namespace AventusSharp.Routes.Request
                         }
                     }
                 }
-                object? temp = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(dataToUse), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects, });
-                if (type.IsInstanceOfType(temp))
+                object? temp = JsonConvert.DeserializeObject(
+                    JsonConvert.SerializeObject(dataToUse),
+                    type,
+                    new JsonSerializerSettings { 
+                        TypeNameHandling = TypeNameHandling.Auto, 
+                        NullValueHandling = NullValueHandling.Ignore 
+                    }
+                );
+                if (temp != null)
                 {
                     result.Result = temp;
                 }

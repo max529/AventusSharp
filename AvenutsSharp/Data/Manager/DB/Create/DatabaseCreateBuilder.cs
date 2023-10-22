@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 
@@ -10,13 +11,16 @@ namespace AventusSharp.Data.Manager.DB.Create
         public bool HasPrimaryResult { get; set; }
         public List<ParamsInfo> Parameters { get; }
 
-        public ParamsInfo? PrimaryToSet {get; set;}
+        public ParamsInfo? PrimaryToSet { get; set; }
+
+        public List<TableMemberInfo> ReverseMembers { get; set; }
 
         public DatabaseCreateBuilderInfo(string sql, bool havePrimaryResult, List<ParamsInfo> parameters)
         {
             Sql = sql;
             HasPrimaryResult = havePrimaryResult;
             Parameters = parameters;
+            ReverseMembers = new();
         }
 
     }
@@ -40,13 +44,13 @@ namespace AventusSharp.Data.Manager.DB.Create
             TableInfo = tableInfo;
         }
 
-        public ResultWithError<T> RunWithError(T item)
+        public ResultWithDataError<T> RunWithError(T item)
         {
-            ResultWithError<T> result = new();
-            ResultWithError<int> resultTemp = Storage.CreateFromBuilder(this, item);
+            ResultWithDataError<T> result = new();
+            ResultWithDataError<int> resultTemp = Storage.CreateFromBuilder(this, item);
             if (resultTemp.Success && resultTemp.Result != 0)
             {
-                item.id = resultTemp.Result;
+                item.Id = resultTemp.Result;
                 result.Result = item;
             }
             else

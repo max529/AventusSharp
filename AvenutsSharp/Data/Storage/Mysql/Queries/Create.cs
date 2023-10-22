@@ -51,12 +51,19 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 
                 if (hasPrimaryResult)
                 {
-                    sql += "SELECT last_insert_id() as id;";
+                    sql += "SELECT last_insert_id() as Id;";
                 }
                 DatabaseCreateBuilderInfo resultTemp = new(sql, hasPrimaryResult, paramsInfos)
                 {
                     PrimaryToSet = primaryToSet
                 };
+                foreach (TableMemberInfo memberInfo in tableInfo.ReverseMembers)
+                {
+                    if (memberInfo.IsAutoCreate || memberInfo.IsAutoUpdate)
+                    {
+                        resultTemp.ReverseMembers.Add(memberInfo);
+                    }
+                }
                 if (hasPrimaryResult && tableInfo.Primary != null)
                 {
                     createBuilder.PrimaryParam = new ParamsInfo()

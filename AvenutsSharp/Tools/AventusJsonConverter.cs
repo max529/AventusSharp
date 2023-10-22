@@ -85,7 +85,7 @@ namespace AventusSharp.Tools
                         if (valueEnumerator.Current != null)
                         {
                             string? keyStr = key.ToString();
-                            if (keyStr != null)
+                            if (keyStr != null && !jo.ContainsKey(keyStr))
                             {
                                 jo.Add(keyStr, JToken.FromObject(valueEnumerator.Current, serializer));
                             }
@@ -123,7 +123,7 @@ namespace AventusSharp.Tools
                             object? propVal = prop.GetValue(value, null);
                             if (propVal != null)
                             {
-                                if (!propToRemove.Contains(prop.Name))
+                                if (!propToRemove.Contains(prop.Name) && !jo.ContainsKey(prop.Name))
                                 {
                                     jo.Add(prop.Name, JToken.FromObject(propVal, serializer));
                                 }
@@ -137,7 +137,7 @@ namespace AventusSharp.Tools
                         object? propVal = prop.GetValue(value);
                         if (propVal != null)
                         {
-                            if (!propToRemove.Contains(prop.Name))
+                            if (!propToRemove.Contains(prop.Name) && !jo.ContainsKey(prop.Name))
                             {
                                 jo.Add(prop.Name, JToken.FromObject(propVal, serializer));
                             }

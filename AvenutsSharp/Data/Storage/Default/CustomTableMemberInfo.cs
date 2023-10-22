@@ -60,6 +60,7 @@ namespace AventusSharp.Data.Storage.Default
             IsAutoIncrement = information.IsAutoIncrement;
             IsNullable = information.IsNullable;
             IsPrimary = information.IsPrimary;
+            IsUnique = information.IsUnique;
             Link = information.Link;
             SqlName = information.SqlName;
             SqlType = information.SqlType;
@@ -124,6 +125,7 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsAutoIncrement { get; set; }
         public bool IsNullable { get; set; }
         public bool IsParentLink { get; set; }
+        public bool IsUnique { get; set; }
         public string SqlTypeTxt { get; set; } = "";
         public DbType SqlType { get; set; }
         public string SqlName { get; set; } = "";

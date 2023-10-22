@@ -21,8 +21,14 @@ namespace AventusSharp.Data
         public bool nullByDefault = false;
         public bool preferLocalCache = false;
         public bool preferShortLink = false;
+        public bool allowNonAbstractExtension = false;
         public Func<Type, string> GetSQLTableName = (type) =>
         {
+            Attribute? attr = type.GetCustomAttribute(typeof(SqlName));
+            if (attr != null)
+            {
+                return ((SqlName)attr).Name;
+            }
             return type.Name.Split('`')[0];
         };
 
@@ -49,9 +55,9 @@ namespace AventusSharp.Data
         static internal readonly List<Assembly> searchingAssemblies = new();
 
 
-        private static VoidWithError DefineTypeDM(Type type)
+        private static VoidWithDataError DefineTypeDM(Type type)
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             if (type != null)
             {
                 if (type.IsGenericType)
@@ -90,7 +96,7 @@ namespace AventusSharp.Data
             configureAction = config;
         }
 
-        public static Task<VoidWithError> Init()
+        public static Task<VoidWithDataError> Init()
         {
             List<Assembly> searchingAssemblies = new();
             Assembly? assembly = Assembly.GetEntryAssembly();
@@ -100,7 +106,7 @@ namespace AventusSharp.Data
             }
             return Init(searchingAssemblies);
         }
-        public static Task<VoidWithError> Init(Assembly assembly)
+        public static Task<VoidWithDataError> Init(Assembly assembly)
         {
             List<Assembly> searchingAssemblies = new();
             if (assembly != null)
@@ -110,12 +116,12 @@ namespace AventusSharp.Data
             return Init(searchingAssemblies);
         }
 
-        public static async Task<VoidWithError> Init(List<Assembly> assemblies)
+        public static async Task<VoidWithDataError> Init(List<Assembly> assemblies)
         {
             if (!registerDone)
             {
                 configureAction(Config);
-                VoidWithError resultTemp = DefineTypeDM(Config.defaultDM);
+                VoidWithDataError resultTemp = DefineTypeDM(Config.defaultDM);
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -125,7 +131,7 @@ namespace AventusSharp.Data
 
             if (MergeAssemblies(assemblies) == 0)
             {
-                return new VoidWithError();
+                return new VoidWithDataError();
             }
             return await new DataInit().Init();
         }
@@ -173,9 +179,9 @@ namespace AventusSharp.Data
             }
 
 
-            public async Task<VoidWithError> Init()
+            public async Task<VoidWithDataError> Init()
             {
-                VoidWithError resultTemp = new VoidWithError();
+                VoidWithDataError resultTemp = new VoidWithDataError();
                 try
                 {
                     resultTemp = GetAllManagers();
@@ -216,10 +222,10 @@ namespace AventusSharp.Data
                 return resultTemp;
             }
 
-            private VoidWithError GetAllManagers()
+            private VoidWithDataError GetAllManagers()
             {
 
-                VoidWithError result = new VoidWithError();
+                VoidWithDataError result = new VoidWithDataError();
                 Dictionary<Type, ManagerInformation> managerInformations = new();
                 bool monitor = this.config.log.monitorManagerAnalyze;
                 if (monitor)
@@ -319,10 +325,18 @@ namespace AventusSharp.Data
                 }
                 if (typeFrom.IsGenericType)
                 {
-                    typeFrom.GetGenericTypeDefinition();
+                    typeFrom = typeFrom.GetGenericTypeDefinition();
                 }
                 if (typeDependance.IsGenericType)
                 {
+                    if (!typeDependance.IsGenericTypeDefinition)
+                    {
+                        foreach (Type type in typeDependance.GenericTypeArguments)
+                        {
+                            // TODO check how to prevent infinite loop
+                            AddDataDependance(typeFrom, type, name);
+                        }
+                    }
                     typeDependance = typeDependance.GetGenericTypeDefinition();
                 }
 
@@ -335,9 +349,9 @@ namespace AventusSharp.Data
                     dataInformations[typeFrom].dependances[typeDependance].Add(name);
                 }
             }
-            private VoidWithError CalculateDataDependances()
+            private VoidWithDataError CalculateDataDependances()
             {
-                VoidWithError result = new();
+                VoidWithDataError result = new();
                 bool monitor = this.config.log.monitorDataDependances;
                 if (monitor)
                 {
@@ -361,9 +375,9 @@ namespace AventusSharp.Data
 
                 return result;
             }
-            private VoidWithError CalculateDataDependance(Type dataType)
+            private VoidWithDataError CalculateDataDependance(Type dataType)
             {
-                VoidWithError result = new();
+                VoidWithDataError result = new();
                 if (dataInformations.ContainsKey(dataType))
                 {
                     return result;
@@ -378,7 +392,7 @@ namespace AventusSharp.Data
                 dataInformations.Add(dataType, info);
 
                 // set Data info inside Manager info
-                ResultWithError<ManagerInformation> managerInfoResult = GetManager(info);
+                ResultWithDataError<ManagerInformation> managerInfoResult = GetManager(info);
                 if (!managerInfoResult.Success || managerInfoResult.Result == null)
                 {
                     result.Errors = managerInfoResult.Errors;
@@ -394,7 +408,7 @@ namespace AventusSharp.Data
                         result.Errors.Add(new DataError(DataErrorCode.GenericNotAbstract, "You class generic " + info.Name + " must be set as abstract"));
                         return result;
                     }
-                    ResultWithError<Type> interfaceTypeTemp = GetTypeForGenericClass(dataType);
+                    ResultWithDataError<Type> interfaceTypeTemp = GetTypeForGenericClass(dataType);
                     if (interfaceTypeTemp.Success && interfaceTypeTemp.Result != null)
                     {
                         Type interfaceType = interfaceTypeTemp.Result;
@@ -405,7 +419,7 @@ namespace AventusSharp.Data
                         }
                         else
                         {
-                            VoidWithError resultTemp = CalculateDataDependance(interfaceType);
+                            VoidWithDataError resultTemp = CalculateDataDependance(interfaceType);
                             if (!resultTemp.Success)
                             {
                                 result.Errors.AddRange(resultTemp.Errors);
@@ -432,6 +446,10 @@ namespace AventusSharp.Data
                 {
                     AddDataDependance(dataType, parentType, "*parent");
                 }
+                else if (config.allowNonAbstractExtension && !parentType.IsAbstract && !parentType.IsGenericType)
+                {
+                    AddDataDependance(dataType, parentType, "*parent");
+                }
                 else
                 {
                     result.Errors.Add(new DataError(DataErrorCode.ParentNotAbstract, "A parent must be abstract and generic " + parentType.Name));
@@ -453,9 +471,17 @@ namespace AventusSharp.Data
                 foreach (FieldInfo field in fields)
                 {
                     DataMemberInfo memberInfo = new(field);
-                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type))
+                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
                     {
                         AddDataDependance(dataType, memberInfo.Type, memberInfo.Name);
+                    }
+                    else
+                    {
+                        ForeignKey? foreignKeyAttr = memberInfo.GetAttribute<ForeignKey>(false);
+                        if (foreignKeyAttr != null)
+                        {
+                            AddDataDependance(dataType, foreignKeyAttr.Type, memberInfo.Name);
+                        }
                     }
                     info.membersInfo.Add(memberInfo.Name, memberInfo);
                 }
@@ -463,9 +489,18 @@ namespace AventusSharp.Data
                 foreach (PropertyInfo property in properties)
                 {
                     DataMemberInfo memberInfo = new(property);
-                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type))
+                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
                     {
                         AddDataDependance(dataType, memberInfo.Type, memberInfo.Name);
+                    }
+                    else
+                    {
+                        ForeignKey? foreignKeyAttr = memberInfo.GetAttribute<ForeignKey>(false);
+                        if (foreignKeyAttr != null)
+                        {
+                            AddDataDependance(dataType, foreignKeyAttr.Type, memberInfo.Name);
+                        }
+
                     }
                     info.membersInfo.Add(memberInfo.Name, memberInfo);
                 }
@@ -476,9 +511,9 @@ namespace AventusSharp.Data
                 }
                 return result;
             }
-            private VoidWithError OrderData()
+            private VoidWithDataError OrderData()
             {
-                VoidWithError result = new VoidWithError();
+                VoidWithDataError result = new VoidWithDataError();
                 bool monitor = config.log.monitorDataOrdering;
                 List<DataInformation> infos = dataInformations.Values.ToList();
                 Stopwatch? time = null;
@@ -494,7 +529,7 @@ namespace AventusSharp.Data
                         time = new Stopwatch();
                         time.Restart();
                     }
-                    ResultWithError<int> resultTemp = OrderDataLoop(info);
+                    ResultWithDataError<int> resultTemp = OrderDataLoop(info);
                     if (!resultTemp.Success)
                     {
                         result.Errors.AddRange(resultTemp.Errors);
@@ -509,10 +544,7 @@ namespace AventusSharp.Data
                 }
                 if (config.log.monitorDataOrdered)
                 {
-                    if (monitor)
-                    {
-                        Console.WriteLine("*********** Data ordered **********");
-                    }
+                    Console.WriteLine("*********** Data ordered **********");
                     int i = 1;
                     foreach (DataInformation dataInfo in orderedData)
                     {
@@ -531,9 +563,9 @@ namespace AventusSharp.Data
             }
 
 
-            private ResultWithError<int> OrderDataLoop(DataInformation dataInformation, List<DataInformation>? waitingData = null)
+            private ResultWithDataError<int> OrderDataLoop(DataInformation dataInformation, List<DataInformation>? waitingData = null)
             {
-                ResultWithError<int> result = new ResultWithError<int>();
+                ResultWithDataError<int> result = new ResultWithDataError<int>();
                 waitingData ??= new List<DataInformation>();
 
                 if (waitingData.Contains(dataInformation))
@@ -567,7 +599,7 @@ namespace AventusSharp.Data
                     {
                         if (dataInformations.ContainsKey(dependanceType))
                         {
-                            ResultWithError<int> insertIndexTemp = OrderDataLoop(dataInformations[dependanceType], waitingData);
+                            ResultWithDataError<int> insertIndexTemp = OrderDataLoop(dataInformations[dependanceType], waitingData);
                             if (!insertIndexTemp.Success)
                             {
                                 // its an error
@@ -596,9 +628,9 @@ namespace AventusSharp.Data
                 result.Result = orderedData.Count;
                 return result;
             }
-            private VoidWithError MergeManager()
+            private VoidWithDataError MergeManager()
             {
-                VoidWithError result = new VoidWithError();
+                VoidWithDataError result = new VoidWithDataError();
                 // merge manager
                 for (int i = orderedData.Count - 1; i > 0; i--)
                 {
@@ -669,9 +701,9 @@ namespace AventusSharp.Data
 
                 return result;
             }
-            private VoidWithError OrderedManager()
+            private VoidWithDataError OrderedManager()
             {
-                VoidWithError result = new();
+                VoidWithDataError result = new();
                 bool monitor = this.config.log.monitorManagerOrdering;
                 Stopwatch? time = null;
                 orderedManager = new List<ManagerInformation>();
@@ -686,7 +718,7 @@ namespace AventusSharp.Data
                         time = new Stopwatch();
                         time.Restart();
                     }
-                    ResultWithError<int> resultTemp = OrderManagerLoop(info);
+                    ResultWithDataError<int> resultTemp = OrderManagerLoop(info);
                     if (!resultTemp.Success)
                     {
                         result.Errors.AddRange(resultTemp.Errors);
@@ -701,10 +733,7 @@ namespace AventusSharp.Data
                 }
                 if (config.log.monitorManagerOrdered)
                 {
-                    if (monitor)
-                    {
-                        Console.WriteLine("*********** Manager ordered **********");
-                    }
+                    Console.WriteLine("*********** Manager ordered **********");
                     int i = 1;
                     foreach (ManagerInformation managerInfo in orderedManager)
                     {
@@ -714,9 +743,9 @@ namespace AventusSharp.Data
                 }
                 return result;
             }
-            private ResultWithError<int> OrderManagerLoop(ManagerInformation managerInformation, List<ManagerInformation>? waitingData = null)
+            private ResultWithDataError<int> OrderManagerLoop(ManagerInformation managerInformation, List<ManagerInformation>? waitingData = null)
             {
-                ResultWithError<int> result = new();
+                ResultWithDataError<int> result = new();
                 waitingData ??= new List<ManagerInformation>();
 
                 if (waitingData.Contains(managerInformation))
@@ -753,7 +782,7 @@ namespace AventusSharp.Data
                             ManagerInformation? managerInfo = dataInformations[dependanceType].ManagerInfo;
                             if (managerInfo != null)
                             {
-                                ResultWithError<int> insertIndexTemp = OrderManagerLoop(managerInfo, waitingData);
+                                ResultWithDataError<int> insertIndexTemp = OrderManagerLoop(managerInfo, waitingData);
                                 if (!insertIndexTemp.Success)
                                 {
                                     // its an error
@@ -783,9 +812,9 @@ namespace AventusSharp.Data
                 result.Result = orderedManager.Count;
                 return result;
             }
-            private async Task<VoidWithError> InitManager()
+            private async Task<VoidWithDataError> InitManager()
             {
-                VoidWithError result = new VoidWithError();
+                VoidWithDataError result = new VoidWithDataError();
                 bool monitor = this.config.log.monitorManagerInit;
                 if (monitor)
                 {
@@ -803,13 +832,13 @@ namespace AventusSharp.Data
                     if (!genericDMs.Contains(manager))
                     {
                         genericDMs.Add(manager);
-                        ResultWithError<PyramidInfo> pyramidResult = CreatePyramid(managerInformation);
+                        ResultWithDataError<PyramidInfo> pyramidResult = CreatePyramid(managerInformation);
                         if (!pyramidResult.Success || pyramidResult.Result == null)
                         {
                             result.Errors.AddRange(pyramidResult.Errors);
                             return result;
                         }
-                        VoidWithError resultTemp = await manager.SetConfiguration(pyramidResult.Result, this.config);
+                        VoidWithDataError resultTemp = await manager.SetConfiguration(pyramidResult.Result, this.config);
                         if (!resultTemp.Success)
                         {
                             result.Errors.AddRange(resultTemp.Errors);
@@ -824,7 +853,7 @@ namespace AventusSharp.Data
                         time = new Stopwatch();
                         time.Restart();
                     }
-                    VoidWithError resultTemp = await dm.Init();
+                    VoidWithDataError resultTemp = await dm.Init();
                     if (!resultTemp.Success)
                     {
                         result.Errors.AddRange(resultTemp.Errors);
@@ -840,9 +869,9 @@ namespace AventusSharp.Data
                 return result;
             }
 
-            private ResultWithError<PyramidInfo> CreatePyramidStep(DataInformation dataInformation, Dictionary<Type, PyramidInfo> pyramidFloors, Dictionary<Type, string> aliasUsed)
+            private ResultWithDataError<PyramidInfo> CreatePyramidStep(DataInformation dataInformation, Dictionary<Type, PyramidInfo> pyramidFloors, Dictionary<Type, string> aliasUsed)
             {
-                ResultWithError<PyramidInfo> result = new();
+                ResultWithDataError<PyramidInfo> result = new();
                 if (!dataInformation.Data.IsInterface)
                 {
                     Type? constraint = null;
@@ -906,6 +935,28 @@ namespace AventusSharp.Data
                                 return result;
                             }
                         }
+                        else if (config.allowNonAbstractExtension && dataInformations.ContainsKey(parent))
+                        {
+                            result = CreatePyramidStep(dataInformations[parent], pyramidFloors, aliasUsed);
+                            if (result.Success && result.Result != null)
+                            {
+                                if (pyramidFloors.ContainsKey(parent))
+                                {
+                                    info.parent = pyramidFloors[parent];
+                                    info.parent.nonGenericExtension = true;
+                                    info.parent.children.Add(info);
+                                }
+                                else
+                                {
+                                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why"));
+                                    return result;
+                                }
+                            }
+                            else if (result.Errors.Count > 0)
+                            {
+                                return result;
+                            }
+                        }
                         else
                         {
                             result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Somthing went wrong when creating pyramid but I don't know why"));
@@ -917,9 +968,9 @@ namespace AventusSharp.Data
                 }
                 return result;
             }
-            private ResultWithError<PyramidInfo> CreatePyramid(ManagerInformation managerInformation)
+            private ResultWithDataError<PyramidInfo> CreatePyramid(ManagerInformation managerInformation)
             {
-                ResultWithError<PyramidInfo> result = new();
+                ResultWithDataError<PyramidInfo> result = new();
 
                 Dictionary<Type, PyramidInfo> pyramidFloors = new();
                 Dictionary<Type, string> aliasUsed = new(); // interface type, class name
@@ -928,7 +979,7 @@ namespace AventusSharp.Data
                 {
                     try
                     {
-                        ResultWithError<PyramidInfo> info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
+                        ResultWithDataError<PyramidInfo> info = CreatePyramidStep(dataInformation, pyramidFloors, aliasUsed);
                         if (info.Success && info.Result != null)
                         {
                             result.Result ??= info.Result;
@@ -947,16 +998,16 @@ namespace AventusSharp.Data
                 }
                 return result;
             }
-            private ResultWithError<ManagerInformation> GetManager(DataInformation dataInformation)
+            private ResultWithDataError<ManagerInformation> GetManager(DataInformation dataInformation)
             {
-                ResultWithError<ManagerInformation> result = new();
+                ResultWithDataError<ManagerInformation> result = new();
                 try
                 {
                     Type? dataType = dataInformation.Data;
                     if (dataType.IsGenericType)
                     {
                         // type must be the interface
-                        ResultWithError<Type> resultTemp = GetTypeForGenericClass(dataType);
+                        ResultWithDataError<Type> resultTemp = GetTypeForGenericClass(dataType);
                         if (!resultTemp.Success || resultTemp.Result == null)
                         {
                             result.Errors = resultTemp.Errors;
@@ -1014,9 +1065,9 @@ namespace AventusSharp.Data
             /// </summary>
             /// <param name="dataType"></param>
             /// <returns></returns>
-            private ResultWithError<Type> GetTypeForGenericClass(Type dataType)
+            private ResultWithDataError<Type> GetTypeForGenericClass(Type dataType)
             {
-                ResultWithError<Type> result = new();
+                ResultWithDataError<Type> result = new();
                 if (dataType.IsGenericType)
                 {
                     Dictionary<string, Type> genericConstraintMapping = new();
@@ -1149,7 +1200,7 @@ namespace AventusSharp.Data
                 }
 
             }
-            
+
             private bool? _IsForceInherit = null;
             public bool IsForceInherit
             {
@@ -1312,6 +1363,7 @@ namespace AventusSharp.Data
         public List<DataMemberInfo> memberInfo = new();
 
         public bool isForceInherit = false;
+        public bool nonGenericExtension = false;
 
         public Dictionary<Type, List<string>> dependances = new();
 

@@ -1,5 +1,7 @@
 ﻿using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
+using MySqlX.XDevAPI.Common;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -34,13 +36,13 @@ namespace AventusSharp.Data.Manager
             }
             throw new DataError(DataErrorCode.DMNotExist, "Can't found a data manger for type " + U.Name).GetException();
         }
-        public static ResultWithError<IGenericDM> GetWithError<U>() where U : IStorable
+        public static ResultWithDataError<IGenericDM> GetWithError<U>() where U : IStorable
         {
             return GetWithError(typeof(U));
         }
-        public static ResultWithError<IGenericDM> GetWithError(Type U)
+        public static ResultWithDataError<IGenericDM> GetWithError(Type U)
         {
-            ResultWithError<IGenericDM> result = new ResultWithError<IGenericDM>();
+            ResultWithDataError<IGenericDM> result = new ResultWithDataError<IGenericDM>();
             if (dico.ContainsKey(U))
             {
                 result.Result = dico[U];
@@ -49,9 +51,9 @@ namespace AventusSharp.Data.Manager
             result.Errors.Add(new DataError(DataErrorCode.DMNotExist, "Can't found a data manger for type " + U.Name));
             return result;
         }
-        public static VoidWithError Set(Type type, IGenericDM manager)
+        public static VoidWithDataError Set(Type type, IGenericDM manager)
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             if (dico.ContainsKey(type))
             {
                 if (dico[type] != manager)
@@ -113,7 +115,7 @@ namespace AventusSharp.Data.Manager
 
         protected PyramidInfo PyramidInfo { get; set; }
 
-        private Dictionary<Type, PyramidInfo> PyramidsInfo { get; set; } = new Dictionary<Type, PyramidInfo>();
+        private Dictionary<Type, PyramidInfo> PyramidsInfo = new Dictionary<Type, PyramidInfo>();
         protected Type? RootType { get; set; }
         protected DataManagerConfig? Config { get; set; }
 
@@ -124,9 +126,9 @@ namespace AventusSharp.Data.Manager
         }
 
         #region Config
-        public virtual Task<VoidWithError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
+        public virtual Task<VoidWithDataError> SetConfiguration(PyramidInfo pyramid, DataManagerConfig config)
         {
-            VoidWithError result = new VoidWithError();
+            VoidWithDataError result = new VoidWithDataError();
             PyramidInfo = pyramid;
             PyramidsInfo[pyramid.type] = pyramid;
             if (pyramid.aliasType != null)
@@ -138,17 +140,17 @@ namespace AventusSharp.Data.Manager
             return Task.FromResult(result);
         }
 
-        private VoidWithError SetDMForType(PyramidInfo pyramid, bool isRoot)
+        private VoidWithDataError SetDMForType(PyramidInfo pyramid, bool isRoot)
         {
-            VoidWithError result = new();
-            if (!pyramid.isForceInherit || !isRoot)
+            VoidWithDataError result = new();
+            if ((!pyramid.isForceInherit && !pyramid.nonGenericExtension) || !isRoot)
             {
                 isRoot = false;
                 if (RootType == null)
                 {
                     RootType = pyramid.type;
                 }
-                VoidWithError resultTemp = GenericDM.Set(pyramid.type, this);
+                VoidWithDataError resultTemp = GenericDM.Set(pyramid.type, this);
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -166,7 +168,7 @@ namespace AventusSharp.Data.Manager
             }
             foreach (PyramidInfo child in pyramid.children)
             {
-                VoidWithError resultTemp = SetDMForType(child, isRoot);
+                VoidWithDataError resultTemp = SetDMForType(child, isRoot);
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -175,9 +177,9 @@ namespace AventusSharp.Data.Manager
             return result;
         }
 
-        public async Task<VoidWithError> Init()
+        public async Task<VoidWithDataError> Init()
         {
-            VoidWithError result = new();
+            VoidWithDataError result = new();
             try
             {
                 result = await Initialize();
@@ -192,14 +194,29 @@ namespace AventusSharp.Data.Manager
             }
             return result;
         }
-        protected abstract Task<VoidWithError> Initialize();
+        protected abstract Task<VoidWithDataError> Initialize();
         #endregion
 
         #region generic query
         public abstract IQueryBuilder<X> CreateQuery<X>() where X : U;
-        IQueryBuilder<X>? IGenericDM.CreateQuery<X>()
+        IQueryBuilder<X> IGenericDM.CreateQuery<X>()
         {
             IQueryBuilder<X>? result = InvokeMethod<IQueryBuilder<X>, X>(Array.Empty<object>());
+            if(result == null)
+            {
+                throw new Exception("Impossible");
+            }
+            return result;
+        }
+        
+        
+        #endregion
+
+        #region generic exist
+        public abstract IExistBuilder<X> CreateExist<X>() where X : U;
+        IExistBuilder<X>? IGenericDM.CreateExist<X>()
+        {
+            IExistBuilder<X>? result = InvokeMethod<IExistBuilder<X>, X>(Array.Empty<object>());
             return result;
         }
         #endregion
@@ -225,7 +242,7 @@ namespace AventusSharp.Data.Manager
         #region Get
 
         #region GetAll
-        protected abstract ResultWithError<List<X>> GetAllLogic<X>() where X : U;
+        protected abstract ResultWithDataError<List<X>> GetAllLogic<X>() where X : U;
 
         protected virtual List<DataError> CanGetAll()
         {
@@ -246,7 +263,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeGetAll()
         {
         }
-        private DataError? WrapperAfterGetAll<X>(ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterGetAll<X>(ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -258,15 +275,22 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterGetAll<X>(ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterGetAll<X>(ResultWithDataError<List<X>> result) where X : U
         {
         }
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> GetAllWithError<X>() where X : U
+        public ResultWithDataError<List<U>> GetAllWithError()
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            return GetAllWithError<U>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithDataError<List<X>> GetAllWithError<X>() where X : U
+        {
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanGetAll();
             if (errors.Count > 0)
             {
@@ -291,12 +315,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.GetAllWithError<X>()
+        ResultWithDataError<List<X>> IGenericDM.GetAllWithError<X>()
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(Array.Empty<object>());
+            ResultWithDataError<List<X>>? result = InvokeMethod<ResultWithDataError<List<X>>, X>(Array.Empty<object>());
             if (result == null)
             {
-                result = new ResultWithError<List<X>>();
+                result = new ResultWithDataError<List<X>>();
                 result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetAllWithError"));
             }
             return result;
@@ -304,9 +328,16 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        public List<U> GetAll()
+        {
+            return GetAll<U>();
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public List<X> GetAll<X>() where X : U
         {
-            ResultWithError<List<X>> result = GetAllWithError<X>();
+            ResultWithDataError<List<X>> result = GetAllWithError<X>();
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -329,7 +360,7 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region GetById
-        protected abstract ResultWithError<X> GetByIdLogic<X>(int id) where X : U;
+        protected abstract ResultWithDataError<X> GetByIdLogic<X>(int id) where X : U;
 
         protected virtual List<DataError> CanGetById(int id)
         {
@@ -350,7 +381,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeGetById(int id)
         {
         }
-        private DataError? WrapperAfterGetById<X>(int id, ResultWithError<X> result) where X : U
+        private DataError? WrapperAfterGetById<X>(int id, ResultWithDataError<X> result) where X : U
         {
             try
             {
@@ -362,16 +393,24 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterGetById<X>(int id, ResultWithError<X> result) where X : U
+        protected virtual void AfterGetById<X>(int id, ResultWithDataError<X> result) where X : U
         {
         }
 
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<X> GetByIdWithError<X>(int id) where X : U
+        public ResultWithDataError<U> GetByIdWithError(int id)
         {
-            ResultWithError<X> result = new ResultWithError<X>();
+            return GetByIdWithError<U>(id);
+        }
+
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithDataError<X> GetByIdWithError<X>(int id) where X : U
+        {
+            ResultWithDataError<X> result = new ResultWithDataError<X>();
             List<DataError> errors = CanGetById(id);
             if (errors.Count > 0)
             {
@@ -396,12 +435,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<X> IGenericDM.GetByIdWithError<X>(int id)
+        ResultWithDataError<X> IGenericDM.GetByIdWithError<X>(int id)
         {
-            ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(new object[] { id });
+            ResultWithDataError<X>? result = InvokeMethod<ResultWithDataError<X>, X>(new object[] { id });
             if (result == null)
             {
-                result = new ResultWithError<X>();
+                result = new ResultWithDataError<X>();
                 result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdWithError"));
             }
             return result;
@@ -409,9 +448,16 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        public U? GetById(int id)
+        {
+            return GetById<U>(id);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public X? GetById<X>(int id) where X : U
         {
-            ResultWithError<X> result = GetByIdWithError<X>(id);
+            ResultWithDataError<X> result = GetByIdWithError<X>(id);
             if (result.Success)
             {
                 return result.Result;
@@ -433,14 +479,14 @@ namespace AventusSharp.Data.Manager
             return result;
         }
 
-        public object? GetById(int id)
+        object? IGenericDM.GetById(int id)
         {
             return GetById<U>(id);
         }
         #endregion
 
         #region GetByIds
-        protected abstract ResultWithError<List<X>> GetByIdsLogic<X>(List<int> ids) where X : U;
+        protected abstract ResultWithDataError<List<X>> GetByIdsLogic<X>(List<int> ids) where X : U;
 
         protected virtual List<DataError> CanGetByIds(List<int> ids)
         {
@@ -461,7 +507,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeGetByIds(List<int> ids)
         {
         }
-        private DataError? WrapperAfterGetByIds<X>(List<int> ids, ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterGetByIds<X>(List<int> ids, ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -473,16 +519,23 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterGetByIds<X>(List<int> ids, ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterGetByIds<X>(List<int> ids, ResultWithDataError<List<X>> result) where X : U
         {
         }
 
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U
+        public ResultWithDataError<List<U>> GetByIdsWithError(List<int> ids)
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            return GetByIdsWithError<U>(ids);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithDataError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U
+        {
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanGetByIds(ids);
             if (errors.Count > 0)
             {
@@ -507,12 +560,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.GetByIdsWithError<X>(List<int> ids)
+        ResultWithDataError<List<X>> IGenericDM.GetByIdsWithError<X>(List<int> ids)
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(new object[] { ids });
+            ResultWithDataError<List<X>>? result = InvokeMethod<ResultWithDataError<List<X>>, X>(new object[] { ids });
             if (result == null)
             {
-                result = new ResultWithError<List<X>>();
+                result = new ResultWithDataError<List<X>>();
                 result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdsWithError"));
             }
             return result;
@@ -520,9 +573,16 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        public List<U>? GetByIds(List<int> ids)
+        {
+            return GetByIds<U>(ids);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public List<X>? GetByIds<X>(List<int> ids) where X : U
         {
-            ResultWithError<List<X>> result = GetByIdsWithError<X>(ids);
+            ResultWithDataError<List<X>> result = GetByIdsWithError<X>(ids);
             if (result.Success)
             {
                 return result.Result;
@@ -546,7 +606,7 @@ namespace AventusSharp.Data.Manager
         #endregion
 
         #region Where
-        protected abstract ResultWithError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func) where X : U;
+        protected abstract ResultWithDataError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func) where X : U;
 
         protected virtual List<DataError> CanWhere<X>(Expression<Func<X, bool>> func) where X : U
         {
@@ -567,7 +627,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeWhere<X>(Expression<Func<X, bool>> func) where X : U
         {
         }
-        private DataError? WrapperAfterWhere<X>(Expression<Func<X, bool>> func, ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterWhere<X>(Expression<Func<X, bool>> func, ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -579,7 +639,7 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterWhere<X>(Expression<Func<X, bool>> func, ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterWhere<X>(Expression<Func<X, bool>> func, ResultWithDataError<List<X>> result) where X : U
         {
         }
 
@@ -587,9 +647,16 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U
+        public ResultWithDataError<List<U>> WhereWithError(Expression<Func<U, bool>> func)
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            return WhereWithError<U>(func);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithDataError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanWhere(func);
             if (errors.Count > 0)
             {
@@ -614,12 +681,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.WhereWithError<X>(Expression<Func<X, bool>> func)
+        ResultWithDataError<List<X>> IGenericDM.WhereWithError<X>(Expression<Func<X, bool>> func)
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(new object[] { func });
+            ResultWithDataError<List<X>>? result = InvokeMethod<ResultWithDataError<List<X>>, X>(new object[] { func });
             if (result == null)
             {
-                result = new ResultWithError<List<X>>();
+                result = new ResultWithDataError<List<X>>();
                 result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
             }
             return result;
@@ -627,9 +694,16 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        public List<U> Where(Expression<Func<U, bool>> func)
+        {
+            return Where<U>(func);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public List<X> Where<X>(Expression<Func<X, bool>> func) where X : U
         {
-            ResultWithError<List<X>> result = WhereWithError(func);
+            ResultWithDataError<List<X>> result = WhereWithError(func);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -652,10 +726,43 @@ namespace AventusSharp.Data.Manager
 
         #endregion
 
+        #region Exist
+        public ResultWithDataError<bool> ExistWithError(Expression<Func<U, bool>> func)
+        {
+            return CreateExist<U>().Where(func).RunWithError();
+        }
+        public ResultWithDataError<bool> ExistWithError<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            return CreateExist<X>().Where(func).RunWithError();
+        }
+        ResultWithDataError<bool> IGenericDM.ExistWithError<X>(Expression<Func<X, bool>> func)
+        {
+            ResultWithDataError<bool>? result = InvokeMethod<ResultWithDataError<bool>, X>(new object[] { func }, false);
+            if (result == null)
+            {
+                result = new ResultWithDataError<bool>();
+                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
+            }
+            return result;
+        }
+        public bool Exist(Expression<Func<U, bool>> func)
+        {
+            return CreateExist<U>().Where(func).Run();
+        }
+        public bool Exist<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            return CreateExist<X>().Where(func).Run();
+        }
+        bool IGenericDM.Exist<X>(Expression<Func<X, bool>> func)
+        {
+            return InvokeMethod<bool, X>(new object[] { func }, false);
+        }
+        #endregion
+
         #region Create
 
         #region List
-        protected abstract ResultWithError<List<X>> CreateLogic<X>(List<X> values) where X : U;
+        protected abstract ResultWithDataError<List<X>> CreateLogic<X>(List<X> values) where X : U;
         protected virtual List<DataError> CanCreate<X>(List<X> values) where X : U
         {
             return new List<DataError>();
@@ -675,7 +782,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeCreate<X>(List<X> values) where X : U
         {
         }
-        private DataError? WrapperAfterCreate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterCreate<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -687,7 +794,7 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterCreate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterCreate<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
         }
 
@@ -695,9 +802,9 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U
+        public ResultWithDataError<List<X>> CreateWithError<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanCreate(values);
             if (errors.Count > 0)
             {
@@ -722,12 +829,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.CreateWithError<X>(List<X> values)
+        ResultWithDataError<List<X>> IGenericDM.CreateWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
+            ResultWithDataError<List<X>> result = new();
 
             List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
+            ResultWithDataError<List<U>>? resultTemp = InvokeMethod<ResultWithDataError<List<U>>, U>(new object[] { valuesTemp });
             if (resultTemp != null)
             {
                 if (resultTemp.Result is List<U> castedList)
@@ -751,7 +858,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public List<X> Create<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = CreateWithError(values);
+            ResultWithDataError<List<X>> result = CreateWithError(values);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -778,10 +885,10 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<X> CreateWithError<X>(X value) where X : U
+        public ResultWithDataError<X> CreateWithError<X>(X value) where X : U
         {
-            ResultWithError<X> result = new();
-            ResultWithError<List<X>> resultList = CreateWithError(new List<X>() { value });
+            ResultWithDataError<X> result = new();
+            ResultWithDataError<List<X>> resultList = CreateWithError(new List<X>() { value });
             result.Errors = resultList.Errors;
             if (resultList.Result?.Count > 0)
             {
@@ -796,12 +903,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<X> IGenericDM.CreateWithError<X>(X value)
+        ResultWithDataError<X> IGenericDM.CreateWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
+            ResultWithDataError<X> result = new();
             if (value is U)
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
+                ResultWithDataError<U>? resultTemp = InvokeMethod<ResultWithDataError<U>, U>(new object[] { value });
                 if (resultTemp != null)
                 {
                     if (resultTemp.Result is X casted)
@@ -827,7 +934,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public X? Create<X>(X value) where X : U
         {
-            ResultWithError<X> result = CreateWithError(value);
+            ResultWithDataError<X> result = CreateWithError(value);
             if (result.Success)
             {
                 return result.Result;
@@ -859,7 +966,7 @@ namespace AventusSharp.Data.Manager
         #region Update
 
         #region List
-        protected abstract ResultWithError<List<X>> UpdateLogic<X>(List<X> values) where X : U;
+        protected abstract ResultWithDataError<List<X>> UpdateLogic<X>(List<X> values) where X : U;
         protected virtual List<DataError> CanUpdate<X>(List<X> values) where X : U
         {
             return new List<DataError>();
@@ -879,7 +986,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeUpdate<X>(List<X> values) where X : U
         {
         }
-        private DataError? WrapperAfterUpdate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterUpdate<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -891,7 +998,7 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterUpdate<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterUpdate<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
         }
 
@@ -899,9 +1006,9 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : U
+        public ResultWithDataError<List<X>> UpdateWithError<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanUpdate(values);
             if (errors.Count > 0)
             {
@@ -926,11 +1033,11 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.UpdateWithError<X>(List<X> values)
+        ResultWithDataError<List<X>> IGenericDM.UpdateWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
+            ResultWithDataError<List<X>> result = new();
             List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
+            ResultWithDataError<List<U>>? resultTemp = InvokeMethod<ResultWithDataError<List<U>>, U>(new object[] { valuesTemp });
             if (resultTemp != null)
             {
                 if (resultTemp.Result is List<U> castedList)
@@ -953,7 +1060,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public List<X> Update<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = UpdateWithError(values);
+            ResultWithDataError<List<X>> result = UpdateWithError(values);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -979,10 +1086,10 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<X> UpdateWithError<X>(X value) where X : U
+        public ResultWithDataError<X> UpdateWithError<X>(X value) where X : U
         {
-            ResultWithError<X> result = new();
-            ResultWithError<List<X>> resultList = UpdateWithError(new List<X>() { value });
+            ResultWithDataError<X> result = new();
+            ResultWithDataError<List<X>> resultList = UpdateWithError(new List<X>() { value });
             result.Errors = resultList.Errors;
             if (resultList.Result?.Count > 0)
             {
@@ -997,12 +1104,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<X> IGenericDM.UpdateWithError<X>(X value)
+        ResultWithDataError<X> IGenericDM.UpdateWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
+            ResultWithDataError<X> result = new();
             if (value is U)
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
+                ResultWithDataError<U>? resultTemp = InvokeMethod<ResultWithDataError<U>, U>(new object[] { value });
                 if (resultTemp != null)
                 {
                     if (resultTemp.Result is X castedItem)
@@ -1026,7 +1133,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public X? Update<X>(X value) where X : U
         {
-            ResultWithError<X> result = UpdateWithError(value);
+            ResultWithDataError<X> result = UpdateWithError(value);
             if (result.Success)
             {
                 return result.Result;
@@ -1057,7 +1164,7 @@ namespace AventusSharp.Data.Manager
         #region Delete
 
         #region List
-        protected abstract ResultWithError<List<X>> DeleteLogic<X>(List<X> values) where X : U;
+        protected abstract ResultWithDataError<List<X>> DeleteLogic<X>(List<X> values) where X : U;
         protected virtual List<DataError> CanDelete<X>(List<X> values) where X : U
         {
             return new List<DataError>();
@@ -1077,7 +1184,7 @@ namespace AventusSharp.Data.Manager
         protected virtual void BeforeDelete<X>(List<X> values) where X : U
         {
         }
-        private DataError? WrapperAfterDelete<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        private DataError? WrapperAfterDelete<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
             try
             {
@@ -1089,16 +1196,16 @@ namespace AventusSharp.Data.Manager
                 return new DataError(DataErrorCode.UnknowError, e);
             }
         }
-        protected virtual void AfterDelete<X>(List<X> values, ResultWithError<List<X>> result) where X : U
+        protected virtual void AfterDelete<X>(List<X> values, ResultWithDataError<List<X>> result) where X : U
         {
         }
 
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : U
+        public ResultWithDataError<List<X>> DeleteWithError<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             List<DataError> errors = CanDelete(values);
             if (errors.Count > 0)
             {
@@ -1123,12 +1230,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<List<X>> IGenericDM.DeleteWithError<X>(List<X> values)
+        ResultWithDataError<List<X>> IGenericDM.DeleteWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
+            ResultWithDataError<List<X>> result = new();
             List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
-            if (resultTemp !=null)
+            ResultWithDataError<List<U>>? resultTemp = InvokeMethod<ResultWithDataError<List<U>>, U>(new object[] { valuesTemp });
+            if (resultTemp != null)
             {
                 if (resultTemp.Result is List<U> castedList)
                 {
@@ -1150,7 +1257,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public List<X> Delete<X>(List<X> values) where X : U
         {
-            ResultWithError<List<X>> result = DeleteWithError(values);
+            ResultWithDataError<List<X>> result = DeleteWithError(values);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -1176,10 +1283,10 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        public ResultWithError<X> DeleteWithError<X>(X value) where X : U
+        public ResultWithDataError<X> DeleteWithError<X>(X value) where X : U
         {
-            ResultWithError<X> result = new();
-            ResultWithError<List<X>> resultList = DeleteWithError(new List<X>() { value });
+            ResultWithDataError<X> result = new();
+            ResultWithDataError<List<X>> resultList = DeleteWithError(new List<X>() { value });
             result.Errors = resultList.Errors;
             if (resultList.Result?.Count > 0)
             {
@@ -1194,12 +1301,12 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
-        ResultWithError<X> IGenericDM.DeleteWithError<X>(X value)
+        ResultWithDataError<X> IGenericDM.DeleteWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
+            ResultWithDataError<X> result = new();
             if (value is U)
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(new object[] { value });
+                ResultWithDataError<U>? resultTemp = InvokeMethod<ResultWithDataError<U>, U>(new object[] { value });
                 if (resultTemp != null)
                 {
                     if (resultTemp.Result is X castedItem)
@@ -1223,7 +1330,7 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         public X? Delete<X>(X value) where X : U
         {
-            ResultWithError<X> result = DeleteWithError(value);
+            ResultWithDataError<X> result = DeleteWithError(value);
             if (result.Success)
             {
                 return result.Result;
@@ -1294,6 +1401,59 @@ namespace AventusSharp.Data.Manager
                     try
                     {
                         Type YType = typeof(Y);
+                        MethodInfo methodType = method.MakeGenericMethod(YType);
+                        if (checkSameParam)
+                        {
+                            if (GenericDM<T, U>.IsSameParameters(methodType.GetParameters(), types))
+                            {
+                                return (X?)methodType.Invoke(this, parameters);
+                            }
+                        }
+                        else
+                        {
+                            return (X?)methodType.Invoke(this, parameters);
+                        }
+                    }
+                    catch
+                    {
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                    }
+                }
+            }
+
+            throw new DataError(DataErrorCode.MethodNotFound, "The method " + name + "(" + string.Join(", ", parameters.Select(p => p.GetType().Name)) + ") can't be found").GetException();
+        }
+
+        protected X? InvokeMethod<X>(Type YType, object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
+        {
+
+            parameters ??= Array.Empty<object>();
+            List<Type> types = new();
+            foreach (object param in parameters)
+            {
+                Type type = param.GetType();
+                if (param is Expression exp && type.IsGenericType)
+                {
+                    Type[] t = exp.Type.GetGenericArguments();
+                    Type fctType = t.Length switch
+                    {
+                        1 => typeof(Func<>),
+                        2 => typeof(Func<,>),
+                        _ => throw new NotImplementedException()
+                    };
+                    fctType = fctType.MakeGenericType(t);
+                    type = typeof(Expression<>).MakeGenericType(fctType);
+                }
+                types.Add(type);
+            }
+
+            MethodInfo[] methods = this.GetType().GetMethods();
+            foreach (MethodInfo method in methods)
+            {
+                if (method.Name == name && method.IsGenericMethod)
+                {
+                    try
+                    {
                         MethodInfo methodType = method.MakeGenericMethod(YType);
                         if (checkSameParam)
                         {

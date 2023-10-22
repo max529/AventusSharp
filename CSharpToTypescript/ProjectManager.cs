@@ -27,7 +27,7 @@ namespace CSharpToTypescript
             Config = config;
             if (!Build())
             {
-                Console.WriteLine("Compilation failed");
+                Console.WriteLine("Error : Compilation failed");
                 return;
             }
             if (!MSBuildLocator.IsRegistered) MSBuildLocator.RegisterDefaults();
@@ -56,7 +56,6 @@ namespace CSharpToTypescript
             p.StartInfo.RedirectStandardOutput = true;
             p.StartInfo.FileName = "cmd.exe";
             string cmd = "dotnet build " + Config.csProj + " --no-dependencies -v m";
-            Console.WriteLine(cmd);
             p.StartInfo.Arguments = "/C "+ cmd;
             p.Start();
             // Read the output stream first and then wait.
@@ -66,6 +65,7 @@ namespace CSharpToTypescript
             string nbErrors = splitted[splitted.Count - 4];
             if (!nbErrors.Contains("0"))
             {
+                Console.WriteLine(output);
                 return false;
             }
             string outputPath = "";
@@ -73,14 +73,14 @@ namespace CSharpToTypescript
             {
                 if (splitted[i].Contains("->"))
                 {
-                    outputPath = splitted[i + 1].Trim();
+                    outputPath = splitted[i].Split("->")[1].Trim();
                 }
             }
             if(outputPath == "")
             {
+                Console.WriteLine(output);
                 return false;
             }
-            Console.WriteLine(outputPath);
             Config.compiledAssembly = Assembly.LoadFrom(outputPath);
             return true;
         }

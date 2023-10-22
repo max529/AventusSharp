@@ -2,42 +2,59 @@
 
 namespace AventusSharp.Data.Attributes
 {
+    public enum SizeEnum
+    {
+        MaxVarChar,
+        Text,
+        MediumText,
+        LongText
+    }
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class Size : ValidationAttribute
     {
-        public int Nb { get; private set; }
-        public bool Max { get; private set; }
-        private string Msg { get; set; }
-        /**
-         * if nb = -1
-         */
-        public Size(int nb, string msg = "")
+        public int Max { get; private set; } = 255;
+        public int Min { get; private set; }
+
+        public SizeEnum? SizeType { get; private set; } = null;
+        private string Msg;
+
+        public Size(int min, int max, string msg = "")
         {
-            this.Nb = nb;
-            if (nb <= 0)
-            {
-                Max = true;
-            }
-            this.Msg = msg;
+            Min = min;
+            Max = max;
+            Msg = msg;
         }
-        public Size(bool max, string msg = "")
+
+        public Size(int max, string msg = "") : this(0, max, msg) { }
+
+        public Size(int min, SizeEnum max, string msg = "")
         {
-            this.Max = max;
-            if (!max)
-            {
-                Nb = 255;
-            }
-            this.Msg = msg;
+            Min = min;
+            SizeType = max;
+            Msg = msg;
         }
+        public Size(SizeEnum max, string msg = "") : this(0, max, msg) { }
+
 
         public override ValidationResult IsValid(object? value, ValidationContext context)
         {
             if (value is string casted)
             {
-                if (casted.Length > Nb)
+                if (SizeType == null)
                 {
-                    string msg = this.Msg == "" ? $"The field {context.FieldName} must be shorter than {Max} chars." : this.Msg;
-                    return new ValidationResult(msg);
+                    if (casted.Length > Max || casted.Length < Min)
+                    {
+                        string msg = Msg == "" ? $"The size of the field {context.FieldName} must be between {Min} and {Max} chars." : Msg;
+                        return new ValidationResult(msg);
+                    }
+                }
+                else
+                {
+                    if (casted.Length < Min)
+                    {
+                        string msg = Msg == "" ? $"The size of the field {context.FieldName} must be greater than {Min} chars." : Msg;
+                        return new ValidationResult(msg);
+                    }
                 }
             }
             return ValidationResult.Success;

@@ -42,8 +42,17 @@ namespace AventusSharp.Data
         WhereNotAllowed,
         CreateNotAllowed,
         UpdateNotAllowed,
-        DeleteNotAllowed
+        DeleteNotAllowed,
+        NumberOfItemsNotMatching,
+        FieldTypeNotFound,
+        MemberNotFound,
+        TooMuchMemberFound,
+        TypeNotFound,
+        ReverseLinkNotExist,
+        ErrorCreatingReverseQuery
     }
+    
+    
     public class DataError : GenericError<DataErrorCode>
     {
         public DataError(DataErrorCode code, string message, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0) : base(code, message, callerPath, callerNo)
@@ -54,5 +63,14 @@ namespace AventusSharp.Data
         {
             Message = exception.Message;
         }
+    }
+
+    public class VoidWithDataError : VoidWithError<DataError>
+    {
+
+    }
+    public class ResultWithDataError<T> : ResultWithError<T, DataError>
+    {
+
     }
 }

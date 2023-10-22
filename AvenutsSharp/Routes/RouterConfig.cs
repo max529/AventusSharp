@@ -17,5 +17,8 @@ namespace AventusSharp.Routes
 
         public JsonSerializerSettings? CustomJSONSettings { get; set; }
         public JsonConverter? CustomJSONConverter { get; set; } = new AventusJsonConverter();
+
+        public bool PrintRoute { get; set; } = false;
+        public bool PrintTrigger { get; set; } = false;
     }
 }

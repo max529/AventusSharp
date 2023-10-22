@@ -1,0 +1,142 @@
+import { ResultWithDataError } from '../Data/DataError.lib.avt';
+import { WsRoute } from '../../socket/WsRoute.lib.avt';
+import { WsEndPoint } from '../../socket/WsEndPoint.lib.avt';
+import { WsEvent } from '../../socket/WsEvent.lib.avt';
+
+namespace WebSocket {
+
+	export abstract class StorableWsRoute<T extends Aventus.IData> extends WsRoute {
+		
+		public events: {
+			GetAll: StorableWsRoute_GetAll<T>,
+			Create: StorableWsRoute_Create<T>,
+			CreateMany: StorableWsRoute_CreateMany<T>,
+			GetById: StorableWsRoute_GetById<T>,
+			Update: StorableWsRoute_Update<T>,
+			UpdateMany: StorableWsRoute_UpdateMany<T>,
+			Delete: StorableWsRoute_Delete<T>,
+			DeleteMany: StorableWsRoute_DeleteMany<T>,
+		}
+		
+		public constructor(endpoint: WsEndPoint) {
+			super(endpoint);
+			this.events = {
+				GetAll: new StorableWsRoute_GetAll<T>(endpoint),
+				Create: new StorableWsRoute_Create<T>(endpoint),
+				CreateMany: new StorableWsRoute_CreateMany<T>(endpoint),
+				GetById: new StorableWsRoute_GetById<T>(endpoint),
+				Update: new StorableWsRoute_Update<T>(endpoint),
+				UpdateMany: new StorableWsRoute_UpdateMany<T>(endpoint),
+				Delete: new StorableWsRoute_Delete<T>(endpoint),
+				DeleteMany: new StorableWsRoute_DeleteMany<T>(endpoint),
+			};
+		}
+
+		public async GetAll() {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T[]>>(`/${this.StorableName()}`);
+		}
+
+		public async Create(body: { item: T } | FormData) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T>>(`/${this.StorableName()}`, body);
+		}
+
+		public async CreateMany(body: { list: T[] } | FormData) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T[]>>(`/${this.StorableName()}s`, body);
+		}
+
+		public async GetById(id: number) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T>>(`/${this.StorableName()}/${id}`);
+		}
+
+		public async Update(id: number, body: { item: T } | FormData) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T>>(`/${this.StorableName()}/${id}`, body);
+		}
+
+		public async UpdateMany(body: { list: T[] } | FormData) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T[]>>(`/${this.StorableName()}s`, body);
+		}
+
+		public async Delete(id: number) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T>>(`/${this.StorableName()}/${id}`);
+		}
+
+		public async DeleteMany(body: { ids: number[] } | FormData) {
+			return await this.endpoint.sendMessageAndWait<ResultWithDataError<T[]>>(`/${this.StorableName()}s`, body);
+		}
+
+		public abstract StorableName(): string;
+	}
+	 
+	export class StorableWsRoute_GetAll<T> extends WsEvent<ResultWithDataError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}";
+		}
+	}
+	 
+	export class StorableWsRoute_Create<T> extends WsEvent<ResultWithDataError<T>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}";
+		}
+	}
+	 
+	export class StorableWsRoute_CreateMany<T> extends WsEvent<ResultWithDataError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}s";
+		}
+	}
+	 
+	export class StorableWsRoute_GetById<T> extends WsEvent<ResultWithDataError<T>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}/${id}";
+		}
+	}
+	 
+	export class StorableWsRoute_Update<T> extends WsEvent<ResultWithDataError<T>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}/${id}";
+		}
+	}
+	 
+	export class StorableWsRoute_UpdateMany<T> extends WsEvent<ResultWithDataError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}s";
+		}
+	}
+	 
+	export class StorableWsRoute_Delete<T> extends WsEvent<ResultWithDataError<T>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}/${id}";
+		}
+	}
+	 
+	export class StorableWsRoute_DeleteMany<T> extends WsEvent<ResultWithDataError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override get path(): string {
+			return "/${this.StorableName()}s";
+		}
+	}
+
+}

@@ -2,6 +2,8 @@
 using AventusSharp.Routes;
 using AventusSharp.Routes.Attributes;
 using AventusSharp.Routes.Response;
+using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -20,9 +22,9 @@ namespace CSharpToTypescript.Container
         public static bool Is(INamedTypeSymbol type, string fileName, out BaseContainer? result)
         {
             result = null;
-            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IRouter>(p)) != null)
+            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IRoute>(p)) != null)
             {
-                if (Tools.ExportToTypesript(type, true))
+                if (Tools.ExportToTypesript(type, ProjectManager.Config.exportHttpRouteByDefault))
                 {
                     result = new HttpRouterContainer(type);
                 }
@@ -91,7 +93,6 @@ namespace CSharpToTypescript.Container
             return string.Join("\r\n", result);
         }
 
-
         private string GetContent()
         {
             List<string> result = new();
@@ -158,10 +159,10 @@ namespace CSharpToTypescript.Container
                     if (realType != null)
                     {
                         List<Type> types = realType.Assembly.GetTypes().Where(t => t.IsClass && t.GetInterfaces().Contains(realType)).ToList();
-                        if(types.Count > 0)
+                        if (types.Count > 0)
                         {
                             Type finalType = types[0];
-                            foreach(Type typeTemp in types)
+                            foreach (Type typeTemp in types)
                             {
                                 if (finalType.IsSubclassOf(typeTemp))
                                 {
@@ -169,21 +170,18 @@ namespace CSharpToTypescript.Container
                                 }
                             }
 
-                            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(finalType.FullName);
-                            if(typeSymbol != null)
+                            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(finalType.FullName ?? "");
+                            if (typeSymbol != null)
                             {
                                 type = typeSymbol;
                             }
                         }
-                        Console.WriteLine();
                     }
                     // Replace interface by real type
                 }
             }
             return base.ParseGenericType(type, depth, genericExtendsConstraint);
         }
-
-
         private void ParentCheck()
         {
             if (type.IsAbstract)
@@ -196,23 +194,33 @@ namespace CSharpToTypescript.Container
             List<string> fcts = new List<string>();
             foreach (MethodInfo method in methods)
             {
-                Attribute? route = method.GetCustomAttributes().ToList().Find(p => p is Route);
+                string fullName = method.DeclaringType?.Assembly.FullName ?? "";
+                if (!method.IsPublic || fullName.StartsWith("System."))
+                {
+                    continue;
+                }
+                string urlPattern = "";
+                Attribute? route = method.GetCustomAttributes().ToList().Find(p => p is AventusSharp.Routes.Attributes.Path);
                 if (route != null)
                 {
-                    Route r = (Route)route;
-                    string urlPattern = r.pattern;
-                    ParseFunctions(urlPattern, fcts);
+                    AventusSharp.Routes.Attributes.Path r = (AventusSharp.Routes.Attributes.Path)route;
+                    urlPattern = r.pattern;
                 }
-                else if (!methodsByName.ContainsKey(method.Name))
+                else
                 {
-                    methodsByName.Add(method.Name, method);
+                    urlPattern = AventusSharp.Routes.Tools.GetDefaultMethodUrl(method);
                 }
+                ParseFunctions(urlPattern, fcts);
             }
-            IRouter? routerTemp = (IRouter?)Activator.CreateInstance(realType);
+            IRoute? routerTemp = (IRoute?)Activator.CreateInstance(realType);
             foreach (string fct in fcts)
             {
-                MethodInfo method = methodsByName[fct];
+                MethodInfo? method = realType.GetMethod(fct, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 object? o = method.Invoke(routerTemp, Array.Empty<object>());
+                if (method == null)
+                {
+                    throw new Exception("Can't find method " + fct + " on " + realType.FullName);
+                }
                 if (o != null)
                 {
                     Func<string> getFct = () =>
@@ -242,6 +250,12 @@ namespace CSharpToTypescript.Container
                 }
             }
         }
+
+        
+        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        {
+            return applyReplacer(ProjectManager.Config.replacer.httpRouter, fullname, result);
+        }
     }
 
 
@@ -253,12 +267,22 @@ namespace CSharpToTypescript.Container
         public MethodInfo method;
         public List<string> httpMethods = new List<string>() { };
         private Type @class;
-        public Dictionary<string, string> parametersAndType = new();
+        public Dictionary<string, string> parametersBodyAndType = new();
+        public Dictionary<string, string> parametersUrlAndType = new();
         public Dictionary<string, Func<string>> functionNeeded = new();
         private HttpRouterContainer parent;
         public string route = "";
         private List<string?> listReturns = new();
-        private Type typeContainer;
+        private List<string?> listReturnsWithoutErrors = new();
+        private Type? typeContainer;
+
+        public bool AvoidResultError
+        {
+            get
+            {
+                return typeContainer == typeof(Json);
+            }
+        }
 
         public HttpRouteContainer(IMethodSymbol methodSymbol, Type @class, HttpRouterContainer parent)
         {
@@ -267,27 +291,20 @@ namespace CSharpToTypescript.Container
             this.@class = @class;
             this.name = methodSymbol.Name;
             MethodInfo? methodTemp = @class.GetMethod(name);
-            if (methodTemp == null)
+            if (methodTemp == null || !methodTemp.IsPublic)
             {
                 canBeAdded = false;
                 return;
             }
             method = methodTemp;
-
+            canBeAdded = true;
             LoadHttpMethod(methodSymbol);
-            if (!canBeAdded)
-            {
-                return;
-            }
-            if (httpMethods.Count == 0)
-            {
-                httpMethods.Add("get");
-            }
+
 
             Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
             foreach (KeyValuePair<string, ParameterInfo> pair in @params)
             {
-                if (parametersAndType.ContainsKey(pair.Key))
+                if (parametersUrlAndType.ContainsKey(pair.Key))
                 {
                     continue;
                 }
@@ -296,32 +313,82 @@ namespace CSharpToTypescript.Container
                 {
                     if (parameter.Name == pair.Key)
                     {
-                        parametersAndType.Add(pair.Key, parent.GetTypeName(parameter.Type));
+                        if (parameter.Type.ToString()?.StartsWith("Microsoft") == true)
+                        {
+                            continue;
+                        }
+                        if (Tools.HasAttribute<NoTypescript>(parameter))
+                        {
+                            continue;
+                        }
+                        parametersBodyAndType.Add(pair.Key, parent.GetTypeName(parameter.Type));
                     }
                 }
 
             }
 
-            if (method.ReturnType.GetInterfaces().Contains(typeof(IResponse)))
+            if (method.ReturnType != typeof(void))
             {
-                typeContainer = method.ReturnType;
-            }
-            else
-            {
-                typeContainer = typeof(Json);
-            }
+                bool needRecheck = false;
+                if (method.ReturnType.GetInterfaces().Contains(typeof(IResponse)))
+                {
+                    typeContainer = method.ReturnType;
+                    if (typeContainer == typeof(View))
+                    {
+                        canBeAdded = false;
+                        return;
+                    }
+                }
+                else if (method.ReturnType == typeof(IResponse))
+                {
+                    needRecheck = true;
+                }
+                else
+                {
+                    typeContainer = typeof(Json);
+                }
 
-            if (methodSymbol.DeclaringSyntaxReferences.Length > 0 && methodSymbol.DeclaringSyntaxReferences[0].GetSyntax() is MethodDeclarationSyntax methodSyntax)
-            {
-                if (methodSyntax.Body == null)
+                if (methodSymbol.DeclaringSyntaxReferences.Length > 0 && methodSymbol.DeclaringSyntaxReferences[0].GetSyntax() is MethodDeclarationSyntax methodSyntax)
+                {
+                    if (methodSyntax.Body == null)
+                    {
+                        canBeAdded = false;
+                        return;
+                    }
+                    var temps = methodSyntax.Body.Statements;
+                    foreach (var temp in temps)
+                    {
+                        LoadReturn(temp);
+                    }
+                    // can't load the type
+                    if (listReturns.Count == 0)
+                    {
+                        AddTypeToListReturn(method.ReturnType);
+                    }
+                }
+                if (needRecheck)
+                {
+                    if (listReturns.Count == 0 || listReturns.Count > 1)
+                    {
+                        canBeAdded = false;
+                        Console.WriteLine("You need to define a single kind of reponse between Json, View, Dummy, etc");
+                        return;
+                    }
+                    if (listReturns[0] == typeof(View).FullName)
+                    {
+                        canBeAdded = false;
+                        //return;
+                    }
+                    typeContainer = Type.GetType(listReturns[0] + ", AventusSharp");
+                    if (typeContainer == null)
+                    {
+                        typeContainer = typeof(Json);
+                    }
+                }
+
+                if (typeContainer == null)
                 {
                     canBeAdded = false;
-                    return;
-                }
-                var temps = methodSyntax.Body.Statements;
-                foreach (var temp in temps)
-                {
-                    LoadReturn(temp);
                 }
             }
         }
@@ -353,31 +420,38 @@ namespace CSharpToTypescript.Container
                     {
                         httpMethods.Add("options");
                     }
-                    else if (attr.AttributeClass.ToString() == typeof(Route).FullName)
+                    else if (attr.AttributeClass.ToString() == typeof(AventusSharp.Routes.Attributes.Path).FullName)
                     {
-                        canBeAdded = true;
-                        ParseRoute(attr);
+                        Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
+                        if (attr.ConstructorArguments.Length == 1)
+                        {
+                            ParseRoute(attr.ConstructorArguments[0].Value?.ToString(), @params);
+                        }
                     }
                 }
 
             }
+            if (httpMethods.Count == 0)
+            {
+                httpMethods.Add("get");
+            }
+            if (route == "")
+            {
+                string defaultName = AventusSharp.Routes.Tools.GetDefaultMethodUrl(method);
+                ParseRoute(defaultName, new Dictionary<string, ParameterInfo>());
+            }
         }
 
-        private void ParseRoute(AttributeData route)
+        private void ParseRoute(string? txtRoute, Dictionary<string, ParameterInfo> @params)
         {
-            Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
-            if (route.ConstructorArguments.Length == 1)
+            if (txtRoute != null)
             {
-                string? txtRoute = route.ConstructorArguments[0].Value?.ToString();
-                if (txtRoute != null)
-                {
-                    txtRoute = ParseParams(txtRoute, @params);
-                    txtRoute = ParseFunctions(txtRoute);
-                    this.route = txtRoute;
-                    return;
-                }
+                txtRoute = ParseParams(txtRoute, @params);
+                txtRoute = ParseFunctions(txtRoute);
+                this.route = txtRoute;
+                return;
             }
-            canBeAdded = false;
+
         }
         public string ParseParams(string urlPattern, Dictionary<string, ParameterInfo> @params)
         {
@@ -385,7 +459,7 @@ namespace CSharpToTypescript.Container
             foreach (Match match in matching)
             {
                 string value = match.Value.Replace("{", "").Replace("}", "");
-                if (parametersAndType.ContainsKey(value))
+                if (parametersUrlAndType.ContainsKey(value))
                 {
                     continue;
                 }
@@ -393,20 +467,20 @@ namespace CSharpToTypescript.Container
                 {
                     if (@params[value].ParameterType == typeof(int))
                     {
-                        parametersAndType.Add(value, "number");
+                        parametersUrlAndType.Add(value, "number");
                     }
                     else if (@params[value].ParameterType == typeof(string))
                     {
-                        parametersAndType.Add(value, "string");
+                        parametersUrlAndType.Add(value, "string");
                     }
                     else
                     {
-                        parametersAndType.Add(value, "any");
+                        parametersUrlAndType.Add(value, "any");
                     }
                 }
                 else
                 {
-                    parametersAndType.Add(value, "any");
+                    parametersUrlAndType.Add(value, "any");
                 }
                 urlPattern = urlPattern.Replace(match.Value, "${" + value + "}");
             }
@@ -421,7 +495,7 @@ namespace CSharpToTypescript.Container
                 foreach (Match match in matchingFct)
                 {
                     string value = match.Value.Replace("[", "").Replace("]", "");
-                    MethodInfo? methodTemp = @class.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
+                    MethodInfo? methodTemp = @class.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     if (methodTemp == null)
                     {
                         canBeAdded = false;
@@ -439,7 +513,7 @@ namespace CSharpToTypescript.Container
                         }
                         else
                         {
-                            IRouter? routerTemp = (IRouter?)Activator.CreateInstance(@class);
+                            IRoute? routerTemp = (IRoute?)Activator.CreateInstance(@class);
                             object? o = methodTemp.Invoke(routerTemp, Array.Empty<object>());
                             if (o != null)
                             {
@@ -463,6 +537,43 @@ namespace CSharpToTypescript.Container
             return urlPattern;
         }
 
+        private void AddTypeToListReturn(ISymbol type)
+        {
+            if (type is INamedTypeSymbol namedType)
+            {
+                Type? type2 = Tools.GetCompiledType(namedType);
+                if (type2 != null && AvoidResultError)
+                {
+                    if (Tools.IsSubclass(typeof(ResultWithError<,>), type2))
+                    {
+                        listReturns.Add(parent.GetTypeName(namedType.TypeArguments[namedType.TypeArguments.Length - 1]));
+                        return;
+                    }
+                    else if (Tools.IsSubclass(typeof(VoidWithError<>), type2))
+                    {
+                        return;
+                    }
+                }
+            }
+            listReturns.Add(parent.GetTypeName(type));
+        }
+        private void AddTypeToListReturn(Type type)
+        {
+            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(type.FullName ?? "");
+            if (typeSymbol is INamedTypeSymbol namedType && AvoidResultError)
+            {
+                if (Tools.IsSubclass(typeof(ResultWithError<,>), type))
+                {
+                    listReturns.Add(parent.GetTypeName(namedType.TypeArguments[namedType.TypeArguments.Length - 1]));
+                    return;
+                }
+                else if (Tools.IsSubclass(typeof(VoidWithError<>), type))
+                {
+                    return;
+                }
+                listReturns.Add(parent.GetTypeName(typeSymbol));
+            }
+        }
         private void LoadReturn(SyntaxNode node)
         {
             if (node is ReturnStatementSyntax returnStatement)
@@ -477,7 +588,7 @@ namespace CSharpToTypescript.Container
                     var temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(returnStatement.Expression);
                     if (temp.Symbol is ILocalSymbol localSymbol)
                     {
-                        listReturns.Add(parent.GetTypeName(localSymbol.Type));
+                        AddTypeToListReturn(localSymbol.Type);
                     }
                     else if (temp.Symbol is IMethodSymbol methodSymbol)
                     {
@@ -490,13 +601,18 @@ namespace CSharpToTypescript.Container
                             }
                             else
                             {
-                                listReturns.Add(parent.GetTypeName(methodSymbol.ContainingType));
+                                AddTypeToListReturn(methodSymbol.ContainingType);
                             }
                         }
                         else
                         {
-                            listReturns.Add(parent.GetTypeName(methodSymbol.ReturnType));
+                            AddTypeToListReturn(methodSymbol.ReturnType);
                         }
+                    }
+                    else if (temp.Symbol is IPropertySymbol propertySymbol)
+                    {
+
+                        AddTypeToListReturn(propertySymbol.Type);
                     }
                     else
                     {
@@ -519,20 +635,25 @@ namespace CSharpToTypescript.Container
             {
                 return;
             }
+            if (argument.Expression is LiteralExpressionSyntax literal)
+            {
+                listReturns.Add(literal.ToString());
+                return;
+            }
             var argumentSymbol = ProjectManager.Compilation.GetSemanticModel(argument.SyntaxTree).GetSymbolInfo(argument.Expression);
             if (argumentSymbol.Symbol is ILocalSymbol localSymbol)
             {
-                listReturns.Add(parent.GetTypeName(localSymbol.Type));
+                AddTypeToListReturn(localSymbol.Type);
             }
             else if (argumentSymbol.Symbol is IMethodSymbol methodSymbol)
             {
                 if (methodSymbol.MethodKind == MethodKind.Constructor)
                 {
-                    listReturns.Add(parent.GetTypeName(methodSymbol.ContainingType));
+                    AddTypeToListReturn(methodSymbol.ContainingType);
                 }
                 else
                 {
-                    listReturns.Add(parent.GetTypeName(methodSymbol.ReturnType));
+                    AddTypeToListReturn(methodSymbol.ReturnType);
                 }
             }
             else
@@ -544,19 +665,42 @@ namespace CSharpToTypescript.Container
         public string Write()
         {
             List<string> result = new();
+            string bodyKey = "body";
+            if (parametersBodyAndType.Count > 0)
+            {
+                int i = 0;
+                while (parametersUrlAndType.ContainsKey(bodyKey))
+                {
+                    bodyKey = "body" + i;
+                    i++;
+                }
 
-            string @params = string.Join(", ", parametersAndType.Select(p => p.Key + ": " + p.Value));
+                parametersUrlAndType[bodyKey] = "{ " + string.Join(", ", parametersBodyAndType.Select(p => p.Key + ": " + p.Value)) + " } | FormData";
+            }
+
+            string @params = string.Join(", ", parametersUrlAndType.Select(p => p.Key + ": " + p.Value));
+
             parent.AddTxtOpen(BaseContainer.GetAccessibility(methodSymbol) + "async " + name + "(" + @params + ") {", result);
-            parent.AddTxtOpen("let options: RequestInit = {", result);
-            parent.AddTxt("method: Aventus.HttpMethod." + this.httpMethods[0].ToUpper(), result);
-            parent.AddTxtClose("};", result);
-            parent.AddTxt("let url = `" + route + "`;", result);
 
-            if (typeContainer == typeof(Json))
+            parent.AddTxt("const request = new Aventus.HttpRequest(`" + route + "`, Aventus.HttpMethod." + this.httpMethods[0].ToUpper() + ");", result);
+            if (parametersBodyAndType.Count > 0)
+            {
+                parent.AddTxt("request.setBody(" + bodyKey + ");", result);
+            }
+
+            if(typeContainer == null)
+            {
+                parent.AddTxt("return await request.queryVoid(this.router);", result);
+            }
+            else if (typeContainer == typeof(Json))
             {
                 if (listReturns.Count == 0)
                 {
-                    parent.AddTxt("return await this.router.request(url, options)", result);
+                    parent.AddTxt("return await request.queryVoid(this.router);", result);
+                }
+                else if (listReturns.Count == 1 && new Regex("Aventus\\.VoidWithError(<|$)").IsMatch(listReturns[0] ?? ""))
+                {
+                    parent.AddTxt("return await request.queryVoid(this.router);", result);
                 }
                 else
                 {
@@ -566,13 +710,13 @@ namespace CSharpToTypescript.Container
                     }
                     string typeReturn = string.Join(" | ", listReturns);
                     parent.AddTxt("type TypeResult = " + typeReturn + ";", result);
-                    parent.AddTxt("return await this.router.requestJSON<TypeResult>(url, options)", result);
+                    parent.AddTxt("return await request.queryJSON<TypeResult>(this.router);", result);
                 }
 
             }
             else if (typeContainer == typeof(TextResponse))
             {
-                parent.AddTxt("return await this.router.requestTxt(url, options)", result);
+                parent.AddTxt("return await request.queryTxt(this.router);", result);
             }
 
 

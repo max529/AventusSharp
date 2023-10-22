@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Data;
 using AventusSharp.Data.Manager;
 using AventusSharp.Attributes.Data;
+using System.Linq.Expressions;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -15,6 +16,7 @@ namespace AventusSharp.Data.Storage.Default
     {
         None,
         Simple,
+        SimpleInt,
         Parent,
         Multiple,
     }
@@ -72,6 +74,7 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsNullable { get; protected set; }
         public bool IsDeleteOnCascade { get; protected set; }
         public bool IsUpdatable { get; internal set; } = true;
+        public bool IsUnique { get; internal set; }
         public string SqlTypeTxt { get; protected set; } = "";
         public DbType SqlType { get; protected set; }
         public string SqlName { get; protected set; } = "";
@@ -79,6 +82,8 @@ namespace AventusSharp.Data.Storage.Default
         public bool IsAutoCreate { get; protected set; } = false;
         public bool IsAutoUpdate { get; protected set; } = false;
         public bool IsAutoDelete { get; protected set; } = false;
+        public bool IsAutoRead { get; protected set; } = false;
+
         private readonly List<ValidationAttribute> ValidationAttributes = new();
 
         public virtual object? GetSqlValue(object obj)
@@ -93,7 +98,7 @@ namespace AventusSharp.Data.Storage.Default
                 object? elementRef = GetValue(obj);
                 if (elementRef is IStorable storableLink)
                 {
-                    return storableLink.id;
+                    return storableLink.Id;
                 }
             }
             return null;
@@ -155,7 +160,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             else if (type == typeof(DateTime))
             {
-
+                SetValue(obj, DateTime.Parse(value));
             }
             else if (type.IsEnum)
             {
@@ -193,9 +198,10 @@ namespace AventusSharp.Data.Storage.Default
             parentLink.IsAutoIncrement = false;
             parentLink.IsNullable = false;
             parentLink.IsUpdatable = false;
+            parentLink.IsUnique = false;
             return parentLink;
         }
-        public bool PrepareForSQL()
+        public VoidWithDataError PrepareForSQL()
         {
             if (memberInfo != null)
             {
@@ -204,13 +210,14 @@ namespace AventusSharp.Data.Storage.Default
             }
             return PrepareTypeForSQL();
         }
-        protected bool PrepareTypeForSQL()
+        protected VoidWithDataError PrepareTypeForSQL()
         {
-            bool isOk = false;
+            VoidWithDataError result = new VoidWithDataError();
             Type? type = Type;
             if (type == null)
             {
-                return false;
+                result.Errors.Add(new DataError(DataErrorCode.FieldTypeNotFound, "Can't found a type for " + SqlName));
+                return result;
             }
             if (type == typeof(int))
             {
@@ -221,23 +228,21 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     if (IsTypeUsable(attr.Type))
                     {
-                        Link = TableMemberInfoLink.Simple;
+                        Link = TableMemberInfoLink.SimpleInt;
                         TableLinkedType = attr.Type;
                     }
                     else
                     {
                         string errorTxt = "Can't use type " + attr.Type.FullName + " as foreign key inside " + TableInfo.SqlTableName;
-                        new DataError(DataErrorCode.TypeNotStorable, errorTxt).Print();
-                        return false;
+                        result.Errors.Add(new DataError(DataErrorCode.TypeNotStorable, errorTxt));
+                        return result;
                     }
                 }
-                isOk = true;
             }
             else if (type == typeof(double) || type == typeof(float) || type == typeof(decimal))
             {
                 SqlTypeTxt = "float";
                 SqlType = DbType.Double;
-                isOk = true;
             }
             else if (type == typeof(string))
             {
@@ -245,38 +250,36 @@ namespace AventusSharp.Data.Storage.Default
                 Size? attr = GetCustomAttribute<Size>();
                 if (attr != null)
                 {
-                    if (attr.Max)
-                    {
+                    if (attr.SizeType == null)
+                        SqlTypeTxt = "varchar(" + attr.Max + ")";
+                    else if (attr.SizeType == SizeEnum.MaxVarChar)
                         SqlTypeTxt = "varchar(MAX)";
-                    }
-                    else
-                    {
-                        SqlTypeTxt = "varchar(" + attr.Nb + ")";
-                    }
+                    else if (attr.SizeType == SizeEnum.Text)
+                        SqlTypeTxt = "TEXT";
+                    else if (attr.SizeType == SizeEnum.MediumText)
+                        SqlTypeTxt = "MEDIUMTEXT";
+                    else if (attr.SizeType == SizeEnum.LongText)
+                        SqlTypeTxt = "LONGTEXT";
                 }
                 else
                 {
                     SqlTypeTxt = "varchar(255)";
                 }
-                isOk = true;
             }
             else if (type == typeof(Boolean))
             {
                 SqlType = DbType.Boolean;
                 SqlTypeTxt = "bit";
-                isOk = true;
             }
             else if (type == typeof(DateTime))
             {
                 SqlType = DbType.DateTime;
                 SqlTypeTxt = "datetime";
-                isOk = true;
             }
             else if (type.IsEnum)
             {
                 SqlType = DbType.String;
                 SqlTypeTxt = "varchar(255)";
-                isOk = true;
             }
             else if (IsTypeUsable(type))
             {
@@ -284,7 +287,6 @@ namespace AventusSharp.Data.Storage.Default
                 Link = TableMemberInfoLink.Simple;
                 TableLinkedType = type;
                 SqlTypeTxt = "int";
-                isOk = true;
             }
             else
             {
@@ -294,7 +296,6 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     Link = TableMemberInfoLink.Multiple;
                     TableLinkedType = refType;
-                    isOk = true;
                 }
                 else
                 {
@@ -303,11 +304,10 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         Link = TableMemberInfoLink.Multiple;
                         TableLinkedType = refType;
-                        isOk = true;
                     }
                 }
             }
-            return isOk;
+            return result;
         }
 
         protected void PrepareAttributesForSQL()
@@ -350,11 +350,34 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     IsAutoDelete = true;
                 }
+                else if (attribute is AutoRead)
+                {
+                    IsAutoRead = true;
+                }
                 else if (attribute is AutoCUD)
                 {
                     IsAutoCreate = true;
                     IsAutoUpdate = true;
                     IsAutoDelete = true;
+                }
+                else if (attribute is AutoCRUD)
+                {
+                    IsAutoCreate = true;
+                    IsAutoUpdate = true;
+                    IsAutoDelete = true;
+                    IsAutoRead = true;
+                }
+                else if (attribute is Unique)
+                {
+                    IsUnique = true;
+                }
+                else if (attribute is SqlName attrSqlName)
+                {
+                    SqlName = attrSqlName.Name;
+                }
+                else if (attribute is ValidationAttribute validationAttribute)
+                {
+                    ValidationAttributes.Add(validationAttribute);
                 }
             }
 
@@ -412,6 +435,211 @@ namespace AventusSharp.Data.Storage.Default
 
             return errors;
         }
+
+
+        #region Reverse Link
+        public Func<int, ResultWithDataError<List<IStorable>>>? reverseQueryBuilder;
+        public TableMemberInfo? reverseMember;
+        public Type? ReverseLinkType;
+        private ReverseLink? ReverseLinkAttr;
+        public VoidWithDataError SetReverseLink(ReverseLink attr)
+        {
+            ReverseLinkAttr = attr;
+            VoidWithDataError result = new();
+            if (memberInfo != null)
+            {
+                Type? type = IsListTypeUsable(Type);
+                if (type == null)
+                {
+                    type = IsDictionaryTypeUsable(Type);
+                    if (type == null)
+                    {
+                        type = Type;
+                    }
+                }
+                ReverseLinkType = type;
+
+            }
+            else
+            {
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, "Impossible case"));
+            }
+            return result;
+        }
+        public VoidWithDataError PrepareReverseLink(TableInfo tableInfo)
+        {
+            VoidWithDataError result = new();
+            TableLinked = tableInfo;
+            PrepareAttributesForSQL();
+            if (ReverseLinkAttr?.field != null)
+            {
+                TableMemberInfo? reversInfo = null;
+                TableInfo? el = tableInfo;
+                while (el != null)
+                {
+                    reversInfo = tableInfo.Members.Find(m => m.Name == ReverseLinkAttr.field);
+                    if (reversInfo == null)
+                    {
+                        el = tableInfo.Parent; continue;
+                    }
+                    break;
+                }
+                if (reversInfo == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.MemberNotFound, "The name " + ReverseLinkAttr.field + " can't be found on " + tableInfo.SqlTableName));
+                }
+                else
+                {
+                    this.reverseMember = reversInfo;
+                }
+            }
+            else
+            {
+                List<TableMemberInfo> reversInfo = new List<TableMemberInfo>();
+                TableInfo? el = tableInfo;
+                while (el != null)
+                {
+                    reversInfo.AddRange(tableInfo.Members.Where(m => m.TableLinkedType == TableInfo.Type).ToList());
+                    el = tableInfo.Parent;
+                }
+                if (reversInfo.Count > 1)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.TooMuchMemberFound, "Too much matching type " + TableInfo.Type + " on type " + tableInfo.SqlTableName));
+                }
+                else if (reversInfo.Count == 0)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.MemberNotFound, "The type " + TableInfo.Type + " can't be found on " + tableInfo.SqlTableName));
+                }
+                else
+                {
+                    this.reverseMember = reversInfo[0];
+                }
+            }
+            return result;
+        }
+        public VoidWithDataError ReverseQuery(int id, object o)
+        {
+            VoidWithDataError result = new();
+            ResultWithDataError<List<IStorable>> resultTemp = ReverseQuery(id);
+            if(!resultTemp.Success)
+            {
+                result.Errors = resultTemp.Errors;
+                return result;
+            }
+            SetValue(o, resultTemp.Result);
+            return result;
+        }
+        public ResultWithDataError<List<IStorable>> ReverseQuery(int id)
+        {
+            ResultWithDataError<List<IStorable>> result = new();
+            if (reverseQueryBuilder == null)
+            {
+                if (ReverseLinkType == null || reverseMember == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.ReverseLinkNotExist, "Reverse link seems to not be init"));
+                    return result;
+                }
+
+                ParameterExpression argParam = Expression.Parameter(ReverseLinkType, "t");
+                Expression nameProperty;
+                Type varType;
+                if (TypeTools.PrimitiveType.Contains(reverseMember.Type))
+                {
+                    varType = reverseMember.Type;
+                    nameProperty = Expression.Property(argParam, reverseMember.SqlName);
+                }
+                else
+                {
+                    varType = typeof(int);
+                    Expression temp = Expression.Property(argParam, "el");
+                    nameProperty = Expression.Property(temp, reverseMember.SqlName);
+                }
+                Expression<Func<int>> idLambda = () => id;
+                var var1 = Expression.Variable(varType, Storable.Id);
+
+                Expression e1 = Expression.Equal(nameProperty, idLambda.Body);
+                LambdaExpression lambda = Expression.Lambda(e1, argParam);
+
+                IGenericDM dm = GenericDM.Get(ReverseLinkType);
+                object? query = dm.GetType().GetMethod("CreateQuery")?.MakeGenericMethod(reverseMember.TableInfo.Type).Invoke(dm, null);
+                if (query == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.ErrorCreatingReverseQuery, "Can't create the query"));
+                    return result;
+                }
+                MethodInfo? setVariable = query.GetType().GetMethod("SetVariable");
+                if (setVariable == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.ErrorCreatingReverseQuery, "Can't get the function setVariable"));
+                    return result;
+                }
+                MethodInfo? runWithError = query.GetType().GetMethod("RunWithError");
+                if (runWithError == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.ErrorCreatingReverseQuery, "Can't get the function runWithError"));
+                    return result;
+                }
+                MethodInfo? whereWithParam = query.GetType().GetMethod("WhereWithParameters");
+                if (whereWithParam == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.ErrorCreatingReverseQuery, "Can't get the function whereWithParam"));
+                    return result;
+                }
+                whereWithParam.Invoke(query, new object[] { lambda });
+
+
+                reverseQueryBuilder = delegate (int id)
+                {
+                    ResultWithDataError<List<IStorable>> result = new();
+                    setVariable.Invoke(query, new object[] { Storable.Id, id });
+                    IResultWithError? resultWithError = (IResultWithError?)runWithError.Invoke(query, null);
+                    if (resultWithError != null)
+                    {
+                        foreach (GenericError error in resultWithError.Errors)
+                        {
+                            if (error is DataError dataError)
+                            {
+                                result.Errors.Add(dataError);
+                            }
+                        }
+                        result.Result = new List<IStorable>();
+                        if(resultWithError.Result is IList list)
+                        {
+                            foreach(object item in list)
+                            {
+                                if(item is IStorable storable)
+                                {
+                                    result.Result.Add(storable);
+                                }
+                            }
+                        }
+                    }
+                    return result;
+                };
+            }
+            result = reverseQueryBuilder(id);
+            return result;
+        }
+        public void SetReverseId(object o, int id)
+        {
+            if(reverseMember == null)
+            {
+                return;
+            }
+
+            // check if int id or object
+            if(IsTypeUsable(reverseMember.Type))
+            {
+                IStorable el = TypeTools.CreateNewObj<IStorable>(reverseMember.Type);
+                el.Id = id;
+                reverseMember.SetValue(o, el);
+            }
+            else
+            {
+                reverseMember.SetValue(o, id);
+            }
+        }
+        #endregion
 
         #region merge info
         /// <summary>
@@ -547,7 +775,7 @@ namespace AventusSharp.Data.Storage.Default
             if (temp == null)
             {
                 temp = Activator.CreateInstance(Type);
-                if(temp == null)
+                if (temp == null)
                 {
                     throw new Exception("Can't create the type " + Type.Name);
                 }
@@ -568,7 +796,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 else if (memberInfo is PropertyInfo propertyInfo)
                 {
-                    
+
                     return propertyInfo.ReflectedType;
                 }
                 return null;
@@ -592,7 +820,7 @@ namespace AventusSharp.Data.Storage.Default
                     if (!memberInfoByType.ContainsKey(typeToUse))
                     {
                         MemberInfo[] members = typeToUse.GetMember(member.Name);
-                        if(members.Length == 0)
+                        if (members.Length == 0)
                         {
                             return null;
                         }
@@ -608,7 +836,7 @@ namespace AventusSharp.Data.Storage.Default
 
                 return member;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 new DataError(DataErrorCode.UnknowError, e).Print();
             }

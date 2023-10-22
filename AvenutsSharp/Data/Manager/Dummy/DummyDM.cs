@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AventusSharp.Tools;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -26,31 +27,31 @@ namespace AventusSharp.Data.Manager.Dummy
             return new DummyUpdateBuilder<X>();
         }
 
-        protected override ResultWithError<List<X>> CreateLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> CreateLogic<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             result.Result = new List<X>();
             int? errorOn = null;
             foreach (X x in values)
             {
-                if (!Records.ContainsKey(x.id))
+                if (!Records.ContainsKey(x.Id))
                 {
-                    Records.Add(x.id, x);
+                    Records.Add(x.Id, x);
                     result.Result.Add(x);
                 }
                 else
                 {
-                    errorOn = x.id;
-                    result.Errors.Add(new DataError(DataErrorCode.ItemAlreadyExist, "An item with the key " + x.id + " is already present"));
+                    errorOn = x.Id;
+                    result.Errors.Add(new DataError(DataErrorCode.ItemAlreadyExist, "An item with the key " + x.Id + " is already present"));
                 }
             }
             if (errorOn != null)
             {
                 foreach (X x in result.Result)
                 {
-                    if (Records.ContainsKey(x.id))
+                    if (Records.ContainsKey(x.Id))
                     {
-                        Records.Remove(x.id);
+                        Records.Remove(x.Id);
                     }
                 }
             }
@@ -58,24 +59,24 @@ namespace AventusSharp.Data.Manager.Dummy
             return result;
         }
 
-        protected override ResultWithError<List<X>> DeleteLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> DeleteLogic<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             result.Result = new List<X>();
             foreach (X x in values)
             {
-                if (Records.ContainsKey(x.id) && Records[x.id] is X casted)
+                if (Records.ContainsKey(x.Id) && Records[x.Id] is X casted)
                 {
                     result.Result.Add(casted);
-                    Records.Remove(x.id);
+                    Records.Remove(x.Id);
                 }
             }
             return result;
         }
 
-        protected override ResultWithError<List<X>> GetAllLogic<X>()
+        protected override ResultWithDataError<List<X>> GetAllLogic<X>()
         {
-            ResultWithError<List<X>> result = new()
+            ResultWithDataError<List<X>> result = new()
             {
                 Result = new List<X>()
             };
@@ -89,9 +90,9 @@ namespace AventusSharp.Data.Manager.Dummy
             return result;
         }
 
-        protected override ResultWithError<X> GetByIdLogic<X>(int id)
+        protected override ResultWithDataError<X> GetByIdLogic<X>(int id)
         {
-            ResultWithError<X> result = new();
+            ResultWithDataError<X> result = new();
             if (Records.ContainsKey(id) && Records[id] is X casted)
             {
                 result.Result = casted;
@@ -103,15 +104,15 @@ namespace AventusSharp.Data.Manager.Dummy
             return result;
         }
 
-        protected override ResultWithError<List<X>> GetByIdsLogic<X>(List<int> ids)
+        protected override ResultWithDataError<List<X>> GetByIdsLogic<X>(List<int> ids)
         {
-            ResultWithError<List<X>> result = new()
+            ResultWithDataError<List<X>> result = new()
             {
                 Result = new List<X>()
             };
             foreach (int id in ids)
             {
-                ResultWithError<X> resultTemp = GetByIdLogic<X>(id);
+                ResultWithDataError<X> resultTemp = GetByIdLogic<X>(id);
                 if (resultTemp.Success && resultTemp.Result != null)
                 {
                     result.Result.Add(resultTemp.Result);
@@ -124,15 +125,15 @@ namespace AventusSharp.Data.Manager.Dummy
             return result;
         }
 
-        protected override Task<VoidWithError> Initialize()
+        protected override Task<VoidWithDataError> Initialize()
         {
-            return Task.FromResult(new VoidWithError());
+            return Task.FromResult(new VoidWithDataError());
         }
 
         private readonly Dictionary<Type, object> savedUpdateQuery = new();
-        protected override ResultWithError<List<X>> UpdateLogic<X>(List<X> values)
+        protected override ResultWithDataError<List<X>> UpdateLogic<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new()
+            ResultWithDataError<List<X>> result = new()
             {
                 Result = new List<X>()
             };
@@ -143,11 +144,11 @@ namespace AventusSharp.Data.Manager.Dummy
                 if (!savedUpdateQuery.ContainsKey(type))
                 {
                     DummyUpdateBuilder<X> query = new();
-                    query.WhereWithParameters(p => p.id == id);
+                    query.WhereWithParameters(p => p.Id == id);
                     savedUpdateQuery[type] = query;
                 }
 
-                ResultWithError<List<X>> resultTemp = ((DummyUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.id).RunWithError(value);
+                ResultWithDataError<List<X>> resultTemp = ((DummyUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.Id).RunWithError(value);
                 if (resultTemp.Success && resultTemp.Result?.Count > 0)
                 {
                     result.Result.Add(resultTemp.Result[0]);
@@ -160,9 +161,9 @@ namespace AventusSharp.Data.Manager.Dummy
             return result;
         }
 
-        protected override ResultWithError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
+        protected override ResultWithDataError<List<X>> WhereLogic<X>(Expression<Func<X, bool>> func)
         {
-            ResultWithError<List<X>> result = new()
+            ResultWithDataError<List<X>> result = new()
             {
                 Result = new List<X>()
             };
@@ -185,6 +186,11 @@ namespace AventusSharp.Data.Manager.Dummy
                 }
             }
             return result;
+        }
+
+        public override IExistBuilder<X> CreateExist<X>()
+        {
+            throw new NotImplementedException();
         }
     }
 }

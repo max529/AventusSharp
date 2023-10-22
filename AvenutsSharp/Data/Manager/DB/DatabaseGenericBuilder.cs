@@ -1,4 +1,5 @@
-﻿using AventusSharp.Data.Storage.Default;
+﻿using AventusSharp.Data.Attributes;
+using AventusSharp.Data.Storage.Default;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace AventusSharp.Data.Manager.DB
 
         public Dictionary<string, ParamsInfo> WhereParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>(); // type is the type of the variable to use
 
+
         public string? Sql { get; set; } = null;
 
 
@@ -27,7 +29,7 @@ namespace AventusSharp.Data.Manager.DB
         {
             Storage = storage;
             // load basic info for the main class
-            if(baseType == null)
+            if (baseType == null)
             {
                 baseType = typeof(T);
             }
@@ -79,7 +81,7 @@ namespace AventusSharp.Data.Manager.DB
 
             DatabaseBuilderInfo info = new(alias, table);
             InfoByPath[path] = info;
-            
+
 
 
             LoadParent(table, info);
@@ -126,7 +128,7 @@ namespace AventusSharp.Data.Manager.DB
                         KeyValuePair<TableMemberInfo?, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
                         if (memberInfo.Key != null)
                         {
-                            
+
                             DatabaseBuilderInfo currentTable = LoadTable(GetTableInfo(types[i]), currentPath);
                             parentInfo.links[memberInfo.Key] = currentTable;
                             if (addLinksToMembers)
@@ -252,18 +254,29 @@ namespace AventusSharp.Data.Manager.DB
                         types.Insert(0, temp2.Type);
                         names.Insert(0, temp2.Member.Name);
                         temp = temp2.Expression;
-                        Console.WriteLine("");
                     }
 
                     LoadLinks(names, types, true);
 
                     string fullPath = string.Join(".", names.SkipLast(1));
                     KeyValuePair<TableMemberInfo?, string> memberInfo = InfoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);
-                    if (memberInfo.Key != null && !InfoByPath[fullPath].Members.ContainsKey(memberInfo.Key))
+                    if (memberInfo.Key != null)
                     {
-                        InfoByPath[fullPath].Members[memberInfo.Key] = new DatabaseBuilderInfoMember(memberInfo.Key, memberInfo.Value, Storage);
+                        if (!InfoByPath[fullPath].Members.ContainsKey(memberInfo.Key))
+                        {
+                            InfoByPath[fullPath].Members[memberInfo.Key] = new DatabaseBuilderInfoMember(memberInfo.Key, memberInfo.Value, Storage);
+                        }
                     }
-                    return fullPath != "" ? fullPath+"."+ memberExpression.Member.Name : memberExpression.Member.Name;
+                    else
+                    {
+                        // if we can't find the members info maybe it's a reverse link
+                        TableMemberInfo? reversMemberInfo = InfoByPath[fullPath].GetReverseTableMemberInfo(memberExpression.Member.Name);
+                        if (reversMemberInfo != null && !InfoByPath[fullPath].ReverseLinks.Contains(reversMemberInfo))
+                        {
+                            InfoByPath[fullPath].ReverseLinks.Add(reversMemberInfo);
+                        }
+                    }
+                    return fullPath != "" ? fullPath + "." + memberExpression.Member.Name : memberExpression.Member.Name;
                 }
             }
 
@@ -295,7 +308,6 @@ namespace AventusSharp.Data.Manager.DB
                         types.Insert(0, temp2.Type);
                         names.Insert(0, temp2.Member.Name);
                         temp = temp2.Expression;
-                        Console.WriteLine("");
                     }
 
                     LoadLinks(names, types, false);

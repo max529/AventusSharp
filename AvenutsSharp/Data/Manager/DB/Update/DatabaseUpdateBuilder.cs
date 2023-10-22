@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Manager.DB.Query;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,11 +8,25 @@ using System.Linq.Expressions;
 
 namespace AventusSharp.Data.Manager.DB.Update
 {
+    public class DatabaseUpdateBuilderInfo
+    {
+        public string UpdateSql { get; set; }
+        public string QuerySql { get; set; }
+
+        public List<TableMemberInfo> ReverseMembers { get; set; }
+
+        public DatabaseUpdateBuilderInfo(string updateSql, string querySql, List<TableMemberInfo> reverseMembers)
+        {
+            UpdateSql = updateSql;
+            QuerySql = querySql;
+            ReverseMembers = reverseMembers;
+        }
+    }
     public class DatabaseUpdateBuilder<T> : DatabaseGenericBuilder<T>, ILambdaTranslatable, IUpdateBuilder<T> where T : IStorable
     {
         public Dictionary<string, ParamsInfo> UpdateParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>();
 
-        public string SqlQuery { get; set; } = "";
+        public DatabaseUpdateBuilderInfo? Query { get; set; }
         private readonly IGenericDM DM;
         private readonly bool NeedUpdateField;
         public bool AllFieldsUpdate { get; private set; } = true;
@@ -25,7 +40,7 @@ namespace AventusSharp.Data.Manager.DB.Update
 
         public List<T>? Run(T item)
         {
-            ResultWithError<List<T>> result = RunWithError(item);
+            ResultWithDataError<List<T>> result = RunWithError(item);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -33,13 +48,13 @@ namespace AventusSharp.Data.Manager.DB.Update
             return null;
         }
 
-        public ResultWithError<List<T>> RunWithError(T item)
+        public ResultWithDataError<List<T>> RunWithError(T item)
         {
-            ResultWithError<List<T>> result = new();
-            ResultWithError<List<int>> resultTemp = Storage.UpdateFromBuilder(this, item);
+            ResultWithDataError<List<T>> result = new();
+            ResultWithDataError<List<int>> resultTemp = Storage.UpdateFromBuilder(this, item);
             if (resultTemp.Success && resultTemp.Result != null)
             {
-                ResultWithError<List<T>> resultQuery = DM.GetByIdsWithError<T>(resultTemp.Result);
+                ResultWithDataError<List<T>> resultQuery = DM.GetByIdsWithError<T>(resultTemp.Result);
                 if (resultQuery.Success && resultQuery.Result != null)
                 {
                     // update data in cache
@@ -68,6 +83,28 @@ namespace AventusSharp.Data.Manager.DB.Update
             return result;
         }
 
+        public ResultWithDataError<T> RunWithErrorSingle(T item)
+        {
+            ResultWithDataError<T> result = new();
+            ResultWithDataError<List<T>> resultTemp = RunWithError(item);
+
+            if (resultTemp.Success && resultTemp.Result != null)
+            {
+                if (resultTemp.Result.Count == 1)
+                {
+                    result.Result = resultTemp.Result[0];
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NumberOfItemsNotMatching, "Can't update single because the action return " + resultTemp.Result.Count + " item"));
+                }
+            }
+            else
+                result.Errors.AddRange(resultTemp.Errors);
+            return result;
+
+        }
+
         public IUpdateBuilder<T> Prepare(params object[] objects)
         {
             PrepareGeneric(objects);
@@ -93,7 +130,7 @@ namespace AventusSharp.Data.Manager.DB.Update
                 if (InfoByPath[current] != null)
                 {
                     KeyValuePair<TableMemberInfo?, string> infoTemp = InfoByPath[current].GetTableMemberInfoAndAlias(s);
-                    if(infoTemp.Key == null)
+                    if (infoTemp.Key == null)
                     {
                         throw new Exception("Can't find the field " + s + " on the path " + current);
                     }
