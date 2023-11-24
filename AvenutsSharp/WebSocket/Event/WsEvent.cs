@@ -78,13 +78,16 @@ namespace AventusSharp.WebSocket.Event
                 }
                 await connection.Send(path, o, uid);
             }
-            else if (eventType == WebSocketEventType.Others && connection != null)
+            else if(endPoint != null)
             {
-                await endPoint.Broadcast(path, o, uid, new List<WebSocketConnection>() { connection });
-            }
-            else
-            {
-                await endPoint.Broadcast(path, o, uid);
+                if (eventType == WebSocketEventType.Others && connection != null)
+                {
+                    await endPoint.Broadcast(path, o, uid, new List<WebSocketConnection>() { connection });
+                }
+                else
+                {
+                    await endPoint.Broadcast(path, o, uid);
+                }
             }
         }
 

@@ -202,14 +202,14 @@ namespace AventusSharp.Data.Manager
         IQueryBuilder<X> IGenericDM.CreateQuery<X>()
         {
             IQueryBuilder<X>? result = InvokeMethod<IQueryBuilder<X>, X>(Array.Empty<object>());
-            if(result == null)
+            if (result == null)
             {
                 throw new Exception("Impossible");
             }
             return result;
         }
-        
-        
+
+
         #endregion
 
         #region generic exist

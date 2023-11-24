@@ -23,6 +23,7 @@ namespace CSharpToTypescript
 
         private string? _basedir;
         public Assembly compiledAssembly;
+        public string outputDir;
         public string baseDir
         {
             get

@@ -38,6 +38,7 @@ namespace AventusSharp.Data.Manager
 
         bool Exist<X>(Expression<Func<X, bool>> func) where X : notnull;
         ResultWithDataError<bool> ExistWithError<X>(Expression<Func<X, bool>> func) where X : notnull;
+
         #endregion
 
         #region Create

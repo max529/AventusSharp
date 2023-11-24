@@ -185,7 +185,7 @@ namespace AventusSharp.Data.Manager
             if (type != null)
             {
                 string typeTxt = type.Name;
-                if (!TypeTools.PrimitiveType.Contains(type))
+                if (!TypeTools.IsPrimitiveType(type))
                 {
                     typeTxt += " - " + type.Assembly.GetName().Name;
                 }

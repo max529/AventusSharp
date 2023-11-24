@@ -32,6 +32,7 @@ namespace CSharpToTypescript.Container
         public string typescriptPath = "";
         public string eventPath = "";
         public string fileName = "";
+        private bool? listenOnBoot = null;
 
         public WsEventContainer(INamedTypeSymbol type, string fileName) : base(type)
         {
@@ -93,6 +94,10 @@ namespace CSharpToTypescript.Container
                 else if(attr is Path pathAttr)
                 {
                     this.eventPath = pathAttr.pattern;
+                }
+                else if(attr is ListenOnBoot listenOnBootAttr)
+                {
+                    listenOnBoot = listenOnBootAttr.listen;
                 }
             }
             if(this.eventPath == "")
@@ -163,8 +168,20 @@ namespace CSharpToTypescript.Container
             AddTxt(" * @inheritdoc", result);
             AddTxt(" */", result);
             AddTxtOpen("protected override get path(): string {", result);
-            AddTxt("return \"" + eventPath+"\";", result);
+            AddTxt("return `" + eventPath+"`;", result);
             AddTxtClose("}", result);
+
+            if (listenOnBoot != null)
+            {
+                string trueTxt = listenOnBoot == true ? "true" : "false";
+                AddTxt("", result);
+                AddTxt("/**", result);
+                AddTxt(" * @inheritdoc", result);
+                AddTxt(" */", result);
+                AddTxtOpen("protected override listenOnBoot(): boolean {", result);
+                AddTxt("return " + trueTxt + ";", result);
+                AddTxtClose("}", result);
+            }
 
             return string.Join("\r\n", result);
         }

@@ -7,9 +7,9 @@ namespace AventusSharp.WebSocket.Event
     [NoTypescript]
     public class JsonEvent : WebSocketEvent
     {
-        private object o;
+        private object? o;
 
-        public JsonEvent(object o)
+        public JsonEvent(object? o)
         {
             this.o = o;
         }
@@ -24,13 +24,16 @@ namespace AventusSharp.WebSocket.Event
                 }
                 await connection.Send(path, o, uid);
             }
-            else if (eventType == WebSocketEventType.Others && connection != null)
+            else if(endPoint != null)
             {
-                await endPoint.Broadcast(path, o, uid, new List<WebSocketConnection>() { connection });
-            }
-            else
-            {
-                await endPoint.Broadcast(path, o, uid);
+                if (eventType == WebSocketEventType.Others && connection != null)
+                {
+                    await endPoint.Broadcast(path, o, uid, new List<WebSocketConnection>() { connection });
+                }
+                else
+                {
+                    await endPoint.Broadcast(path, o, uid);
+                }
             }
         }
     }

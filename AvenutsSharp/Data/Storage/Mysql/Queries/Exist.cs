@@ -1,16 +1,12 @@
-﻿using AventusSharp.Data.Manager;
-using AventusSharp.Data.Manager.DB;
-using AventusSharp.Data.Manager.DB.Exist;
-using AventusSharp.Data.Manager.DB.Query;
-using AventusSharp.Data.Storage.Default;
-using System;
+﻿using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Manager.DB.Builders;
 using System.Collections.Generic;
 
 namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     public class Exist
     {
-        public static string PrepareSQL<X>(DatabaseExistBuilder<X> queryBuilder, MySQLStorage storage) where X : IStorable
+        public static DatabaseExistBuilderInfo PrepareSQL<X>(DatabaseExistBuilder<X> queryBuilder, MySQLStorage storage) where X : IStorable
         {
             DatabaseBuilderInfo mainInfo = queryBuilder.InfoByPath[""];
             List<string> fields = new() {"COUNT(*) as nb"};
@@ -30,7 +26,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 + whereTxt;
 
 
-            return sql;
+            return new DatabaseExistBuilderInfo(sql);
         }
     }
 }

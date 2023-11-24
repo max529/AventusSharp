@@ -1,5 +1,7 @@
 ﻿using AventusSharp.Data.Attributes;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
+using Microsoft.AspNetCore.Http.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,21 +11,17 @@ namespace AventusSharp.Data.Manager.DB
 {
     public class DatabaseGenericBuilder<T> : ILambdaTranslatable
     {
+        public Dictionary<string, bool> AllMembersByPath = new Dictionary<string, bool>() { { "", true } };
         public IDBStorage Storage { get; private set; }
 
         public Dictionary<string, DatabaseBuilderInfo> InfoByPath { get; set; } = new Dictionary<string, DatabaseBuilderInfo>();
 
-        public Dictionary<string, TableInfo> Aliases { get; set; } = new Dictionary<string, TableInfo>();
+        public Dictionary<string, Type> Aliases { get; set; } = new Dictionary<string, Type>();
         public Dictionary<Type, TableInfo> LoadedTableInfo { get; set; } = new Dictionary<Type, TableInfo>();
         public List<WhereGroup>? Wheres { get; set; } = null;
-
         public bool ReplaceWhereByParameters { get; set; } = false;
 
         public Dictionary<string, ParamsInfo> WhereParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>(); // type is the type of the variable to use
-
-
-        public string? Sql { get; set; } = null;
-
 
         public DatabaseGenericBuilder(IDBStorage storage, Type? baseType = null) : base()
         {
@@ -36,7 +34,6 @@ namespace AventusSharp.Data.Manager.DB
             TableInfo tableInfo = GetTableInfo(baseType);
             LoadTable(tableInfo, "");
         }
-
 
         protected TableInfo GetTableInfo(Type u)
         {
@@ -53,12 +50,16 @@ namespace AventusSharp.Data.Manager.DB
             }
             throw new Exception();
         }
-        protected string CreateAlias(TableInfo tableInfo)
+        public string CreateAlias(TableInfo tableInfo)
         {
-            string alias = string.Concat(tableInfo.Type.Name.Where(c => char.IsUpper(c)));
+            return CreateAlias(tableInfo.Type);
+        }
+        public string CreateAlias(Type type)
+        {
+            string alias = string.Concat(type.Name.Where(c => char.IsUpper(c)));
             if (alias.Length == 0)
             {
-                alias = tableInfo.Type.Name[..2];
+                alias = type.Name[..2];
             }
             int i = 1;
             string baseAlias = alias;
@@ -67,7 +68,7 @@ namespace AventusSharp.Data.Manager.DB
                 alias = baseAlias + i;
                 i++;
             }
-            Aliases.Add(alias, tableInfo);
+            Aliases.Add(alias, type);
             return alias;
         }
 
@@ -125,15 +126,19 @@ namespace AventusSharp.Data.Manager.DB
 
                     if (!InfoByPath.ContainsKey(currentPath))
                     {
-                        KeyValuePair<TableMemberInfo?, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
+                        KeyValuePair<TableMemberInfoSql?, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
                         if (memberInfo.Key != null)
                         {
 
                             DatabaseBuilderInfo currentTable = LoadTable(GetTableInfo(types[i]), currentPath);
-                            parentInfo.links[memberInfo.Key] = currentTable;
+                            parentInfo.joins[memberInfo.Key] = currentTable;
                             if (addLinksToMembers)
                             {
                                 parentInfo.Members.Add(memberInfo.Key, new DatabaseBuilderInfoMember(memberInfo.Key, memberInfo.Value, Storage));
+                                if(i == pathSplitted.Count - 1)
+                                {
+                                    AllMembersByPath[currentPath] = true;
+                                }
                             }
                         }
                         else
@@ -143,10 +148,14 @@ namespace AventusSharp.Data.Manager.DB
                     }
                     else if (addLinksToMembers)
                     {
-                        KeyValuePair<TableMemberInfo?, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
+                        KeyValuePair<TableMemberInfoSql?, string> memberInfo = parentInfo.GetTableMemberInfoAndAlias(pathSplitted[i]);
                         if (memberInfo.Key != null && !parentInfo.Members.ContainsKey(memberInfo.Key))
                         {
                             parentInfo.Members.Add(memberInfo.Key, new DatabaseBuilderInfoMember(memberInfo.Key, memberInfo.Value, Storage));
+                            if (i == pathSplitted.Count - 1)
+                            {
+                                AllMembersByPath[currentPath] = true;
+                            }
                         }
                     }
                 }
@@ -229,7 +238,7 @@ namespace AventusSharp.Data.Manager.DB
                 }
             }
         }
-        protected string FieldGeneric(Expression<Func<T, object>> expression)
+        protected string FieldGeneric<X>(Expression<Func<T, X>> expression)
         {
             // the strucutre must be Lambda => Convert? => (member x times)
             if (expression is LambdaExpression lambdaExpression)
@@ -259,18 +268,24 @@ namespace AventusSharp.Data.Manager.DB
                     LoadLinks(names, types, true);
 
                     string fullPath = string.Join(".", names.SkipLast(1));
-                    KeyValuePair<TableMemberInfo?, string> memberInfo = InfoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);
+                    KeyValuePair<TableMemberInfoSql?, string> memberInfo = InfoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);
                     if (memberInfo.Key != null)
                     {
+                        AllMembersByPath[fullPath] = false;
+
                         if (!InfoByPath[fullPath].Members.ContainsKey(memberInfo.Key))
                         {
+                            if(memberInfo.Key is ITableMemberInfoSqlLink)
+                            {
+                                AllMembersByPath[string.Join(".", names)] = true;
+                            }
                             InfoByPath[fullPath].Members[memberInfo.Key] = new DatabaseBuilderInfoMember(memberInfo.Key, memberInfo.Value, Storage);
                         }
                     }
                     else
                     {
                         // if we can't find the members info maybe it's a reverse link
-                        TableMemberInfo? reversMemberInfo = InfoByPath[fullPath].GetReverseTableMemberInfo(memberExpression.Member.Name);
+                        TableReverseMemberInfo? reversMemberInfo = InfoByPath[fullPath].GetReverseTableMemberInfo(memberExpression.Member.Name);
                         if (reversMemberInfo != null && !InfoByPath[fullPath].ReverseLinks.Contains(reversMemberInfo))
                         {
                             InfoByPath[fullPath].ReverseLinks.Add(reversMemberInfo);
@@ -315,6 +330,12 @@ namespace AventusSharp.Data.Manager.DB
                 }
             }
             throw new Exception();
+        }
+
+        public bool MustLoadMembers(List<string> path)
+        {
+            string mergedPath = string.Join(".", path);
+            return AllMembersByPath.ContainsKey(mergedPath) && AllMembersByPath[mergedPath] == true;
         }
     }
 }

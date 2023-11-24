@@ -20,7 +20,7 @@ namespace AventusSharp.Data.Manager
         public IQueryBuilder<T> Where(Expression<Func<T, bool>> func);
         public IQueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> func);
 
-        public IQueryBuilder<T> Field(Expression<Func<T, object>> memberExpression);
+        public IQueryBuilder<T> Field<U>(Expression<Func<T, U>> memberExpression);
 
         public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> memberExpression);
     }

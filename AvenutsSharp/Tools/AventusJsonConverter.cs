@@ -59,7 +59,7 @@ namespace AventusSharp.Tools
             lock (value)
             {
                 Type type = value.GetType();
-                if (type.IsPrimitive || TypeTools.PrimitiveType.Contains(type))
+                if (type.IsPrimitive || TypeTools.IsPrimitiveType(type))
                 {
                     JToken t = JToken.FromObject(value);
                     t.WriteTo(writer);
@@ -78,17 +78,19 @@ namespace AventusSharp.Tools
                         return;
                     }
                     IEnumerator valueEnumerator = values.GetEnumerator();
-                    JObject jo = new();
+                    JArray jo = new();
                     foreach (object key in keys)
                     {
                         valueEnumerator.MoveNext();
                         if (valueEnumerator.Current != null)
                         {
-                            string? keyStr = key.ToString();
-                            if (keyStr != null && !jo.ContainsKey(keyStr))
+                            JArray keyValue = new JArray
                             {
-                                jo.Add(keyStr, JToken.FromObject(valueEnumerator.Current, serializer));
-                            }
+                                JToken.FromObject(key, serializer),
+                                JToken.FromObject(valueEnumerator.Current, serializer)
+                            };
+                            jo.Add(keyValue);
+                            
                         }
                     }
                     jo.WriteTo(writer);

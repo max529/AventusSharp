@@ -11,6 +11,7 @@ namespace AventusSharp.Tools
 {
     public interface IWithError
     {
+        [NoTypescript]
         public List<GenericError> Errors { get; }
     }
     public class VoidWithError<T> : IWithError where T : GenericError
@@ -40,6 +41,7 @@ namespace AventusSharp.Tools
     }
     public interface IResultWithError : IWithError
     {
+        [NoTypescript]
         public object? Result { get; }
     }
     public class ResultWithError<T, U> : VoidWithError<U>, IResultWithError where U : GenericError

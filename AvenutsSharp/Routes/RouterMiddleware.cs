@@ -158,7 +158,7 @@ namespace AventusSharp.Routes
         }
         public static string ReplaceFunction(string urlPattern, Type t)
         {
-            MatchCollection matchingFct = new Regex("\\[a-zA-Z0-9_*?\\]").Matches(urlPattern);
+            MatchCollection matchingFct = new Regex("\\[[a-zA-Z0-9_]*?\\]").Matches(urlPattern);
             if (matchingFct.Count > 0)
             {
                 foreach (Match match in matchingFct)

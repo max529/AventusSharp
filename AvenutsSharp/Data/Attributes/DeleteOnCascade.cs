@@ -14,7 +14,7 @@ namespace AventusSharp.Data.Attributes
     /// When the field below will be deleting the current field will be set to null
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class DeleteSetNull : System.Attribute
+    public class UpdateOnCascade : System.Attribute
     {
     }
 }

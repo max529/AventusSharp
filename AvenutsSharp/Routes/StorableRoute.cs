@@ -4,7 +4,7 @@ using AventusSharp.Routes.Response;
 using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
-
+using System.Threading.Tasks;
 
 namespace AventusSharp.Routes
 {
@@ -26,7 +26,7 @@ namespace AventusSharp.Routes
 
 
         [Get, Path("/[StorableName]")]
-        public virtual ResultWithDataError<List<T>> GetAll()
+        public async virtual Task<ResultWithDataError<List<T>>> GetAll()
         {
             ResultWithDataError<List<T>> result = DM_GetAll();
             if (result.Result != null)

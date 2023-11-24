@@ -7,7 +7,7 @@ namespace AventusSharp.Data.Manager.Dummy
 {
     public class DummyQueryBuilder<T> : IQueryBuilder<T>
     {
-        public IQueryBuilder<T> Field(Expression<Func<T, object>> memberExpression)
+        public IQueryBuilder<T> Field<U>(Expression<Func<T, U>> memberExpression)
         {
             throw new NotImplementedException();
         }

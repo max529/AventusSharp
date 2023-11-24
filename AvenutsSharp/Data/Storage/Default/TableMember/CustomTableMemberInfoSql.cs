@@ -2,16 +2,17 @@
 using System.Collections.Generic;
 using System.Data;
 
-namespace AventusSharp.Data.Storage.Default
+namespace AventusSharp.Data.Storage.Default.TableMember
 {
-    public class CustomTableMemberInfo : TableMemberInfo
+    public class CustomTableMemberInfoSql : TableMemberInfoSql
     {
+        public DbType SqlType { get; protected set; } = DbType.String;
 
         private Func<object, object?>? fctGetValue;
         private Func<object, object?>? fctGetSQLValue;
         private Action<object, object?>? fctSetValue;
         private Action<object, object?>? fctSetSQLValue;
-        public CustomTableMemberInfo(string name, Type type, TableInfo tableInfo) : base(tableInfo)
+        public CustomTableMemberInfoSql(string name, Type type, TableInfo tableInfo) : base(tableInfo)
         {
             _Name = name;
             _Type = type;
@@ -61,12 +62,8 @@ namespace AventusSharp.Data.Storage.Default
             IsNullable = information.IsNullable;
             IsPrimary = information.IsPrimary;
             IsUnique = information.IsUnique;
-            Link = information.Link;
             SqlName = information.SqlName;
             SqlType = information.SqlType;
-            SqlTypeTxt = information.SqlTypeTxt;
-            TableLinked = information.TableLinked;
-            TableLinkedType = information.TableLinkedType;
         }
 
         public override object? GetSqlValue(object obj)
@@ -75,16 +72,16 @@ namespace AventusSharp.Data.Storage.Default
             {
                 return fctGetSQLValue(obj);
             }
-            return base.GetSqlValue(obj);
+            return GetValue(obj);
         }
-        public override void SetSqlValue(object obj, string value)
+        protected override void _SetSqlValue(object obj, string value)
         {
             if (fctSetSQLValue != null)
             {
                 fctSetSQLValue(obj, value);
                 return;
             }
-            base.SetSqlValue(obj, value);
+            SetValue(obj, value);
         }
 
         public override T GetCustomAttribute<T>()
@@ -109,6 +106,12 @@ namespace AventusSharp.Data.Storage.Default
         {
             fctSetValue?.Invoke(obj, value);
         }
+
+        public override VoidWithDataError PrepareForSQL()
+        {
+            return new VoidWithDataError();
+        }
+
         private readonly string _Name;
         public override string Name => _Name;
 
@@ -116,7 +119,7 @@ namespace AventusSharp.Data.Storage.Default
         public override Type? ReflectedType => _ReflectedType;
 
         private Type _Type;
-        public override Type Type => _Type;
+        public override Type MemberType => _Type;
     }
 
     public class SQLInformation
@@ -129,8 +132,5 @@ namespace AventusSharp.Data.Storage.Default
         public string SqlTypeTxt { get; set; } = "";
         public DbType SqlType { get; set; }
         public string SqlName { get; set; } = "";
-        public TableMemberInfoLink Link { get; set; } = TableMemberInfoLink.None;
-        public TableInfo? TableLinked { get; set; }
-        public Type? TableLinkedType { get; set; }
     }
 }

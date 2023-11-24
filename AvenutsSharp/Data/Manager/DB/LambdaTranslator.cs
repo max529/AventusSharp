@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -296,7 +297,7 @@ namespace AventusSharp.Data.Manager.DB
                     databaseBuilder.LoadLinks(pathes, types, false);
                     string fullPath = string.Join(".", pathes.SkipLast(1));
 
-                    KeyValuePair<TableMemberInfo?, string> memberInfo = databaseBuilder.InfoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
+                    KeyValuePair<TableMemberInfoSql?, string> memberInfo = databaseBuilder.InfoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
                     if (memberInfo.Key != null)
                     {
                         WhereGroupField field = new(memberInfo.Value, memberInfo.Key);
@@ -351,6 +352,10 @@ namespace AventusSharp.Data.Manager.DB
                     reverse = true;
                 }
             }
+            else if(node.Method.DeclaringType == typeof(Enumerable))
+            {
+                fct = WhereGroupFctEnum.Link;
+            }
 
             else if (methodName == "GetElement" && node.Method.DeclaringType == typeof(LambdaExtractVariables))
             {
@@ -366,6 +371,11 @@ namespace AventusSharp.Data.Manager.DB
                     }
                     return Expression.Constant(result, node.Method.ReturnType);
                 }
+            }
+            else if(methodName == "GetValueOrDefault" && node.Method.DeclaringType != null && node.Method.DeclaringType.IsGenericType && node.Method.DeclaringType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                Visit(node.Object);
+                return node;
             }
 
             if (fct == null)
@@ -436,7 +446,7 @@ namespace AventusSharp.Data.Manager.DB
         private void SetInfoToQueryBuilder()
         {
             List<DataMemberInfo> members = variableAccess;
-            List<TableMemberInfo> result = new();
+            List<TableMemberInfoSql> result = new();
 
             foreach (DataMemberInfo member in members.ToList())
             {
@@ -464,7 +474,7 @@ namespace AventusSharp.Data.Manager.DB
             {
                 lastType = lastType.GetGenericArguments()[0];
             }
-            DbType dbType = TableMemberInfo.GetDbType(lastType) ?? throw new Exception("Can't find a type to use inside sql for type " + from.Name);
+            DbType dbType = TableMemberInfoSql.GetDbType(lastType) ?? throw new Exception("Can't find a type to use inside sql for type " + from.Name);
             TableInfo? tableInfo = databaseBuilder.Storage.GetTableInfo(from);
 
             for (int i = 1; i < members.Count; i++)
@@ -473,9 +483,16 @@ namespace AventusSharp.Data.Manager.DB
                 {
                     throw new Exception("Can't find a table for the type " + from.Name);
                 }
-                TableMemberInfo memberInfo = tableInfo.Members.Find(m => m.Name == members[i].Name) ?? throw new Exception("Can't find a sql field for the field " + members[i].Name + " on the type " + from.Name);
+                TableMemberInfoSql memberInfo = tableInfo.Members.Find(m => m.Name == members[i].Name) ?? throw new Exception("Can't find a sql field for the field " + members[i].Name + " on the type " + from.Name);
                 result.Add(memberInfo);
-                tableInfo = memberInfo.TableLinked;
+                if(memberInfo is ITableMemberInfoSqlLink memberInfoLink)
+                {
+                    tableInfo = memberInfoLink.TableLinked;
+                }
+                else
+                {
+                    tableInfo = null;
+                }
             }
 
             databaseBuilder.WhereParamsInfo.Add(paramName, new ParamsInfo()
@@ -500,12 +517,12 @@ namespace AventusSharp.Data.Manager.DB
                 return;
             }
 
-            DbType dbType = TableMemberInfo.GetDbType(type) ?? throw new Exception("Can't find a type to use inside sql for type " + type.Name);
+            DbType dbType = TableMemberInfoSql.GetDbType(type) ?? throw new Exception("Can't find a type to use inside sql for type " + type.Name);
 
             databaseBuilder.WhereParamsInfo.Add(paramName, new ParamsInfo()
             {
                 DbType = (DbType)dbType,
-                MembersList = new List<TableMemberInfo>(),
+                MembersList = new List<TableMemberInfoSql>(),
                 Name = paramName,
                 TypeLvl0 = type,
                 Value = null,

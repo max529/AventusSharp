@@ -336,6 +336,7 @@ namespace CSharpToTypescript.Container
                             }
 
                             string memberName = member.Name;
+                           
                             string typeTxt = GetTypeName(fieldSymbol.Type);
                             if (typeTxt.EndsWith("?"))
                             {
@@ -391,6 +392,10 @@ namespace CSharpToTypescript.Container
             if (type.EndsWith("[]"))
             {
                 return "[]";
+            }
+            if(type.StartsWith("Map<"))
+            {
+                return "new " + type + "()";
             }
 
             string result = "undefined";

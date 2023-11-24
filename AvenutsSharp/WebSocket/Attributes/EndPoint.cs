@@ -7,7 +7,7 @@ namespace AventusSharp.WebSocket.Attributes
     {
         public Type endpoint { get; private set; }
 
-        public string typescriptPath { get; protected set; }
+        public string typescriptPath { get; protected set; } = "";
 
         public EndPoint(Type type)
         {

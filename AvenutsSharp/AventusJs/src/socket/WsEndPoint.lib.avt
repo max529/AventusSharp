@@ -1,9 +1,11 @@
 import { WsRoute } from "./WsRoute.lib.avt";
 import { WsEvent } from "./WsEvent.lib.avt";
-import { MergeWsEventsType, MergeWsRoutesType, WsEventType, WsRouteType } from "./type.lib.avt";
+import type { MergeWsEventsType, MergeWsRoutesType, WsEventType, WsRouteType } from "./type.lib.avt";
+import { Socket } from "./Socket.lib.avt";
+import type { SocketOptions } from "./ISocket.lib.avt";
 
 namespace Socket {
-    export abstract class WsEndPoint extends Aventus.Socket {
+    export abstract class WsEndPoint extends Socket {
 
 
         public static With<const T extends { routes: readonly { type: WsRouteType, path: string; }[], events: readonly { type: WsEventType, path: string; }[]; }>(options: T) {
@@ -140,15 +142,14 @@ namespace Socket {
                                             current = current[part];
                                         }
                                     }
-                                    let routeInstance = new eventClass(that);
-                                    routeInstance['configure']();
+                                    let eventInstance = new eventClass(that);
                                     let keyFromChild: string[] = [];
                                     while(eventClass.prototype) {
                                         let keys = Object.getOwnPropertyNames(eventClass.prototype);
                                         for(let key of keys) {
                                             if(key != "constructor" && !keyFromChild.includes(key)) {
                                                 keyFromChild.push(key);
-                                                current[key] = routeInstance[key].bind(routeInstance);
+                                                current[key] = eventInstance[key].bind(eventInstance);
                                             }
                                         }
                                         eventClass = Object.getPrototypeOf(eventClass);
@@ -195,7 +196,7 @@ namespace Socket {
         /**
          * @inheritdoc
          */
-        protected override configure(options: Aventus.SocketOptions): Aventus.SocketOptions {
+        protected override configure(options: SocketOptions): SocketOptions {
             options.socketName = this.path;
 
             return options;

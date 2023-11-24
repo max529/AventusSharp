@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
+using AventusSharp.Data.Storage.Default.TableMember;
 
 namespace AventusSharp.Data.Storage.Default
 {

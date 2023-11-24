@@ -10,7 +10,7 @@ namespace AventusSharp.Tools
 {
     public static class TypeTools
     {
-        public static Type[] PrimitiveType
+        private static Type[] PrimitiveType
         {
             get => new Type[] {
                 typeof(Enum),
@@ -34,6 +34,22 @@ namespace AventusSharp.Tools
             };
         }
 
+        public static bool IsPrimitiveType(Type? type)
+        {
+            if(type == null)
+            {
+                return false;
+            }
+            if (PrimitiveType.Contains(type))
+            {
+                return true;
+            }
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                return PrimitiveType.Contains(type.GetGenericArguments()[0]);
+            }
+            return false;
+        }
 
         public static string GetReadableName(Type type)
         {

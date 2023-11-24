@@ -290,7 +290,8 @@ namespace CSharpToTypescript.Container
             this.methodSymbol = methodSymbol;
             this.@class = @class;
             this.name = methodSymbol.Name;
-            MethodInfo? methodTemp = @class.GetMethod(name);
+            
+            MethodInfo? methodTemp = Tools.GetMethodInfo(methodSymbol, @class);
             if (methodTemp == null || !methodTemp.IsPublic)
             {
                 canBeAdded = false;
@@ -300,6 +301,12 @@ namespace CSharpToTypescript.Container
             canBeAdded = true;
             LoadHttpMethod(methodSymbol);
 
+            Attribute? attr = method.GetCustomAttribute(typeof(TypescriptName));
+            if (attr != null)
+            {
+                this.name = ((TypescriptName)attr).name;
+            }
+            
 
             Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
             foreach (KeyValuePair<string, ParameterInfo> pair in @params)
@@ -327,19 +334,29 @@ namespace CSharpToTypescript.Container
 
             }
 
-            if (method.ReturnType != typeof(void))
+            Type returnType = method.ReturnType;
+            if(returnType == typeof(Task))
+            {
+                returnType = typeof(void);
+            }
+            else if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>))
+            {
+                returnType = returnType.GetGenericArguments()[0];
+            }
+
+            if (returnType != typeof(void))
             {
                 bool needRecheck = false;
-                if (method.ReturnType.GetInterfaces().Contains(typeof(IResponse)))
+                if (returnType.GetInterfaces().Contains(typeof(IResponse)))
                 {
-                    typeContainer = method.ReturnType;
+                    typeContainer = returnType;
                     if (typeContainer == typeof(View))
                     {
                         canBeAdded = false;
                         return;
                     }
                 }
-                else if (method.ReturnType == typeof(IResponse))
+                else if (returnType == typeof(IResponse))
                 {
                     needRecheck = true;
                 }
@@ -363,7 +380,7 @@ namespace CSharpToTypescript.Container
                     // can't load the type
                     if (listReturns.Count == 0)
                     {
-                        AddTypeToListReturn(method.ReturnType);
+                        AddTypeToListReturn(returnType);
                     }
                 }
                 if (needRecheck)

@@ -5,8 +5,10 @@ using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CSharpToTypescript
 {
@@ -133,19 +135,71 @@ namespace CSharpToTypescript
         }
         public static Type? GetCompiledType(INamedTypeSymbol type)
         {
-            string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
+            string fullName = "";
+            string typeName = type.ContainingNamespace.ToString() + "." + type.Name;
             if (type.IsGenericType)
             {
-                fullName += "`" + type.TypeParameters.Length;
+                typeName += "`" + type.TypeParameters.Length;
             }
-            fullName += ", " + type.ContainingAssembly.Name;
+            fullName += typeName + ", " + type.ContainingAssembly.Name;
             Type? realType = Type.GetType(fullName);
+            if (realType == null)
+            {
+                Assembly? assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == type.ContainingAssembly.Name);
+                if (assembly == null)
+                {
+                    try
+                    {
+                        assembly = Assembly.LoadFrom(ProjectManager.Config.outputDir + Path.DirectorySeparatorChar + type.ContainingAssembly.Name + ".dll");
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                }
+                if (assembly != null)
+                {
+                    realType = assembly.GetType(typeName);
+                }
+            }
+
+            if (type.IsGenericType && realType != null)
+            {
+                bool fullGeneric = false;
+                List<Type> subTypes = new List<Type>();
+                foreach (ITypeSymbol genericType in type.TypeArguments)
+                {
+                    if (genericType is INamedTypeSymbol named)
+                    {
+                        Type? subType = GetCompiledType(named);
+                        if (subType == null)
+                        {
+                            throw new Exception("impossible");
+                        }
+                        subTypes.Add(subType);
+                    }
+                    else if (genericType is ITypeParameterSymbol typeParameter)
+                    {
+                        fullGeneric = true;
+                    }
+                    else
+                    {
+                        throw new Exception("impossible");
+                    }
+                }
+                if (!fullGeneric)
+                {
+                    realType = realType.MakeGenericType(subTypes.ToArray());
+                }
+            }
+
             return realType;
         }
 
         public static INamedTypeSymbol? GetTypeSymbol(Type type)
         {
-            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(type.FullName ?? "");
+            string temp = type.WriteAsSymbol();
+            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(temp);
             if (typeSymbol is INamedTypeSymbol namedType)
             {
                 return namedType;
@@ -153,18 +207,114 @@ namespace CSharpToTypescript
             return null;
         }
 
+        public static MethodInfo? GetMethodInfo(IMethodSymbol methodSymbol, Type @class)
+        {
+            List<MethodInfo> methods = @class.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).ToList();
+            foreach (MethodInfo method in methods)
+            {
+                if (method.Name == methodSymbol.Name)
+                {
+                    ParameterInfo[] methodParams = method.GetParameters();
+                    if (methodParams.Length == methodSymbol.Parameters.Length)
+                    {
+                        bool allSame = true;
+                        for (int i = 0; i < methodParams.Length; i++)
+                        {
+                            Type paramType = methodParams[i].ParameterType;
+                            if (!paramType.Compare(methodSymbol.Parameters[i].Type))
+                            {
+                                allSame = false;
+                                break;
+                            }
+                        }
+                        if (allSame)
+                        {
+                            return method;
+                        }
+                    }
+                }
+            }
+            throw new Exception("impossible");
+        }
+
         public static bool IsSubclass(Type parent, Type child)
         {
-            while (child != null && child != typeof(object))
+            Type? casted;
+            return IsSubclass(parent, child, out casted);
+        }
+
+        public static bool IsSubclass(Type parent, Type child, out Type? castedParent)
+        {
+            castedParent = null;
+            Type? typeLoop = child;
+            while (typeLoop != null && typeLoop != typeof(object))
             {
-                var cur = child.IsGenericType ? child.GetGenericTypeDefinition() : child;
+                var cur = typeLoop.IsGenericType ? typeLoop.GetGenericTypeDefinition() : typeLoop;
                 if (parent == cur)
                 {
+                    castedParent = typeLoop;
                     return true;
                 }
-                child = child.BaseType;
+                typeLoop = typeLoop.BaseType;
             }
             return false;
+        }
+
+
+        public static string WriteAsSymbol(this Type type)
+        {
+            string name = "";
+            if (type.IsGenericParameter || string.IsNullOrEmpty(type.Namespace))
+            {
+                name = type.Name;
+            }
+            else
+            {
+                name = type.Namespace + "." + type.Name;
+            }
+            if (type.IsGenericType)
+            {
+                name = name.Split("`")[0];
+                List<string> generics = new();
+                foreach (Type genericType in type.GetGenericArguments())
+                {
+                    generics.Add(WriteAsSymbol(genericType));
+                }
+                name += "<" + string.Join(",", generics) + ">";
+            }
+            return name;
+        }
+        public static bool Compare(this Type type, ITypeSymbol symbol)
+        {
+            Func<ITypeSymbol, string> writeGeneric2 = (ITypeSymbol loopType) => "";
+
+            writeGeneric2 = (ITypeSymbol loopType) =>
+            {
+                string name = "";
+                name = loopType.ContainingNamespace.ToString() + "." + loopType.Name;
+                if (loopType is INamedTypeSymbol namedType)
+                {
+                    if (namedType.IsGenericType)
+                    {
+                        List<string> generics = new();
+                        foreach (ITypeSymbol typeTemp in namedType.TypeArguments)
+                        {
+                            generics.Add(writeGeneric2(typeTemp));
+                        }
+                        name += "<" + string.Join(",", generics) + ">";
+                    }
+                }
+                else if(loopType is ITypeParameterSymbol)
+                {
+                    name = loopType.Name;
+                }
+                return name;
+            };
+
+            string fullName = type.WriteAsSymbol();
+            string fullName2 = writeGeneric2(symbol);
+
+            return fullName == fullName2;
         }
     }
 }

@@ -471,7 +471,7 @@ namespace AventusSharp.Data
                 foreach (FieldInfo field in fields)
                 {
                     DataMemberInfo memberInfo = new(field);
-                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
+                    if (!TypeTools.IsPrimitiveType(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
                     {
                         AddDataDependance(dataType, memberInfo.Type, memberInfo.Name);
                     }
@@ -489,7 +489,7 @@ namespace AventusSharp.Data
                 foreach (PropertyInfo property in properties)
                 {
                     DataMemberInfo memberInfo = new(property);
-                    if (!TypeTools.PrimitiveType.Contains(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
+                    if (!TypeTools.IsPrimitiveType(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
                     {
                         AddDataDependance(dataType, memberInfo.Type, memberInfo.Name);
                     }

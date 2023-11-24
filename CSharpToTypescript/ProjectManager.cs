@@ -81,6 +81,9 @@ namespace CSharpToTypescript
                 Console.WriteLine(output);
                 return false;
             }
+            List<string> outputSplitted = outputPath.Split(Path.DirectorySeparatorChar).ToList();
+            outputSplitted.RemoveAt(outputSplitted.Count - 1);
+            Config.outputDir = string.Join(Path.DirectorySeparatorChar, outputSplitted);
             Config.compiledAssembly = Assembly.LoadFrom(outputPath);
             return true;
         }

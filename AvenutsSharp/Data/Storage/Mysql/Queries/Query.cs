@@ -1,29 +1,33 @@
 ﻿using AventusSharp.Data.Manager.DB;
-using AventusSharp.Data.Manager.DB.Query;
+using AventusSharp.Data.Manager.DB.Builders;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     public class Query
     {
-        public static string PrepareSQL<X>(DatabaseQueryBuilder<X> queryBuilder, MySQLStorage storage) where X : IStorable
+        public static DatabaseQueryBuilderInfo PrepareSQL<X>(DatabaseQueryBuilder<X> queryBuilder, MySQLStorage storage) where X : IStorable
         {
             DatabaseBuilderInfo mainInfo = queryBuilder.InfoByPath[""];
             List<string> fields = new();
             List<string> joins = new();
+            string groupBy = "";
 
             void loadInfo(DatabaseBuilderInfo baseInfo, List<string> path, List<Type> types)
             {
-
-                if (queryBuilder.AllMembers)
+                bool loadMembers = queryBuilder.MustLoadMembers(path);
+                if (loadMembers)
                 {
-                    storage.LoadTableFieldQuery(baseInfo.TableInfo, baseInfo.Alias, baseInfo, path, types, queryBuilder);
+                    storage.LoadAllTableFieldsQuery(baseInfo.TableInfo, baseInfo.Alias, baseInfo, path, types, queryBuilder);
                 }
+                // Add type name for abstract class
                 else if (baseInfo.TableInfo.TypeMember != null)
                 {
-                    TableMemberInfo member = baseInfo.TableInfo.TypeMember;
+                    TableMemberInfoSql member = baseInfo.TableInfo.TypeMember;
                     string alias = baseInfo.Alias;
                     fields.Add(alias + "." + member.SqlName + " `" + alias + "*" + member.SqlName + "`");
                 }
@@ -33,13 +37,13 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 {
                     string alias = parentLink.Value;
                     TableInfo info = parentLink.Key;
-                    if (queryBuilder.AllMembers)
+                    if (loadMembers)
                     {
-                        storage.LoadTableFieldQuery(info, alias, baseInfo, path, types, queryBuilder);
+                        storage.LoadAllTableFieldsQuery(info, alias, baseInfo, path, types, queryBuilder);
                     }
                     else if (parentLink.Key.TypeMember != null)
                     {
-                        TableMemberInfo member = parentLink.Key.TypeMember;
+                        TableMemberInfoSql member = parentLink.Key.TypeMember;
                         fields.Add(alias + "." + member.SqlName + " `" + alias + "*" + member.SqlName + "`");
                     }
                     joins.Add("INNER JOIN `" + info.SqlTableName + "` " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
@@ -54,13 +58,13 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         string alias = child.Alias;
                         string primName = child.TableInfo.Primary?.SqlName ?? "";
-                        if (queryBuilder.AllMembers)
+                        if (loadMembers)
                         {
-                            storage.LoadTableFieldQuery(child.TableInfo, alias, baseInfo, path, types, queryBuilder);
+                            storage.LoadAllTableFieldsQuery(child.TableInfo, alias, baseInfo, path, types, queryBuilder);
                         }
                         else if (child.TableInfo.TypeMember != null)
                         {
-                            TableMemberInfo member = child.TableInfo.TypeMember;
+                            TableMemberInfoSql member = child.TableInfo.TypeMember;
                             fields.Add(alias + "." + member.SqlName + " `" + alias + "*" + member.SqlName + "`");
                         }
                         joins.Add("LEFT OUTER JOIN `" + child.TableInfo.SqlTableName + "` " + child.Alias + " ON " + parentAlias + "." + parentPrimName + "=" + alias + "." + primName);
@@ -69,34 +73,50 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 };
                 loadChild(baseInfo.Children, baseInfo.Alias, baseInfo.TableInfo.Primary?.SqlName);
 
-                foreach (KeyValuePair<TableMemberInfo, DatabaseBuilderInfoMember> member in baseInfo.Members)
+                foreach (KeyValuePair<TableMemberInfoSql, DatabaseBuilderInfoMember> member in baseInfo.Members)
                 {
-                    string alias = member.Value.Alias;
-                    fields.Add(alias + "." + member.Key.SqlName + " `" + alias + "*" + member.Key.SqlName + "`");
+                    if (member.Key is ITableMemberInfoSqlLinkMultiple linkMultiple)
+                    {
+                        if (linkMultiple.TableLinkedType == null) { continue; }
+
+                        string alias = queryBuilder.CreateAlias(linkMultiple.TableLinkedType);
+                        fields.Add("GROUP_CONCAT(" + alias + "." + linkMultiple.TableIntermediateKey2 + ") `" + baseInfo.Alias + "*" + member.Key.SqlName + "`");
+                        joins.Add("LEFT OUTER JOIN `" + linkMultiple.TableIntermediateName + "` " + alias + " ON " + alias + "." + linkMultiple.TableIntermediateKey1 + "=" + baseInfo.Alias + "." + baseInfo.TableInfo.Primary?.SqlName);
+                        if (groupBy == "")
+                        {
+                            groupBy = " GROUP BY " + mainInfo.Alias + "." + mainInfo.TableInfo.Primary?.SqlName;
+                        }
+                    }
+                    else
+                    {
+                        string alias = member.Value.Alias;
+                        fields.Add(alias + "." + member.Key.SqlName + " `" + alias + "*" + member.Key.SqlName + "`");
+                    }
+
                 }
 
-                foreach (KeyValuePair<TableMemberInfo, DatabaseBuilderInfo> linkInfo in baseInfo.links)
+                foreach (KeyValuePair<TableMemberInfoSql, DatabaseBuilderInfo> linkInfo in baseInfo.joins)
                 {
-                    TableMemberInfo tableMemberInfo = linkInfo.Key;
+                    TableMemberInfoSql tableMemberInfo = linkInfo.Key;
                     DatabaseBuilderInfo databaseQueryBuilderInfo = linkInfo.Value;
-                    if (tableMemberInfo.Type == null)
+                    if (tableMemberInfo.MemberType == null)
                     {
                         continue;
                     }
                     joins.Add("LEFT OUTER JOIN `" + databaseQueryBuilderInfo.TableInfo.SqlTableName + "` " + databaseQueryBuilderInfo.Alias + " ON " + baseInfo.Alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.Alias + "." + databaseQueryBuilderInfo.TableInfo.Primary?.SqlName);
                     path.Add(tableMemberInfo.Name);
-                    types.Add(tableMemberInfo.Type);
+                    types.Add(tableMemberInfo.MemberType);
                     loadInfo(databaseQueryBuilderInfo, path, types);
                     path.RemoveAt(path.Count - 1);
                     types.RemoveAt(types.Count - 1);
-
                 }
+
             }
 
             loadInfo(mainInfo, new List<string>(), new List<Type>());
 
             string whereTxt = BuilderTools.Where(queryBuilder.Wheres);
-            
+
             string joinTxt = string.Join(" ", joins);
             if (joinTxt.Length > 1)
             {
@@ -106,10 +126,11 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             string sql = "SELECT " + string.Join(",", fields)
                 + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
                 + joinTxt
-                + whereTxt;
+                + whereTxt
+                + groupBy;
 
 
-            return sql;
+            return new DatabaseQueryBuilderInfo(sql);
         }
     }
 }

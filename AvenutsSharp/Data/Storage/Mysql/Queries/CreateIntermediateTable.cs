@@ -1,7 +1,9 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Data.Storage.Mysql.Tools;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,17 +12,29 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     internal class CreateIntermediateTable
     {
-        public static string GetQuery(TableMemberInfo memberInfo)
+        public static string GetQuery(TableMemberInfoSql memberInfo, MySQLStorage storage)
         {
-            TableInfo instance = memberInfo.TableInfo;
-            TableInfo? link = memberInfo.TableLinked;
-            if(link == null)
+            if(!(memberInfo is ITableMemberInfoSqlLinkMultiple memberMultiple))
             {
                 return "";
             }
 
-            string? intermediateTableName = Utils.GetIntermediateTablename(memberInfo);
-            if(intermediateTableName == null || instance.Primary == null || link.Primary == null)
+            string? intermediateTableName = memberMultiple.TableIntermediateName;
+            if (intermediateTableName == null)
+            {
+                return "";
+            }
+
+            TableInfo instance = memberInfo.TableInfo;
+            TableInfo? link = memberMultiple.TableLinked;
+            // si on a pas de lien, il faut rajouter la table intermédiaire sans la contrainte
+            bool addLinkConstraint = link != null;
+            string linkFieldType = storage.GetSqlColumnType(memberMultiple.LinkFieldType, link?.Primary);
+            string linkTableName = memberMultiple.LinkTableName;
+            string linkPrimaryName = memberMultiple.LinkPrimaryName;
+
+            
+            if (!(instance.Primary is ITableMemberInfoSqlWritable primary))
             {
                 return "";
             }
@@ -30,8 +44,8 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             List<string> foreignConstraint = new();
             string separator = ",\r\n";
 
-            string intermediateName = "`" + instance.SqlTableName + "_" + instance.Primary.SqlName + "`";
-            string schemaProp = "\t" + intermediateName + " " + instance.Primary.SqlTypeTxt;
+            string intermediateName = "`" + memberMultiple.TableIntermediateKey1 + "`";
+            string schemaProp = "\t" + intermediateName + " " + storage.GetSqlColumnType(primary.SqlType, instance.Primary);
             string constraintName = "`FK_" + intermediateTableName + "_" + instance.SqlTableName+"`";
 
             primaryConstraint.Add(intermediateName);
@@ -43,16 +57,19 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 
 
 
-            intermediateName = "`" + link.SqlTableName + "_" + link.Primary.SqlName + "`";
-            schemaProp = "\t" + intermediateName + " " + link.Primary.SqlTypeTxt;
-            constraintName = "`FK_" + intermediateTableName + "_" + link.SqlTableName + "`";
+            intermediateName = "`" + memberMultiple.TableIntermediateKey2 + "`";
+            schemaProp = "\t" + intermediateName + " " + linkFieldType;
 
             primaryConstraint.Add(intermediateName);
             schema.Add(schemaProp);
 
-            constraintName = Utils.CheckConstraint(constraintName);
-            constraintProp = "\t" + "CONSTRAINT " + constraintName + " FOREIGN KEY (" + intermediateName + ") REFERENCES `" + link.SqlTableName + "` (" + link.Primary.SqlName + ")";
-            foreignConstraint.Add(constraintProp);
+            if (addLinkConstraint)
+            {
+                constraintName = "`FK_" + intermediateTableName + "_" + linkTableName + "`";
+                constraintName = Utils.CheckConstraint(constraintName);
+                constraintProp = "\t" + "CONSTRAINT " + constraintName + " FOREIGN KEY (" + intermediateName + ") REFERENCES `" + linkTableName + "` (" + linkPrimaryName + ")";
+                foreignConstraint.Add(constraintProp);
+            }
             
 
 

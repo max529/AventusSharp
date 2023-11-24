@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Data.Storage.Mysql.Tools;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 {
     internal class CreateTable
     {
-        public static string GetQuery(TableInfo table)
+        public static string GetQuery(TableInfo table, MySQLStorage storage)
         {
             string sql = "CREATE TABLE `" + table.SqlTableName + "` (\r\n";
 
@@ -19,17 +20,14 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             string separator = ",\r\n";
 
             // key is sql_table_name
-            Dictionary<string, Dictionary<string, List<TableMemberInfo>>> primariesByClass = new();
+            Dictionary<string, Dictionary<string, List<TableMemberInfoSql>>> primariesByClass = new();
 
-            foreach (TableMemberInfo member in table.Members)
+            foreach (TableMemberInfoSql member in table.Members)
             {
-                if (member.Link != TableMemberInfoLink.Multiple)
+                if(member is ITableMemberInfoSqlWritable memberWritable)
                 {
-                    string schemaProp = "\t`" + member.SqlName + "` " + member.SqlTypeTxt;
-                    if (member.SqlTypeTxt == "varchar(MAX)")
-                    {
-                        schemaProp = "\t`" + member.SqlName + "` TEXT";
-                    }
+                    string typeTxt = storage.GetSqlColumnType(memberWritable.SqlType, member);
+                    string schemaProp = "\t`" + member.SqlName + "` " + typeTxt;
                     if (!member.IsNullable)
                     {
                         schemaProp += " NOT NULL";
@@ -50,40 +48,40 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         string constraintName = "UC_" + member.SqlName + "_" + table.SqlTableName;
                         uniqueConstraint.Add("\tCONSTRAINT `" + constraintName + "` UNIQUE (`" + member.SqlName + "`)");
                     }
-
-                    TableMemberInfoLink[] links = new TableMemberInfoLink[] { TableMemberInfoLink.Simple, TableMemberInfoLink.SimpleInt, TableMemberInfoLink.Parent };
-                    if (links.Contains(member.Link))
-                    {
-                        if (member.TableLinked != null)
-                        {
-                            if (!primariesByClass.ContainsKey(member.TableLinked.SqlTableName))
-                            {
-                                primariesByClass[member.TableLinked.SqlTableName] = new Dictionary<string, List<TableMemberInfo>>();
-                            }
-                            if (!primariesByClass[member.TableLinked.SqlTableName].ContainsKey(member.Name))
-                            {
-                                primariesByClass[member.TableLinked.SqlTableName][member.Name] = new List<TableMemberInfo>();
-                            }
-                            primariesByClass[member.TableLinked.SqlTableName][member.Name].Add(member);
-                        }
-                        else
-                        {
-                            // TODO code external link
-                        }
-                    }
                 }
 
+                if(member is ITableMemberInfoSqlLinkSingle memberLink)
+                {
+                    if (memberLink.TableLinked != null)
+                    {
+                        if (!primariesByClass.ContainsKey(memberLink.TableLinked.SqlTableName))
+                        {
+                            primariesByClass[memberLink.TableLinked.SqlTableName] = new Dictionary<string, List<TableMemberInfoSql>>();
+                        }
+                        if (!primariesByClass[memberLink.TableLinked.SqlTableName].ContainsKey(member.Name))
+                        {
+                            primariesByClass[memberLink.TableLinked.SqlTableName][member.Name] = new List<TableMemberInfoSql>();
+                        }
+                        primariesByClass[memberLink.TableLinked.SqlTableName][member.Name].Add(member);
+                    }
+                    else
+                    {
+                        // TODO code external link
+                    }
+                }
             }
 
             // There is only one constraint by class for foreignkey (if many primaries into foreign class)
-            foreach (KeyValuePair<string, Dictionary<string, List<TableMemberInfo>>> primary in primariesByClass)
+            foreach (KeyValuePair<string, Dictionary<string, List<TableMemberInfoSql>>> primary in primariesByClass)
             {
-                foreach (KeyValuePair<string, List<TableMemberInfo>> pri in primary.Value)
+                foreach (KeyValuePair<string, List<TableMemberInfoSql>> pri in primary.Value)
                 {
                     bool deleteOnCascade = pri.Value.FirstOrDefault(p => p.IsDeleteOnCascade) != null;
                     string constraintName = "FK_" + string.Join("_", pri.Value.Select(field => field.SqlName)) + "_" + table.SqlTableName + "_" + primary.Key;
                     constraintName = Utils.CheckConstraint(constraintName);
-                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`")) + ") REFERENCES `" + primary.Key + "` (" + string.Join(", ", pri.Value.Select(field => "`" + field.TableLinked?.Primary?.SqlName + "`")) + ")";
+                    string foreignKey = string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`"));
+                    string foreignTable = string.Join(", ", pri.Value.Select(field => "`" + ((ITableMemberInfoSqlLink)field).TableLinked?.Primary?.SqlName + "`"));
+                    string constraintProp = "\t" + "CONSTRAINT `" + constraintName + "` FOREIGN KEY (" + foreignKey + ") REFERENCES `" + primary.Key + "` (" + foreignTable + ")";
                     if (deleteOnCascade)
                     {
                         // TODO pour les tests mais doit être calculé du côté manager (seulement si stocker dans la RAM?)

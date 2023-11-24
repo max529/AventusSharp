@@ -1,4 +1,5 @@
-﻿using AventusSharp.Data.Manager;
+﻿using AventusSharp.Data;
+using AventusSharp.Data.Manager;
 using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data;
@@ -30,7 +31,7 @@ namespace AventusSharpTest.Test.AAD_Update
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
-            Assert.IsTrue(result.Result[0].id == 1);
+            Assert.IsTrue(result.Result[0].Id == 1);
             Assert.IsTrue(result.Result[0].color == "Pink");
         }
 
@@ -48,7 +49,7 @@ namespace AventusSharpTest.Test.AAD_Update
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
-            Assert.IsTrue(result.Result[0].id == 3);
+            Assert.IsTrue(result.Result[0].Id == 3);
             Assert.IsTrue(result.Result[0].color == "Orange");
         }
 
@@ -71,7 +72,7 @@ namespace AventusSharpTest.Test.AAD_Update
             NUnitExt.AssertNoError(resultWithError);
 
             Assert.IsTrue(resultWithError.Result.Count == 1);
-            Assert.IsTrue(resultWithError.Result[0].id == id);
+            Assert.IsTrue(resultWithError.Result[0].Id == id);
             Assert.IsTrue(resultWithError.Result[0].location.name == "Case");
         }
     }

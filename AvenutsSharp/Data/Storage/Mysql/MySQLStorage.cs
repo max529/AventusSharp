@@ -1,14 +1,13 @@
-﻿using AventusSharp.Data.Manager.DB;
-using AventusSharp.Data.Manager.DB.Create;
-using AventusSharp.Data.Manager.DB.Delete;
-using AventusSharp.Data.Manager.DB.Exist;
-using AventusSharp.Data.Manager.DB.Query;
-using AventusSharp.Data.Manager.DB.Update;
+﻿using AventusSharp.Data.Attributes;
+using AventusSharp.Data.Manager.DB;
+using AventusSharp.Data.Manager.DB.Builders;
 using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Tools;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 
 namespace AventusSharp.Data.Storage.Mysql
@@ -28,6 +27,10 @@ namespace AventusSharp.Data.Storage.Mysql
                 Password = password,
                 Database = database
             };
+            if(port != null)
+            {
+                builder.Port = (uint)port;
+            }
 
             connection = new MySqlConnection(builder.ConnectionString);
             return connection;
@@ -155,11 +158,11 @@ namespace AventusSharp.Data.Storage.Mysql
         #region table
         protected override string PrepareSQLCreateTable(TableInfo table)
         {
-            return Queries.CreateTable.GetQuery(table);
+            return Queries.CreateTable.GetQuery(table, this);
         }
-        protected override string PrepareSQLCreateIntermediateTable(TableMemberInfo tableMember)
+        protected override string PrepareSQLCreateIntermediateTable(TableMemberInfoSql tableMember)
         {
-            return Queries.CreateIntermediateTable.GetQuery(tableMember);
+            return Queries.CreateIntermediateTable.GetQuery(tableMember, this);
         }
         protected override string PrepareSQLTableExist(TableInfo table)
         {
@@ -169,7 +172,7 @@ namespace AventusSharp.Data.Storage.Mysql
         #endregion
 
         #region query
-        protected override string PrepareSQLForQuery<X>(DatabaseQueryBuilder<X> queryBuilder)
+        protected override DatabaseQueryBuilderInfo PrepareSQLForQuery<X>(DatabaseQueryBuilder<X> queryBuilder)
         {
             return Queries.Query.PrepareSQL(queryBuilder, this);
         }
@@ -177,14 +180,14 @@ namespace AventusSharp.Data.Storage.Mysql
         #endregion
 
         #region exist
-        protected override string PrepareSQLForExist<X>(DatabaseExistBuilder<X> queryBuilder)
+        protected override DatabaseExistBuilderInfo PrepareSQLForExist<X>(DatabaseExistBuilder<X> queryBuilder)
         {
             return Queries.Exist.PrepareSQL(queryBuilder, this);
         }
         #endregion
 
         #region create
-        protected override List<DatabaseCreateBuilderInfo> PrepareSQLForCreate<X>(DatabaseCreateBuilder<X> createBuilder)
+        protected override DatabaseCreateBuilderInfo PrepareSQLForCreate<X>(DatabaseCreateBuilder<X> createBuilder)
         {
             return Queries.Create.PrepareSQL(createBuilder);
         }
@@ -199,14 +202,14 @@ namespace AventusSharp.Data.Storage.Mysql
         #endregion
 
         #region delete
-        protected override string PrepareSQLForDelete<X>(DatabaseDeleteBuilder<X> deleteBuilder)
+        protected override DatabaseDeleteBuilderInfo PrepareSQLForDelete<X>(DatabaseDeleteBuilder<X> deleteBuilder)
         {
             return Queries.Delete.PrepareSQL(deleteBuilder, this);
         }
-       
+
         #endregion
 
-        
+
         protected override object? TransformValueForFct(ParamsInfo paramsInfo)
         {
             if (paramsInfo.Value is string casted)
@@ -227,7 +230,25 @@ namespace AventusSharp.Data.Storage.Mysql
             return paramsInfo.Value;
         }
 
-        
-        
+        public override string GetSqlColumnType(DbType dbType, TableMemberInfoSql? tableMember = null)
+        {
+            if (dbType == DbType.Int32) { return "int"; }
+            if (dbType == DbType.Double) { return "float"; }
+            if (dbType == DbType.Boolean) { return "bit"; }
+            if (dbType == DbType.DateTime) { return "datetime"; }
+            if (dbType == DbType.String)
+            {
+                if (tableMember is TableMemberInfoSqlBasic basic && basic.SizeAttr != null)
+                {
+                    if (basic.SizeAttr.SizeType == null) return "varchar(" + basic.SizeAttr.Max + ")";
+                    else if (basic.SizeAttr.SizeType == SizeEnum.MaxVarChar) return "TEXT";
+                    else if (basic.SizeAttr.SizeType == SizeEnum.Text) return "TEXT";
+                    else if (basic.SizeAttr.SizeType == SizeEnum.MediumText) return "MEDIUMTEXT";
+                    else if (basic.SizeAttr.SizeType == SizeEnum.LongText) return "LONGTEXT";
+                }
+                return "varchar(255)";
+            }
+            throw new NotImplementedException();
+        }
     }
 }

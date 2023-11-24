@@ -1,26 +1,57 @@
+import type { SocketRoute } from "./ISocket.lib.avt";
 import { WsEndPoint } from "./WsEndPoint.lib.avt";
 
 namespace Socket {
     export abstract class WsEvent<T extends any = any> {
         protected endpoint: WsEndPoint;
-        protected abstract get path(): string;
 
-        public onTrigger: Aventus.Callback<(item: T) => void> = new Aventus.Callback();
+        public onTrigger: Aventus.Callback<(item: T, params: Aventus.Uri.UriParamsValue) => void> = new Aventus.Callback();
+
+        protected routeInfo: SocketRoute<T>;
 
         public constructor(endpoint: WsEndPoint) {
             this.endpoint = endpoint;
+            this.routeInfo = {
+                channel: this.path(),
+                callback: this.onEvent
+            };
+
+            if(this.listenOnBoot()) {
+                this.listen();
+            }
         }
 
-        protected configure() {
-            this.endpoint.addRoute({
-                channel: this.path,
-                callback: this.onEvent
-            });
+        /**
+         * Define the websocket path
+         */
+        protected abstract path(): string;
+
+
+        /**
+         * Override this method to tell that the event must listen when created
+         */
+        protected listenOnBoot(): boolean {
+            return false;
+        }
+
+        /**
+         * Add the event to the endpoint. After that, the on trigger event can be triggered
+         */
+        protected listen() {
+            this.endpoint.addRoute(this.routeInfo);
+        }
+
+        /**
+         * Remove the event from the endpoint. After that, the on trigger event won't be triggered
+         */
+        protected close() {
+            this.endpoint.removeRoute(this.routeInfo);
         }
 
         @BindThis()
-        protected onEvent(data: T) {
-            this.onTrigger.trigger([data]);
+        protected onEvent(data: T, params: Aventus.Uri.UriParamsValue) {
+            this.onTrigger.trigger([data, params]);
         }
+
     }
 }

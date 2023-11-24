@@ -7,7 +7,7 @@ namespace AventusSharp.Data.Manager.Dummy
 {
     public class DummyUpdateBuilder<T> : IUpdateBuilder<T>
     {
-        public IUpdateBuilder<T> Field(Expression<Func<T, object>> fct)
+        public IUpdateBuilder<T> Field<U>(Expression<Func<T, U>> fct)
         {
             throw new NotImplementedException();
         }

@@ -10,7 +10,7 @@ namespace AventusSharp.WebSocket.Event
     [NoTypescript]
     public abstract class WebSocketEvent : IWebSocketEvent
     {
-        protected WsEndPoint endPoint { get; set; }
+        protected WsEndPoint? endPoint { get; set; }
         protected WebSocketConnection? connection { get; set; }
         protected string uid { get; private set; } = "";
         protected string path { get; set; } = "";

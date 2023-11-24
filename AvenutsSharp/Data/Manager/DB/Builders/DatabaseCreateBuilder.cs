@@ -1,11 +1,21 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 
-namespace AventusSharp.Data.Manager.DB.Create
+namespace AventusSharp.Data.Manager.DB.Builders
 {
     public class DatabaseCreateBuilderInfo
+    {
+        public List<DatabaseCreateBuilderInfoQuery> Queries { get; set; } = new List<DatabaseCreateBuilderInfoQuery>();
+
+        public List<TableReverseMemberInfo> ReverseMembers { get; set; } = new();
+
+        public List<TableMemberInfoSql> ToCheckBefore { get; set; } = new();
+    }
+
+    public class DatabaseCreateBuilderInfoQuery
     {
         public string Sql { get; set; }
         public bool HasPrimaryResult { get; set; }
@@ -13,23 +23,21 @@ namespace AventusSharp.Data.Manager.DB.Create
 
         public ParamsInfo? PrimaryToSet { get; set; }
 
-        public List<TableMemberInfo> ReverseMembers { get; set; }
-
-        public DatabaseCreateBuilderInfo(string sql, bool havePrimaryResult, List<ParamsInfo> parameters)
+        public DatabaseCreateBuilderInfoQuery(string sql, bool havePrimaryResult, List<ParamsInfo> parameters)
         {
             Sql = sql;
             HasPrimaryResult = havePrimaryResult;
             Parameters = parameters;
-            ReverseMembers = new();
         }
 
     }
+
     public class DatabaseCreateBuilder<T> where T : IStorable
     {
         public IDBStorage Storage { get; private set; }
         public TableInfo TableInfo { get; private set; }
 
-        public List<DatabaseCreateBuilderInfo>? queries;
+        public DatabaseCreateBuilderInfo? info;
 
         public ParamsInfo? PrimaryParam { get; set; }
 
@@ -47,10 +55,9 @@ namespace AventusSharp.Data.Manager.DB.Create
         public ResultWithDataError<T> RunWithError(T item)
         {
             ResultWithDataError<T> result = new();
-            ResultWithDataError<int> resultTemp = Storage.CreateFromBuilder(this, item);
-            if (resultTemp.Success && resultTemp.Result != 0)
+            VoidWithDataError resultTemp = Storage.CreateFromBuilder(this, item);
+            if (resultTemp.Success)
             {
-                item.Id = resultTemp.Result;
                 result.Result = item;
             }
             else

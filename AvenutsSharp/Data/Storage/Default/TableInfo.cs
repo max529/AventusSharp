@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using AventusSharp.Tools;
+using AventusSharp.Data.Storage.Default.TableMember;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -17,9 +18,14 @@ namespace AventusSharp.Data.Storage.Default
         }
 
         /// <summary>
-        /// The name of the class
+        /// The sql name of the class
         /// </summary>
         public string SqlTableName { get; private set; }
+
+        /// <summary>
+        /// The name of the class
+        /// </summary>
+        public string Name { get; private set; }
 
         /// <summary>
         /// The class parent, for heritance
@@ -46,20 +52,20 @@ namespace AventusSharp.Data.Storage.Default
         /// List of members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public List<TableMemberInfo> Members { get; private set; } = new List<TableMemberInfo>();
+        public List<TableMemberInfoSql> Members { get; private set; } = new List<TableMemberInfoSql>();
 
-        public TableMemberInfo? TypeMember { get; private set; } = null;
+        public CustomTableMemberInfoSql? TypeMember { get; private set; } = null;
 
         /// <summary>
         /// List of primaries members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public TableMemberInfo? Primary { get; set; }
+        public TableMemberInfoSql? Primary { get; set; }
         /// <summary>
         /// List of reverse members for this class only
         /// </summary>
         /// <remarks></remarks>
-        public List<TableMemberInfo> ReverseMembers { get; private set; } = new List<TableMemberInfo>();
+        public List<TableReverseMemberInfo> ReverseMembers { get; private set; } = new List<TableReverseMemberInfo>();
 
         public Type Type { get; private set; }
 
@@ -68,12 +74,12 @@ namespace AventusSharp.Data.Storage.Default
         public TableInfo(PyramidInfo pyramid)
         {
             SqlTableName = GetSQLTableName(pyramid.type);
-            Type typeToLoad = pyramid.type;
-            Type = typeToLoad;
+            this.Type = pyramid.type;
             if (pyramid.type.IsGenericType)
             {
                 IsAbstract = true;
             }
+            Name = TypeTools.GetReadableName(Type);
         }
 
         public VoidWithDataError Init()
@@ -98,7 +104,7 @@ namespace AventusSharp.Data.Storage.Default
 
         public void AddTypeMember()
         {
-            CustomTableMemberInfo typeMember = new(TypeIdentifierName, typeof(string), this);
+            CustomTableMemberInfoSql typeMember = new(TypeIdentifierName, typeof(string), this);
             typeMember.DefineSQLInformation(new SQLInformation()
             {
                 SqlName = TypeIdentifierName,
@@ -120,7 +126,7 @@ namespace AventusSharp.Data.Storage.Default
             {
                 if (field.DeclaringType == type)
                 {
-                    TableMemberInfo temp = new(field, this);
+                    TableMemberInfo? temp = TableMemberInfo.Create(field, this);
                     VoidWithDataError result = PrepareMembers(temp);
                     if (!result.Success)
                     {
@@ -132,7 +138,7 @@ namespace AventusSharp.Data.Storage.Default
             {
                 if (property.DeclaringType == type)
                 {
-                    TableMemberInfo temp = new(property, this);
+                    TableMemberInfo? temp = TableMemberInfo.Create(property, this);
                     VoidWithDataError result = PrepareMembers(temp);
                     if (!result.Success)
                     {
@@ -142,39 +148,30 @@ namespace AventusSharp.Data.Storage.Default
             }
             return new VoidWithDataError();
         }
-        private VoidWithDataError PrepareMembers(TableMemberInfo temp)
+        private VoidWithDataError PrepareMembers(TableMemberInfo? temp)
         {
-            List<object> attrs = temp.GetCustomAttributes(false);
-            bool isNormalMember = true;
-            foreach (object attr in attrs)
+
+            if(temp is TableMemberInfoSql sqlMember)
             {
-                if (attr is NotInDB)
-                {
-                    isNormalMember = false;
-                }
-                else if (attr is ReverseLink reverseLinkAttr)
-                {
-                    VoidWithDataError result = temp.SetReverseLink(reverseLinkAttr);
-                    if (!result.Success)
-                    {
-                        return result;
-                    }
-                    ReverseMembers.Add(temp);
-                    isNormalMember = false;
-                }
-            }
-            if (isNormalMember)
-            {
-                VoidWithDataError result = temp.PrepareForSQL();
+                VoidWithDataError result = sqlMember.PrepareForSQL();
                 if (!result.Success)
                 {
                     return result;
                 }
-                Members.Add(temp);
-                if (temp.IsPrimary)
+                Members.Add(sqlMember);
+                if (sqlMember.IsPrimary)
                 {
-                    Primary = temp;
+                    Primary = sqlMember;
                 }
+            }
+            else if(temp is TableReverseMemberInfo reverseMember)
+            {
+                VoidWithDataError result = reverseMember.Prepare();
+                if (!result.Success)
+                {
+                    return result;
+                }
+                ReverseMembers.Add(reverseMember);
             }
             return new VoidWithDataError();
         }

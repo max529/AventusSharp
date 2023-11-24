@@ -2,7 +2,7 @@
   "profiles": {
     "CSharpToTypescript": {
       "commandName": "Project",
-      "commandLineArgs": "D:\\Rayuki\\Core\\Core\\aventus.sharp.avt"
+      "commandLineArgs": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\aventus.sharp.avt"
     }
   }
 }

@@ -3,14 +3,24 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace AventusSharp.Data.Manager.DB.Exist
+namespace AventusSharp.Data.Manager.DB.Builders
 {
+    public class DatabaseExistBuilderInfo
+    {
+        public string Sql;
+
+        public DatabaseExistBuilderInfo(string sql)
+        {
+            Sql = sql;
+        }
+    }
     public class DatabaseExistBuilder<T> : DatabaseGenericBuilder<T>, IExistBuilder<T> where T : IStorable
     {
 
+        public DatabaseExistBuilderInfo? info = null;
         public DatabaseExistBuilder(IDBStorage storage, Type? baseType = null) : base(storage, baseType)
         {
-            
+
         }
 
         public IExistBuilder<T> Where(Expression<Func<T, bool>> func)

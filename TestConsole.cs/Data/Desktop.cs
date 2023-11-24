@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Nullable = AventusSharp.Data.Attributes.Nullable;
 
 namespace TestConsole.cs.Data
 {
@@ -18,7 +19,7 @@ namespace TestConsole.cs.Data
 
     public class DesktopPosition : Storable<DesktopPosition>
     {
-        [ForeignKey<Desktop>()]
+        [ForeignKey<Desktop>(), DeleteOnCascade]
         public int DesktopId { get; set; }
 
         public int Position { get; set; }

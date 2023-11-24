@@ -1,25 +1,26 @@
-﻿using AventusSharp.Data.Manager.DB.Query;
-using AventusSharp.Data.Storage.Default;
+﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace AventusSharp.Data.Manager.DB.Update
+namespace AventusSharp.Data.Manager.DB.Builders
 {
     public class DatabaseUpdateBuilderInfo
     {
         public string UpdateSql { get; set; }
         public string QuerySql { get; set; }
 
-        public List<TableMemberInfo> ReverseMembers { get; set; }
+        public List<TableReverseMemberInfo> ReverseMembers { get; set; } = new();
 
-        public DatabaseUpdateBuilderInfo(string updateSql, string querySql, List<TableMemberInfo> reverseMembers)
+        public List<TableMemberInfoSql> ToCheckBefore { get; set; } = new();
+
+        public DatabaseUpdateBuilderInfo(string updateSql, string querySql)
         {
             UpdateSql = updateSql;
             QuerySql = querySql;
-            ReverseMembers = reverseMembers;
         }
     }
     public class DatabaseUpdateBuilder<T> : DatabaseGenericBuilder<T>, ILambdaTranslatable, IUpdateBuilder<T> where T : IStorable
@@ -33,8 +34,8 @@ namespace AventusSharp.Data.Manager.DB.Update
 
         public DatabaseUpdateBuilder(IDBStorage storage, IGenericDM dm, bool needUpdateField, Type? baseType = null) : base(storage, baseType)
         {
-            this.DM = dm;
-            this.NeedUpdateField = needUpdateField;
+            DM = dm;
+            NeedUpdateField = needUpdateField;
         }
 
 
@@ -92,7 +93,11 @@ namespace AventusSharp.Data.Manager.DB.Update
             {
                 if (resultTemp.Result.Count == 1)
                 {
-                    result.Result = resultTemp.Result[0];
+                    foreach (KeyValuePair<string, ParamsInfo> paramUpdated in UpdateParamsInfo)
+                    {
+                        paramUpdated.Value.SetCurrentValueOnObject(item);
+                    }
+                    result.Result = item;
                 }
                 else
                 {
@@ -117,19 +122,19 @@ namespace AventusSharp.Data.Manager.DB.Update
             return this;
         }
 
-        public IUpdateBuilder<T> Field(Expression<Func<T, object>> fct)
+        public IUpdateBuilder<T> Field<U>(Expression<Func<T, U>> fct)
         {
             AllFieldsUpdate = false;
             string fieldPath = FieldGeneric(fct);
             string[] splitted = fieldPath.Split(".");
             string current = "";
-            List<TableMemberInfo> access = new();
+            List<TableMemberInfoSql> access = new();
             string lastAlias = "";
             foreach (string s in splitted)
             {
                 if (InfoByPath[current] != null)
                 {
-                    KeyValuePair<TableMemberInfo?, string> infoTemp = InfoByPath[current].GetTableMemberInfoAndAlias(s);
+                    KeyValuePair<TableMemberInfoSql?, string> infoTemp = InfoByPath[current].GetTableMemberInfoAndAlias(s);
                     if (infoTemp.Key == null)
                     {
                         throw new Exception("Can't find the field " + s + " on the path " + current);
@@ -147,14 +152,17 @@ namespace AventusSharp.Data.Manager.DB.Update
                 }
             }
 
-            TableMemberInfo lastMemberInfo = access.Last();
-            string name = lastAlias + "." + lastMemberInfo.SqlName;
-            UpdateParamsInfo.Add(name, new ParamsInfo()
+            TableMemberInfoSql lastMemberInfo = access.Last();
+            if (lastMemberInfo is ITableMemberInfoSqlWritable writable)
             {
-                DbType = lastMemberInfo.SqlType,
-                Name = name,
-                MembersList = access,
-            });
+                string name = lastAlias + "." + lastMemberInfo.SqlName;
+                UpdateParamsInfo.Add(name, new ParamsInfo()
+                {
+                    DbType = writable.SqlType,
+                    Name = name,
+                    MembersList = access,
+                });
+            }
             return this;
         }
 

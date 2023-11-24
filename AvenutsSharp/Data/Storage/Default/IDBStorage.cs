@@ -1,8 +1,5 @@
-﻿using AventusSharp.Data.Manager.DB.Create;
-using AventusSharp.Data.Manager.DB.Delete;
-using AventusSharp.Data.Manager.DB.Exist;
-using AventusSharp.Data.Manager.DB.Query;
-using AventusSharp.Data.Manager.DB.Update;
+﻿using AventusSharp.Data.Manager;
+using AventusSharp.Data.Manager.DB.Builders;
 using AventusSharp.Tools;
 using System;
 using System.Collections;
@@ -20,9 +17,9 @@ namespace AventusSharp.Data.Storage.Default
         public TableInfo? GetTableInfo(Type type);
         public ResultWithDataError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable;
         public ResultWithDataError<bool> ExistFromBuilder<X>(DatabaseExistBuilder<X> queryBuilder) where X : IStorable;
-        public ResultWithDataError<int> CreateFromBuilder<X>(DatabaseCreateBuilder<X> queryBuilder, X item) where X : IStorable;
+        public VoidWithDataError CreateFromBuilder<X>(DatabaseCreateBuilder<X> queryBuilder, X item) where X : IStorable;
         public ResultWithDataError<List<int>> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> queryBuilder, X item) where X : IStorable;
-        public VoidWithDataError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> queryBuilder) where X : IStorable;
+        public VoidWithDataError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> queryBuilder, List<X> elementsToDelete) where X : IStorable;
         public VoidWithDataError CreateTable(PyramidInfo pyramid);
         public ResultWithDataError<bool> TableExist(PyramidInfo pyramid);
 

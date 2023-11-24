@@ -421,14 +421,6 @@ namespace AventusSharp.Data
             if (this is T TThis)
             {
                 ResultWithDataError<T> result = GenericDM.Get<T>().DeleteWithError(TThis);
-                if (result.Success)
-                {
-                    if (Equals(result.Result, this))
-                    {
-                        return result.Errors;
-                    }
-                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
-                }
                 return result.Errors;
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";

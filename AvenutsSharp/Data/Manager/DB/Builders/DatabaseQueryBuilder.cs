@@ -4,12 +4,23 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace AventusSharp.Data.Manager.DB.Query
+namespace AventusSharp.Data.Manager.DB.Builders
 {
+    public class DatabaseQueryBuilderInfo
+    {
+        public string Sql;
+
+        public DatabaseQueryBuilderInfo(string sql)
+        {
+            Sql = sql;
+        }
+    }
+
+
     public class DatabaseQueryBuilder<T> : DatabaseGenericBuilder<T>, IQueryBuilder<T>, ILambdaTranslatable where T : IStorable
     {
-        public bool AllMembers { get; set; } = true;
 
+        public DatabaseQueryBuilderInfo? info = null;
         public bool UseShortObject { get; set; } = true;
 
         public DatabaseQueryBuilder(IDBStorage storage) : base(storage)
@@ -54,10 +65,9 @@ namespace AventusSharp.Data.Manager.DB.Query
             return this;
         }
 
-        public IQueryBuilder<T> Field(Expression<Func<T, object>> expression)
+        public IQueryBuilder<T> Field<U>(Expression<Func<T, U>> expression)
         {
             FieldGeneric(expression);
-            AllMembers = false;
             return this;
         }
 

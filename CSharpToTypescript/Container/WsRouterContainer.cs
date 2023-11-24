@@ -59,6 +59,7 @@ namespace CSharpToTypescript.Container
 
                 if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor)
                 {
+
                     routes.Add(new WsRouteContainer(methodSymbol, realType, this));
                 }
             }
@@ -263,12 +264,20 @@ namespace CSharpToTypescript.Container
 
                 AddTxt("", eventList);
                 string endPointType = GetTypeName(typeof(WsEndPoint));
-                AddTxtOpen("public constructor(endpoint: "+ endPointType + ") {", eventList);
+                AddTxtOpen("public constructor(endpoint: " + endPointType + ") {", eventList);
                 AddTxt("super(endpoint);", eventList);
                 AddTxtOpen("this.events = {", eventList);
                 foreach (LocalEventInfo routeEvent in routeEvents)
                 {
-                    AddTxt(routeEvent.fctName + ": new " + routeEvent.name + "(endpoint),", eventList);
+                    if (routeEvent.functionNeeded.Count == 0)
+                    {
+                        AddTxt(routeEvent.fctName + ": new " + routeEvent.name + "(endpoint),", eventList);
+                    }
+                    else
+                    {
+                        string txt = string.Join(", ", routeEvent.functionNeeded.Select(p => "this." + p.Key));
+                        AddTxt(routeEvent.fctName + ": new " + routeEvent.name + "(endpoint, " + txt + "),", eventList);
+                    }
                 }
                 AddTxtClose("};", eventList);
                 AddTxtClose("}", eventList);
@@ -311,12 +320,42 @@ namespace CSharpToTypescript.Container
             {
                 AddTxt(" ", eventContent);
                 AddTxtOpen("export class " + routeEvent.name + " extends " + parentName + "<" + routeEvent.type + "> {", eventContent);
+                if (routeEvent.functionNeeded.Count > 0)
+                {
+                    AddTxt("", eventContent);
+                    List<string> cstParams = new List<string>();
+                    foreach (KeyValuePair<string, Func<string>> fct in routeEvent.functionNeeded)
+                    {
+                        AddTxt("public " + fct.Key + ": () => string;", eventContent);
+                        cstParams.Add(fct.Key + ": () => string");
+                    }
+
+                    AddTxtOpen("public constructor(endpoint: WsEndPoint, " + string.Join(", ", cstParams) + ") {", eventContent);
+                    AddTxt("super(endpoint);", eventContent);
+                    foreach (KeyValuePair<string, Func<string>> fct in routeEvent.functionNeeded)
+                    {
+                        AddTxt("this." + fct.Key + " = " + fct.Key + ";", eventContent);
+                    }
+                    AddTxtClose("}", eventContent);
+                }
+                AddTxt("", eventContent);
                 AddTxt("/**", eventContent);
                 AddTxt(" * @inheritdoc", eventContent);
                 AddTxt(" */", eventContent);
-                AddTxtOpen("protected override get path(): string {", eventContent);
-                AddTxt("return \"" + routeEvent.path + "\";", eventContent);
+                AddTxtOpen("protected override path(): string {", eventContent);
+                AddTxt("return `" + routeEvent.path + "`;", eventContent);
                 AddTxtClose("}", eventContent);
+                if (routeEvent.listenOnBoot != null)
+                {
+                    string trueTxt = routeEvent.listenOnBoot == true ? "true" : "false";
+                    AddTxt("", eventContent);
+                    AddTxt("/**", eventContent);
+                    AddTxt(" * @inheritdoc", eventContent);
+                    AddTxt(" */", eventContent);
+                    AddTxtOpen("protected override listenOnBoot(): boolean {", eventContent);
+                    AddTxt("return " + trueTxt + ";", eventContent);
+                    AddTxtClose("}", eventContent);
+                }
                 AddTxtClose("}", eventContent);
             }
 
@@ -341,7 +380,9 @@ namespace CSharpToTypescript.Container
         public Dictionary<string, Func<string>> functionNeeded = new();
         private WsRouterContainer parent;
         public string route = "";
+        public string routeEvent = "";
         public string returnType = "";
+        private bool? listenOnBoot = null;
 
         public WsRouteContainer(IMethodSymbol methodSymbol, Type @class, WsRouterContainer parent)
         {
@@ -349,7 +390,7 @@ namespace CSharpToTypescript.Container
             this.methodSymbol = methodSymbol;
             this.@class = @class;
             this.name = methodSymbol.Name;
-            MethodInfo? methodTemp = @class.GetMethod(name);
+            MethodInfo? methodTemp = Tools.GetMethodInfo(methodSymbol, @class);
             if (methodTemp == null || !methodTemp.IsPublic)
             {
                 canBeAdded = false;
@@ -357,50 +398,9 @@ namespace CSharpToTypescript.Container
             }
             method = methodTemp;
             canBeAdded = true;
-            LoadWsAttributes(methodSymbol);
+            LoadWsAttributes(methodTemp);
             LoadMethodParameters();
-
-
-
-            if (method.ReturnType != typeof(void))
-            {
-                Type typeTemp = method.ReturnType;
-                bool isTask = false;
-                if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
-                {
-                    typeTemp = typeTemp.GetGenericArguments()[0];
-                    isTask = true;
-                }
-
-                if (typeTemp.GetInterfaces().Contains(typeof(IWebSocketEvent)))
-                {
-                    // just return the content
-                    LoadEventBody(typeTemp);
-                }
-                else
-                {
-                    if (isTask && methodSymbol.ReturnType is INamedTypeSymbol namedType)
-                    {
-                        returnType = parent.GetTypeName(namedType.TypeArguments[0]);
-                    }
-                    else
-                    {
-                        returnType = parent.GetTypeName(methodSymbol.ReturnType);
-                    }
-                    // create the event associated
-
-                    string parentName = parent.GetTypeName(parent.type);
-                    string[] splitted = parentName.Split("<");
-                    splitted[0] += "_" + this.name;
-                    this.parent.routeEvents.Add(new LocalEventInfo()
-                    {
-                        name = string.Join("<", splitted),
-                        fctName = name,
-                        type = returnType,
-                        path = route
-                    });
-                }
-            }
+            LoadReturnType();
         }
 
         private void LoadMethodParameters()
@@ -438,29 +438,81 @@ namespace CSharpToTypescript.Container
             }
 
         }
-        private void LoadWsAttributes(IMethodSymbol methodSymbol)
+        private void LoadWsAttributes(MethodInfo methodSymbol)
         {
-            List<AttributeData> attrs = methodSymbol.GetAttributes().ToList();
-            foreach (AttributeData attr in attrs)
+            IEnumerable<Attribute> attrs = methodSymbol.GetCustomAttributes();
+            foreach (Attribute attr in attrs)
             {
-                if (attr.AttributeClass != null)
+                if (attr is AventusSharp.WebSocket.Attributes.Path attrPath)
                 {
-                    if (attr.AttributeClass.ToString() == typeof(AventusSharp.WebSocket.Attributes.Path).FullName)
-                    {
-                        Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
-                        if (attr.ConstructorArguments.Length == 1)
-                        {
-                            ParseRoute(attr.ConstructorArguments[0].Value?.ToString(), @params);
-                        }
-                    }
-                }
+                    Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
+                    ParseRoute(attrPath.pattern, @params);
 
+                }
+                else if (attr is ListenOnBoot attrListenOnBoot)
+                {
+                    listenOnBoot = attrListenOnBoot.listen;
+                }
             }
 
             if (route == "")
             {
                 string defaultName = AventusSharp.Routes.Tools.GetDefaultMethodUrl(method);
                 ParseRoute(defaultName, new Dictionary<string, ParameterInfo>());
+            }
+        }
+
+        private void LoadReturnType()
+        {
+            Type typeTemp = method.ReturnType;
+            if (typeTemp == typeof(Task))
+            {
+                typeTemp = typeof(void);
+            }
+            else if (typeTemp.IsGenericType && typeTemp.GetGenericTypeDefinition() == typeof(Task<>))
+            {
+                typeTemp = typeTemp.GetGenericArguments()[0];
+            }
+
+            Type? realType;
+            if (Tools.IsSubclass(typeof(ResultWithError<,>), typeTemp, out realType))
+            {
+                if (realType != null)
+                {
+                    typeTemp = realType.GenericTypeArguments[0];
+                }
+            }
+            else if (Tools.IsSubclass(typeof(VoidWithError<>), typeTemp))
+            {
+                typeTemp = typeof(void);
+            }
+
+
+            if (typeTemp != typeof(void))
+            {
+                if (typeTemp.GetInterfaces().Contains(typeof(IWebSocketEvent)))
+                {
+                    // just return the content
+                    LoadEventBody(typeTemp);
+                }
+                else
+                {
+                    returnType = parent.GetTypeName(typeTemp);
+                    // create the event associated
+
+                    string parentName = parent.GetTypeName(parent.type);
+                    string[] splitted = parentName.Split("<");
+                    splitted[0] += "_" + this.name;
+                    this.parent.routeEvents.Add(new LocalEventInfo()
+                    {
+                        name = string.Join("<", splitted),
+                        fctName = name,
+                        type = returnType,
+                        path = routeEvent,
+                        listenOnBoot = listenOnBoot,
+                        functionNeeded = functionNeeded
+                    });
+                }
             }
         }
 
@@ -471,6 +523,13 @@ namespace CSharpToTypescript.Container
                 txtRoute = ParseParams(txtRoute, @params);
                 txtRoute = ParseFunctions(txtRoute);
                 this.route = txtRoute;
+                this.routeEvent = txtRoute;
+                foreach (KeyValuePair<string, string> parameterUrlAndType in parametersUrlAndType)
+                {
+                    string type = parameterUrlAndType.Value == "number" ? "number" : "string";
+                    this.routeEvent = this.routeEvent.Replace("${" + parameterUrlAndType.Key + "}", "{" + parameterUrlAndType.Key + ":"+ type + "}");
+                }
+
                 return;
             }
 
@@ -631,5 +690,7 @@ namespace CSharpToTypescript.Container
         public string type;
         public string path;
         public string fctName;
+        public bool? listenOnBoot;
+        public Dictionary<string, Func<string>> functionNeeded = new Dictionary<string, Func<string>>();
     }
 }

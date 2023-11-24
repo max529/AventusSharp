@@ -11,7 +11,7 @@ namespace AventusSharp.Data.Manager
         public ResultWithDataError<List<T>> RunWithError(T item);
         public ResultWithDataError<T> RunWithErrorSingle(T item);
 
-        public IUpdateBuilder<T> Field(Expression<Func<T, object>> fct);
+        public IUpdateBuilder<T> Field<U>(Expression<Func<T, U>> fct);
 
         public IUpdateBuilder<T> Prepare(params object[] objects);
         public IUpdateBuilder<T> SetVariable(string name, object value);

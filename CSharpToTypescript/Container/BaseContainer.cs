@@ -174,7 +174,7 @@ namespace CSharpToTypescript.Container
             bool isFull;
             name = GetVariantTypeName(type, depth, genericExtendsConstraint, name, out isFull);
             
-            if (!isFull && type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            if (!isFull && type is INamedTypeSymbol namedType && namedType.IsGenericType && namedType.Name != "Nullable")
             {
                 name = name.Split("<")[0];
                 name = DetermineGenericType(namedType, name, depth, genericExtendsConstraint);
@@ -252,6 +252,12 @@ namespace CSharpToTypescript.Container
         {
             isFull = false;
             string fullName = Tools.GetFullName(type);
+            bool isNullable = false;
+            if(fullName == "System.Nullable" && type is INamedTypeSymbol namedTypeSymbol)
+            {
+                fullName = Tools.GetFullName(namedTypeSymbol.TypeArguments[0]);
+                isNullable = true;
+            }
             string result = name;
             if (fullName == typeof(int).FullName) result = "number";
             else if (fullName == typeof(double).FullName) result = "number";
@@ -278,7 +284,16 @@ namespace CSharpToTypescript.Container
                 }
                 result += "[]";
             }
-
+            else if (fullName == typeof(Dictionary<,>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedTypeDico)
+            {
+                isFull = true;
+                result = DetermineGenericType(namedTypeDico, "", depth, genericExtendsConstraint);
+                result = "Map" + result;
+            }
+            if (isNullable)
+            {
+                fullName += "?";
+            }
             result = applyReplacer(ProjectManager.Config.replacer.all, fullName, result);
             return CustomReplacer(type, fullName, result);
         }

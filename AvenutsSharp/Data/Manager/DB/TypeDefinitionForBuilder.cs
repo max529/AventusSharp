@@ -1,7 +1,10 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Data.Storage.Default.TableMember;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace AventusSharp.Data.Manager.DB
@@ -25,7 +28,8 @@ namespace AventusSharp.Data.Manager.DB
         StartsWith,
         EndsWith,
         ContainsStr,
-        ListContains
+        ListContains,
+        Link
     }
 
     public interface IWhereGroup { }
@@ -89,9 +93,9 @@ namespace AventusSharp.Data.Manager.DB
     public class WhereGroupField : IWhereGroup
     {
         public string Alias { get; set; }
-        public TableMemberInfo TableMemberInfo { get; set; }
+        public TableMemberInfoSql TableMemberInfo { get; set; }
 
-        public WhereGroupField(string alias, TableMemberInfo tableMemberInfo)
+        public WhereGroupField(string alias, TableMemberInfoSql tableMemberInfo)
         {
             Alias = alias;
             TableMemberInfo = tableMemberInfo;
@@ -103,7 +107,7 @@ namespace AventusSharp.Data.Manager.DB
         public string Name { get; set; } = "";
         public Type TypeLvl0 { get; set; } = typeof(object);
         public DbType DbType { get; set; }
-        public List<TableMemberInfo> MembersList { get; set; } = new List<TableMemberInfo>();
+        public List<TableMemberInfoSql> MembersList { get; set; } = new List<TableMemberInfoSql>();
 
         public object? Value { get; set; }
 
@@ -126,7 +130,24 @@ namespace AventusSharp.Data.Manager.DB
                         break;
                     }
                 }
-                if(valueToSet is IStorable storable)
+
+                if (valueToSet is IList listToSet)
+                {
+                    List<int> ids = new List<int>();
+                    foreach (object valueUnique in listToSet)
+                    {
+                        if (valueUnique is IStorable storable)
+                        {
+                            ids.Add(storable.Id);
+                        }
+                        else if(valueUnique is int storableId)
+                        {
+                            ids.Add(storableId);
+                        }
+                    }
+                    valueToSet = ids;
+                }
+                else if (valueToSet is IStorable storable)
                 {
                     valueToSet = storable.Id;
                 }
@@ -187,7 +208,7 @@ namespace AventusSharp.Data.Manager.DB
     }
     public class DatabaseBuilderInfoMember
     {
-        public TableMemberInfo MemberInfo { get; set; }
+        public TableMemberInfoSql MemberInfo { get; set; }
         public string Alias { get; set; }
         public bool UseDM { get; set; }
 
@@ -195,12 +216,12 @@ namespace AventusSharp.Data.Manager.DB
 
         public TableMemberInfo? TypeMemberInfo { get; }
 
-        public DatabaseBuilderInfoMember(TableMemberInfo memberInfo, string alias, IDBStorage from)
+        public DatabaseBuilderInfoMember(TableMemberInfoSql memberInfo, string alias, IDBStorage from)
         {
             this.MemberInfo = memberInfo;
             this.Alias = alias;
-            Type = memberInfo.Type;
-            if (memberInfo.Link == TableMemberInfoLink.Simple)
+            Type = memberInfo.MemberType;
+            if (memberInfo is TableMemberInfoSql1N)
             {
                 if (memberInfo.DM is IDatabaseDM databaseDM && databaseDM.NeedLocalCache && databaseDM.Storage == from)
                 {
@@ -231,25 +252,24 @@ namespace AventusSharp.Data.Manager.DB
     {
         public TableInfo TableInfo { get; set; }
         public string Alias { get; set; }
-        public Dictionary<TableMemberInfo, DatabaseBuilderInfoMember> Members { get; set; } = new Dictionary<TableMemberInfo, DatabaseBuilderInfoMember>();
+        public Dictionary<TableMemberInfoSql, DatabaseBuilderInfoMember> Members { get; set; } = new Dictionary<TableMemberInfoSql, DatabaseBuilderInfoMember>();
 
         public Dictionary<TableInfo, string> Parents { get; set; } = new Dictionary<TableInfo, string>(); // string is the alias
         public List<DatabaseBuilderInfoChild> Children { get; set; } = new List<DatabaseBuilderInfoChild>();
 
-        public Dictionary<TableMemberInfo, DatabaseBuilderInfo> links = new();
+        public Dictionary<TableMemberInfoSql, DatabaseBuilderInfo> joins = new();
+        public List<TableReverseMemberInfo> ReverseLinks { get; set; } = new List<TableReverseMemberInfo>();
 
-        public List<TableMemberInfo> ReverseLinks { get; set; } = new List<TableMemberInfo>();
-        
         public DatabaseBuilderInfo(string alias, TableInfo tableInfo)
         {
             this.Alias = alias;
             this.TableInfo = tableInfo;
         }
-        public KeyValuePair<TableMemberInfo?, string> GetTableMemberInfoAndAlias(string field)
+        public KeyValuePair<TableMemberInfoSql?, string> GetTableMemberInfoAndAlias(string field)
         {
             string aliasTemp = Alias;
-            KeyValuePair<TableMemberInfo?, string> result = new();
-            TableMemberInfo? memberInfo = null;
+            KeyValuePair<TableMemberInfoSql?, string> result = new();
+            TableMemberInfoSql? memberInfo = null;
             memberInfo = TableInfo.Members.Find(m => m.Name == field);
             if (memberInfo == null)
             {
@@ -263,19 +283,19 @@ namespace AventusSharp.Data.Manager.DB
                     }
                 }
             }
-            result = new KeyValuePair<TableMemberInfo?, string>(memberInfo, aliasTemp);
+            result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
             return result;
         }
 
-        public TableMemberInfo? GetReverseTableMemberInfo(string field)
+        public TableReverseMemberInfo? GetReverseTableMemberInfo(string field)
         {
-            TableMemberInfo? memberInfo = null;
+            TableReverseMemberInfo? memberInfo = null;
             memberInfo = TableInfo.ReverseMembers.Find(m => m.Name == field);
             if (memberInfo == null)
             {
                 foreach (KeyValuePair<TableInfo, string> parent in Parents)
                 {
-                    memberInfo = parent.Key.Members.Find(m => m.Name == field);
+                    memberInfo = parent.Key.ReverseMembers.Find(m => m.Name == field);
                     if (memberInfo != null)
                     {
                         break;

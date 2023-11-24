@@ -1,8 +1,4 @@
-﻿using AventusSharp.Data.Manager.DB.Create;
-using AventusSharp.Data.Manager.DB.Delete;
-using AventusSharp.Data.Manager.DB.Exist;
-using AventusSharp.Data.Manager.DB.Query;
-using AventusSharp.Data.Manager.DB.Update;
+﻿using AventusSharp.Data.Manager.DB.Builders;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Tools;
 using System;
@@ -522,10 +518,10 @@ namespace AventusSharp.Data.Manager.DB
                         savedUpdateQuery[type] = query;
                     }
 
-                    ResultWithDataError<List<X>> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.Id).RunWithError(value);
-                    if (resultTemp.Success && resultTemp.Result?.Count > 0)
+                    ResultWithDataError<X> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.Id).RunWithErrorSingle(value);
+                    if (resultTemp.Success && resultTemp.Result != null)
                     {
-                        result.Result.Add(resultTemp.Result[0]);
+                        result.Result.Add(resultTemp.Result);
                     }
                     else
                     {
@@ -605,6 +601,7 @@ namespace AventusSharp.Data.Manager.DB
             return result;
         }
 
+       
         #endregion
 
     }
