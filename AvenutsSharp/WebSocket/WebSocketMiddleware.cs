@@ -75,7 +75,7 @@ namespace AventusSharp.WebSocket
             if (mainEndPoint == null)
             {
                 mainEndPoint = new DefaultWsEndPoint();
-                endPointInstances.Add(mainEndPoint.Path(), mainEndPoint);
+                endPointInstances.Add(mainEndPoint.Path, mainEndPoint);
             }
             return mainEndPoint;
         }
@@ -92,7 +92,7 @@ namespace AventusSharp.WebSocket
                 WsEndPoint? endPoint = (WsEndPoint?)Activator.CreateInstance(t);
                 if (endPoint != null)
                 {
-                    string path = endPoint.Path();
+                    string path = endPoint.Path;
                     if (endPointInstances.ContainsKey(path))
                     {
                         continue;
@@ -201,21 +201,22 @@ namespace AventusSharp.WebSocket
 
                         foreach (IWsEndPoint endpointType in infoMethod.endPoints)
                         {
-                            WebSocketRouteInfo info = new WebSocketRouteInfo(regex, method, routeInstances[t], parameters.Length, infoMethod.eventType);
+                            WebSocketRouteInfo info = new WebSocketRouteInfo(regex, method, routeInstances[t], parameters.Length, infoMethod.eventType, infoMethod.CustomFct);
                             info.parameters = @params;
 
                             if (endpointType is WsEndPoint _class)
                             {
                                 if (!_class.routesInfo.ContainsKey(info.UniqueKey))
                                 {
-                                    if (config.PrintRoute)
-                                        Console.WriteLine("Add " + info.ToString());
+                                    info.endpoint = _class;
                                     _class.routesInfo.Add(info.UniqueKey, info);
+                                    if (config.PrintRoute)
+                                        Console.WriteLine("Add websocket : " + info.ToString());
                                 }
                                 else
                                 {
                                     if (config.PrintRoute)
-                                        Console.WriteLine("Add " + info.ToString());
+                                        Console.WriteLine("Add websocket : " + info.ToString());
                                     WebSocketRouteInfo otherInfo = _class.routesInfo[info.UniqueKey];
                                     throw new Exception(info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")");
                                 }
@@ -268,13 +269,13 @@ namespace AventusSharp.WebSocket
                     }
                 }
             }
-            else if (attr is Others)
+            else if(attr is ResponseType responseType)
             {
-                if (info.eventType < WebSocketEventType.Others) { info.eventType = WebSocketEventType.Others; }
-            }
-            else if (attr is Broadcast)
-            {
-                if (info.eventType < WebSocketEventType.Broadcast) { info.eventType = WebSocketEventType.Broadcast; }
+                if(info.eventType < responseType.Type)
+                {
+                    info.eventType = responseType.Type;
+                }
+                info.CustomFct = responseType.CustomFct;
             }
         }
 

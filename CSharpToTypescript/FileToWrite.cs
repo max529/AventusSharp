@@ -206,9 +206,14 @@ namespace CSharpToTypescript
                         {
                             importByPath.Add(relativePath, new());
                         }
-                        if (!importByPath[relativePath].Contains(symbol.Name))
+                        string name = symbol.Name;
+                        if(symbol is ITypeSymbol typeSymbol && typeSymbol.TypeKind == TypeKind.Interface)
                         {
-                            importByPath[relativePath].Add(symbol.Name);
+                            name = "type " + name;
+                        }
+                        if (!importByPath[relativePath].Contains(name))
+                        {
+                            importByPath[relativePath].Add(name);
                         }
                     }
                 }
@@ -219,7 +224,7 @@ namespace CSharpToTypescript
                     {
                         importByPath.Add(relativePath, new());
                     }
-                    foreach(string importName in customImport.Value)
+                    foreach (string importName in customImport.Value)
                     {
                         if (!importByPath[relativePath].Contains(importName))
                         {
@@ -266,9 +271,14 @@ namespace CSharpToTypescript
 
         private static void AddRouterFile()
         {
+            ProjectConfigHttpRouter routerConfig = ProjectManager.Config.httpRouter;
+            if (!routerConfig.createRouter)
+            {
+                return;
+            }
             Dictionary<string, List<string>> imports = new();
-            string path = Path.Combine(ProjectManager.Config.outputPath, "GeneratedRouter.lib.avt");
-            string txt = "export const generatedHttpRoutes = [\r\n";
+            string path = Path.Combine(ProjectManager.Config.outputPath, routerConfig.routerName + ".lib.avt");
+            string txt = "export const " + routerConfig.variableRoutesName + " = [\r\n";
             int nbRoute = 0;
             foreach (KeyValuePair<string, FileToWrite> file in allFiles)
             {
@@ -279,8 +289,8 @@ namespace CSharpToTypescript
                         if (!http.realType.IsAbstract)
                         {
                             nbRoute++;
-                            txt += "\t{ type: " + http.type.Name + ", path: \"" + http.routePath + "\"},\r\n";
-                            string importFileName = GetFileName(http.type);
+                            txt += "\t{ type: " + http.type.Name + ", path: \"" + http.routePath + "\" },\r\n";
+                            string importFileName = GetFileName(http.type) ?? "";
                             string relativePath = Tools.GetRelativePath(path, importFileName);
                             string importFile = relativePath + allFiles[importFileName].Extension;
                             if (!imports.ContainsKey(importFile))
@@ -292,11 +302,17 @@ namespace CSharpToTypescript
                     }
                 }
             }
-            txt += @"] as const;
 
-export class GeneratedRouter extends Aventus.HttpRouter.WithRoute(generatedHttpRoutes) {
+            string host = routerConfig.host ?? "location.protocol + \"//\" + location.host";
+            host += " + \"" + routerConfig.uri + "\"";
+            txt += $@"] as const;
 
-}";
+export class {routerConfig.routerName} extends {routerConfig.parent}.WithRoute({routerConfig.variableRoutesName}) {{
+    protected override defineOptions(options: Aventus.HttpRouterOptions): Aventus.HttpRouterOptions {{
+        options.url = {host};
+        return options;
+    }}
+}}";
 
             string importTxt = "";
             foreach (var pair in imports)

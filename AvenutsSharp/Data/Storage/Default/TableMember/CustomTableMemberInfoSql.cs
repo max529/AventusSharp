@@ -4,7 +4,7 @@ using System.Data;
 
 namespace AventusSharp.Data.Storage.Default.TableMember
 {
-    public class CustomTableMemberInfoSql : TableMemberInfoSql
+    public class CustomTableMemberInfoSql : TableMemberInfoSql, ITableMemberInfoSqlWritable
     {
         public DbType SqlType { get; protected set; } = DbType.String;
 

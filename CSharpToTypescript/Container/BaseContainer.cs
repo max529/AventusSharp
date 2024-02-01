@@ -1,9 +1,11 @@
 ﻿using AventusSharp.Data;
 using AventusSharp.Routes;
+using AventusSharp.Routes.Request;
 using AventusSharp.Tools;
 using AventusSharp.WebSocket;
 using AventusSharp.WebSocket.Event;
 using Microsoft.CodeAnalysis;
+using MySqlX.XDevAPI.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +23,7 @@ namespace CSharpToTypescript.Container
     }
     public abstract class BaseContainer
     {
+        public static bool enumToTypeof = false;
         public List<ISymbol> unresolved = new List<ISymbol>();
         public Dictionary<string, List<string>> importedFiles = new Dictionary<string, List<string>>();
         public string Namespace { get; private set; } = "";
@@ -140,13 +143,11 @@ namespace CSharpToTypescript.Container
 
         public virtual string GetTypeName(Type type, int depth = 0, bool genericExtendsConstraint = false)
         {
-            string name = "";
-            INamedTypeSymbol? symbol = Tools.GetTypeSymbol(type);
-            if(symbol != null)
+            if (type.IsGenericTypeParameter)
             {
-                name = GetTypeName(symbol, depth, genericExtendsConstraint);
+                return type.Name;
             }
-            return name;
+            return GetTypeName(Tools.GetTypeSymbol(type), depth, genericExtendsConstraint);
         }
 
         public virtual string GetTypeName(ISymbol type, int depth = 0, bool genericExtendsConstraint = false)
@@ -171,9 +172,13 @@ namespace CSharpToTypescript.Container
             {
                 name = type.ToString() ?? "";
             }
+
             bool isFull;
             name = GetVariantTypeName(type, depth, genericExtendsConstraint, name, out isFull);
-            
+            if (enumToTypeof && type is ITypeSymbol typeSymbol1 && typeSymbol1.TypeKind == TypeKind.Enum)
+            {
+                name = "typeof " + name;
+            }
             if (!isFull && type is INamedTypeSymbol namedType && namedType.IsGenericType && namedType.Name != "Nullable")
             {
                 name = name.Split("<")[0];
@@ -253,7 +258,7 @@ namespace CSharpToTypescript.Container
             isFull = false;
             string fullName = Tools.GetFullName(type);
             bool isNullable = false;
-            if(fullName == "System.Nullable" && type is INamedTypeSymbol namedTypeSymbol)
+            if (fullName == "System.Nullable" && type is INamedTypeSymbol namedTypeSymbol)
             {
                 fullName = Tools.GetFullName(namedTypeSymbol.TypeArguments[0]);
                 isNullable = true;
@@ -261,6 +266,7 @@ namespace CSharpToTypescript.Container
             string result = name;
             if (fullName == typeof(int).FullName) result = "number";
             else if (fullName == typeof(double).FullName) result = "number";
+            else if (fullName == typeof(long).FullName) result = "number";
             else if (fullName == typeof(float).FullName) result = "number";
             else if (fullName == typeof(decimal).FullName) result = "number";
             else if (fullName == typeof(bool).FullName) result = "boolean";
@@ -270,9 +276,10 @@ namespace CSharpToTypescript.Container
             else if (fullName == typeof(IStorable).FullName) result = "Aventus.IData";
             else if (fullName == typeof(GenericError).FullName) result = "Aventus.GenericError";
             else if (fullName == typeof(Route).FullName) result = "Aventus.HttpRoute";
-            else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.Socket.WsEvent";
-            else if (fullName == typeof(WsRoute).FullName) result = "AventusSharp.Socket.WsRoute";
-            else if (fullName == typeof(WsEndPoint).FullName) result = "AventusSharp.Socket.WsEndPoint";
+            else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.WebSocket.Event";
+            else if (fullName == typeof(WsRoute).FullName) result = "AventusSharp.WebSocket.Route";
+            else if (fullName == typeof(WsEndPoint).FullName) result = "AventusSharp.WebSocket.EndPoint";
+            else if (fullName == typeof(HttpFile).FullName) result = "File";
             else if (fullName == typeof(List<>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedType)
             {
                 isFull = true;
@@ -302,6 +309,18 @@ namespace CSharpToTypescript.Container
             return result;
         }
 
+        public void addImport(string file, string toImport)
+        {
+            file = ProjectManager.Config.AbsoluteUrl(file);
+            if (!importedFiles.ContainsKey(file))
+            {
+                importedFiles[file] = new();
+            }
+            if (!importedFiles[file].Contains(toImport))
+            {
+                importedFiles[file].Add(toImport);
+            }
+        }
         protected string? applyReplacer(ProjectConfigReplacerPart part, string fullname, string? result)
         {
             foreach (KeyValuePair<string, ProjectConfigReplacerInfo> info in part.type)
@@ -318,7 +337,14 @@ namespace CSharpToTypescript.Container
                         }
                         if (!importedFiles[file].Contains(result))
                         {
-                            importedFiles[file].Add(result);
+                            if (info.Value.useTypeImport)
+                            {
+                                importedFiles[file].Add("type " + result);
+                            }
+                            else
+                            {
+                                importedFiles[file].Add(result);
+                            }
                         }
                     }
                     break;
@@ -339,7 +365,14 @@ namespace CSharpToTypescript.Container
                         }
                         if (!importedFiles[file].Contains(result))
                         {
-                            importedFiles[file].Add(result);
+                            if (info.Value.useTypeImport)
+                            {
+                                importedFiles[file].Add("type " + result);
+                            }
+                            else
+                            {
+                                importedFiles[file].Add(result);
+                            }
                         }
                     }
                     break;

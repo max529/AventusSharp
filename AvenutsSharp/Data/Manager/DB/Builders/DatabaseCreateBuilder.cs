@@ -35,14 +35,16 @@ namespace AventusSharp.Data.Manager.DB.Builders
     public class DatabaseCreateBuilder<T> where T : IStorable
     {
         public IDBStorage Storage { get; private set; }
+        public IGenericDM DM { get; private set; }
         public TableInfo TableInfo { get; private set; }
 
         public DatabaseCreateBuilderInfo? info;
 
         public ParamsInfo? PrimaryParam { get; set; }
 
-        public DatabaseCreateBuilder(IDBStorage storage, Type? baseType = null)
+        public DatabaseCreateBuilder(IDBStorage storage, IGenericDM DM, Type? baseType = null)
         {
+            this.DM = DM;
             Storage = storage;
             if (baseType == null)
             {
@@ -64,7 +66,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
             {
                 result.Errors.AddRange(resultTemp.Errors);
             }
-
+            DM.PrintErrors(result);
             return result;
         }
 

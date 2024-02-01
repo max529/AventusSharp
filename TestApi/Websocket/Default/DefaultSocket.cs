@@ -9,7 +9,7 @@ namespace TestApi.Websocket.Default
 {
     public class DefaultSocket : WsEndPoint
     {
-        public override string Path()
+        public override string DefinePath()
         {
             return "/ws";
         }

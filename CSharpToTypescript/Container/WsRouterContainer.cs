@@ -57,7 +57,7 @@ namespace CSharpToTypescript.Container
             foreach (ISymbol symbol in type.GetMembers())
             {
 
-                if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor)
+                if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor && !methodSymbol.IsExtern && !methodSymbol.IsStatic)
                 {
 
                     routes.Add(new WsRouteContainer(methodSymbol, realType, this));
@@ -158,7 +158,7 @@ namespace CSharpToTypescript.Container
             foreach (string fct in fcts)
             {
                 MethodInfo? method = realType.GetMethod(fct, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                object? o = method.Invoke(routerTemp, Array.Empty<object>());
+                object? o = method?.Invoke(routerTemp, Array.Empty<object>());
                 if (method == null)
                 {
                     throw new Exception("Can't find method " + fct + " on " + realType.FullName);
@@ -330,7 +330,7 @@ namespace CSharpToTypescript.Container
                         cstParams.Add(fct.Key + ": () => string");
                     }
 
-                    AddTxtOpen("public constructor(endpoint: WsEndPoint, " + string.Join(", ", cstParams) + ") {", eventContent);
+                    AddTxtOpen("public constructor(endpoint: " + GetTypeName(typeof(WsEndPoint)) + ", " + string.Join(", ", cstParams) + ") {", eventContent);
                     AddTxt("super(endpoint);", eventContent);
                     foreach (KeyValuePair<string, Func<string>> fct in routeEvent.functionNeeded)
                     {
@@ -373,7 +373,7 @@ namespace CSharpToTypescript.Container
         private IMethodSymbol methodSymbol;
         public bool canBeAdded = false;
         public string name = "";
-        public MethodInfo method;
+        public MethodInfo? method;
         private Type @class;
         public Dictionary<string, string> parametersBodyAndType = new();
         public Dictionary<string, string> parametersUrlAndType = new();
@@ -405,6 +405,10 @@ namespace CSharpToTypescript.Container
 
         private void LoadMethodParameters()
         {
+            if (method == null)
+            {
+                return;
+            }
             List<string> knownParameters = new List<string>() {
                  typeof(WebSocketConnection).FullName ?? "",
                  typeof(WsEndPoint).FullName ?? "",
@@ -440,6 +444,10 @@ namespace CSharpToTypescript.Container
         }
         private void LoadWsAttributes(MethodInfo methodSymbol)
         {
+            if (method == null)
+            {
+                return;
+            }
             IEnumerable<Attribute> attrs = methodSymbol.GetCustomAttributes();
             foreach (Attribute attr in attrs)
             {
@@ -464,6 +472,11 @@ namespace CSharpToTypescript.Container
 
         private void LoadReturnType()
         {
+            if (method == null)
+            {
+                return;
+            }
+
             Type typeTemp = method.ReturnType;
             if (typeTemp == typeof(Task))
             {
@@ -503,15 +516,14 @@ namespace CSharpToTypescript.Container
                     string parentName = parent.GetTypeName(parent.type);
                     string[] splitted = parentName.Split("<");
                     splitted[0] += "_" + this.name;
-                    this.parent.routeEvents.Add(new LocalEventInfo()
-                    {
-                        name = string.Join("<", splitted),
-                        fctName = name,
-                        type = returnType,
-                        path = routeEvent,
-                        listenOnBoot = listenOnBoot,
-                        functionNeeded = functionNeeded
-                    });
+                    this.parent.routeEvents.Add(new LocalEventInfo(
+                        name: string.Join("<", splitted),
+                        fctName: name,
+                        type: returnType,
+                        path: routeEvent,
+                        listenOnBoot: listenOnBoot,
+                        functionNeeded: functionNeeded
+                    ));
                 }
             }
         }
@@ -527,7 +539,7 @@ namespace CSharpToTypescript.Container
                 foreach (KeyValuePair<string, string> parameterUrlAndType in parametersUrlAndType)
                 {
                     string type = parameterUrlAndType.Value == "number" ? "number" : "string";
-                    this.routeEvent = this.routeEvent.Replace("${" + parameterUrlAndType.Key + "}", "{" + parameterUrlAndType.Key + ":"+ type + "}");
+                    this.routeEvent = this.routeEvent.Replace("${" + parameterUrlAndType.Key + "}", "{" + parameterUrlAndType.Key + ":" + type + "}");
                 }
 
                 return;
@@ -641,41 +653,71 @@ namespace CSharpToTypescript.Container
             }
         }
 
+        private string GetUniqueParamName(string name)
+        {
+            string key = name;
+            int i = 0;
+            while (parametersUrlAndType.ContainsKey(key))
+            {
+                key = name + i;
+                i++;
+            }
+            return key;
+        }
+
         public string Write()
         {
             List<string> result = new();
-            string bodyKey = "body";
+            string bodyKey = GetUniqueParamName("body");
             if (parametersBodyAndType.Count > 0)
             {
-                int i = 0;
-                while (parametersUrlAndType.ContainsKey(bodyKey))
-                {
-                    bodyKey = "body" + i;
-                    i++;
-                }
-
                 parametersUrlAndType[bodyKey] = "{ " + string.Join(", ", parametersBodyAndType.Select(p => p.Key + ": " + p.Value)) + " } | FormData";
             }
-
-            string @params = string.Join(", ", parametersUrlAndType.Select(p => p.Key + ": " + p.Value));
-
-            parent.AddTxtOpen(BaseContainer.GetAccessibility(methodSymbol) + "async " + name + "(" + @params + ") {", result);
-
-            string fctTxt = "";
-            string genericResult = "";
-            if (returnType != "")
+            string optionsKey = GetUniqueParamName("options");
+            string infoType = "";
+            if (ProjectManager.CompilingAventusSharp)
             {
-                fctTxt += "return ";
-                genericResult = "<" + returnType + ">";
-            }
-            if (parametersBodyAndType.Count > 0)
-            {
-                fctTxt += "await this.endpoint.sendMessageAndWait" + genericResult + "(`" + route + "`, " + bodyKey + ");";
+                parametersUrlAndType[optionsKey] = "WsRouteSendOptions = {}";
+                infoType = "SocketSendMessageOptions";
+                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\ISocket.lib.avt", "type SocketSendMessageOptions");
+                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Route.lib.avt", "type WsRouteSendOptions");
             }
             else
             {
-                fctTxt += "await this.endpoint.sendMessageAndWait" + genericResult + "(`" + route + "`);";
+                parametersUrlAndType[optionsKey] = "AventusSharp.WebSocket.WsRouteSendOptions = {}";
+                infoType = "AventusSharp.WebSocket.SocketSendMessageOptions";
             }
+            string @params = string.Join(", ", parametersUrlAndType.Select(p => p.Key + ": " + p.Value));
+
+            string resultType = "any";
+            string fctTxt = "";
+            string asyncTxt = "";
+            if (returnType != "")
+            {
+                fctTxt = "return await this.endpoint.sendMessageAndWait<" + returnType + ">(info);";
+                resultType = "Promise<Aventus.ResultWithError<"+ returnType + ", Aventus.GenericError<number>>>";
+                asyncTxt = "async ";
+            }
+            else
+            {
+                fctTxt = "return this.endpoint.sendMessage(info);";
+                resultType = "Aventus.VoidWithError<Aventus.GenericError<number>>";
+            }
+
+            string fctDesc = BaseContainer.GetAccessibility(methodSymbol) + asyncTxt + name + "(" + @params + "): "+ resultType + " {";
+
+            parent.AddTxtOpen(fctDesc, result);
+
+            parent.AddTxtOpen("const info: " + infoType + " = {", result);
+            parent.AddTxt("channel: `" + route + "`,", result);
+            if (parametersBodyAndType.Count > 0)
+            {
+                parent.AddTxt("body: " + bodyKey + ",", result);
+            }
+            parent.AddTxt("..." + optionsKey + ",", result);
+            parent.AddTxtClose("};", result);
+
+            
 
             parent.AddTxt(fctTxt, result);
             parent.AddTxtClose("}", result);
@@ -692,5 +734,15 @@ namespace CSharpToTypescript.Container
         public string fctName;
         public bool? listenOnBoot;
         public Dictionary<string, Func<string>> functionNeeded = new Dictionary<string, Func<string>>();
+
+        public LocalEventInfo(string name, string type, string path, string fctName, bool? listenOnBoot, Dictionary<string, Func<string>> functionNeeded)
+        {
+            this.name = name;
+            this.type = type;
+            this.path = path;
+            this.fctName = fctName;
+            this.listenOnBoot = listenOnBoot;
+            this.functionNeeded = functionNeeded;
+        }
     }
 }

@@ -19,6 +19,8 @@ namespace CSharpToTypescript.Container
         protected BaseClassContainer(INamedTypeSymbol type) : base(type)
         {
             isInterface = type.TypeKind == TypeKind.Interface;
+            
+           
 
             LoadGenericsType();
             if (CanBeAdded)
@@ -163,6 +165,7 @@ namespace CSharpToTypescript.Container
 
         private string GetExtension()
         {
+            BaseContainer.enumToTypeof = true;
             List<string> extends = new List<string>();
             List<string> implements = new List<string>();
             List<string> extendsName = new();
@@ -253,6 +256,7 @@ namespace CSharpToTypescript.Container
             {
                 txt += " ";
             }
+            BaseContainer.enumToTypeof = false;
             return txt;
         }
 
@@ -306,11 +310,25 @@ namespace CSharpToTypescript.Container
                                 memberName += "?";
                             }
                             string defaultValue = GetDefaultValue(propertySymbol, typeTxt);
+                            bool isUndefined = false;
                             if(defaultValue == "undefined" && !memberName.EndsWith("?"))
                             {
-                                memberName += "?";
+                                isUndefined = true;
+                                memberName += "!";
                             }
-                            string txt = GetAccessibility(member) + memberName + ": " + typeTxt + " = " + defaultValue + ";";
+                            string txt = "";
+                            if (isInterface)
+                            {
+                                txt = memberName + ": " + typeTxt + ";";
+                            }
+                            else if(isUndefined)
+                            {
+                                txt = GetAccessibility(member) + memberName + ": " + typeTxt + ";";
+                            }
+                            else
+                            {
+                                txt = GetAccessibility(member) + memberName + ": " + typeTxt + " = " + defaultValue + ";";
+                            }
                             AddTxt(txt, result);
                         }
                         else if (member is IFieldSymbol fieldSymbol && IsValidField(fieldSymbol))
@@ -344,12 +362,26 @@ namespace CSharpToTypescript.Container
                                 typeTxt += " | null";
                             }
                             string defaultValue = GetDefaultValue(fieldSymbol, typeTxt);
+                            bool isUndefined = false;
                             if (defaultValue == "undefined" && !memberName.EndsWith("?"))
                             {
-                                memberName += "?";
+                                isUndefined = true;
+                                memberName += "!";
                             }
 
-                            string txt = GetAccessibility(member) + memberName + ": " + typeTxt + " = " + defaultValue + ";";
+                            string txt = "";
+                            if (isInterface)
+                            {
+                                txt = memberName + ": " + typeTxt + ";";
+                            }
+                            else if(isUndefined)
+                            {
+                                txt = GetAccessibility(member) + memberName + ": " + typeTxt + ";";
+                            }
+                            else
+                            {
+                                txt = GetAccessibility(member) + memberName + ": " + typeTxt + " = " + defaultValue + ";";
+                            }
                             AddTxt(txt, result);
                         }
                     }
@@ -364,8 +396,8 @@ namespace CSharpToTypescript.Container
             {
 
                 string typeName = "\"" + Tools.GetFullName(type) + ", " + type.ContainingAssembly.Name + "\"";
-                BaseContainer? baseContainer = FileToWrite.GetContainer(type.BaseType);
-                if (baseContainer != null && baseContainer.IsConvertible)
+                Type? realType = Tools.GetCompiledType(type.BaseType);
+                if (realType != null && !realType.IsInterface && !realType.IsAbstract && realType != typeof(object))
                 {
                     AddTxt("public static override get Fullname(): string { return " + typeName + "; }", result);
                 }

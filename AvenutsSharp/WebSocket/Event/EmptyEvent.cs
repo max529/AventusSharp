@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Tools.Attributes;
+using AventusSharp.WebSocket.Attributes;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -9,25 +10,7 @@ namespace AventusSharp.WebSocket.Event
     {
         public override async Task Emit()
         {
-            if (eventType == WebSocketEventType.Response)
-            {
-                if (connection == null)
-                {
-                    throw new WsError(WsErrorCode.NoConnection, "You must provide a connection").GetException();
-                }
-                await connection.Send(path, null, uid);
-            }
-            else if(endPoint != null)
-            {
-                if (eventType == WebSocketEventType.Others && connection != null)
-                {
-                    await endPoint.Broadcast(path, null, uid, new List<WebSocketConnection>() { connection });
-                }
-                else
-                {
-                    await endPoint.Broadcast(path, null, uid);
-                }
-            }
+            await DefaultEmit(null);
         }
     }
 }

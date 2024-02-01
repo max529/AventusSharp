@@ -14,6 +14,13 @@ namespace CSharpToTypescript
         public static string CurrentAssemblyName { get; private set; }
         public static Compilation Compilation { get; private set; }
         public static ProjectConfig Config { get; private set; }
+        public static bool CompilingAventusSharp
+        {
+            get
+            {
+                return Config.compiledAssembly.FullName?.StartsWith("AventusSharp,") == true;
+            }
+        }
 
         public Dictionary<string, List<BaseContainer>> files = new Dictionary<string, List<BaseContainer>>();
 
@@ -35,7 +42,7 @@ namespace CSharpToTypescript
             {
                 Project proj = await w.OpenProjectAsync(config.csProj);
                 Compilation = await proj.GetCompilationAsync() ?? throw new Exception("Can't compile");
-                
+
                 List<INamedTypeSymbol> result = new();
                 INamespaceSymbol? rootNamespace = Compilation.GlobalNamespace.GetNamespaceMembers().First(p => p.Name == proj.Name);
                 if (rootNamespace != null)
@@ -56,7 +63,7 @@ namespace CSharpToTypescript
             p.StartInfo.RedirectStandardOutput = true;
             p.StartInfo.FileName = "cmd.exe";
             string cmd = "dotnet build " + Config.csProj + " --no-dependencies -v m";
-            p.StartInfo.Arguments = "/C "+ cmd;
+            p.StartInfo.Arguments = "/C " + cmd;
             p.Start();
             // Read the output stream first and then wait.
             string output = p.StandardOutput.ReadToEnd();
@@ -76,7 +83,7 @@ namespace CSharpToTypescript
                     outputPath = splitted[i].Split("->")[1].Trim();
                 }
             }
-            if(outputPath == "")
+            if (outputPath == "")
             {
                 Console.WriteLine(output);
                 return false;

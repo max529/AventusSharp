@@ -36,6 +36,7 @@ namespace CSharpToTypescript
         private string configPathDir = "";
 
         public ProjectConfigReplacer replacer = new ProjectConfigReplacer();
+        public ProjectConfigHttpRouter httpRouter = new ProjectConfigHttpRouter();
 
         public ProjectConfig()
         {
@@ -64,7 +65,28 @@ namespace CSharpToTypescript
         
     }
 
+    #region http
+    public enum ProjectConfigHttpRouterRouteBind
+    {
+        none,
+        auto,
+        full,
+    }
 
+    public class ProjectConfigHttpRouter
+    {
+        public bool createRouter = true;
+        public ProjectConfigHttpRouterRouteBind autobindRoute = ProjectConfigHttpRouterRouteBind.auto;
+        public string routerName = "GeneratedRouter";
+        public string variableRoutesName = "generatedHttpRoutes";
+        public string uri = "";
+        public string? host;
+        public string parent = "Aventus.HttpRouter";
+    }
+    #endregion
+
+
+    #region replacer
 
     public class ProjectConfigReplacer
     {
@@ -90,5 +112,8 @@ namespace CSharpToTypescript
     {
         public string result = "";
         public string file = "";
+        public bool useTypeImport = false;
     }
+
+    #endregion
 }

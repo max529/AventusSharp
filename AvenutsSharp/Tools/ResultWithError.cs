@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data;
 using AventusSharp.Tools.Attributes;
+using AventusSharp.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,8 @@ namespace AventusSharp.Tools
     {
         [NoTypescript]
         public List<GenericError> Errors { get; }
+
+        public void Print();
     }
     public class VoidWithError<T> : IWithError where T : GenericError
     {
@@ -33,6 +36,25 @@ namespace AventusSharp.Tools
                 return errors;
             }
         }
+
+        public void Print()
+        {
+            foreach(T error in Errors)
+            {
+                error.Print();
+            }
+        }
+
+        /// <summary>
+        /// Transform to generic errors
+        /// </summary>
+        /// <returns></returns>
+        public VoidWithError ToGeneric()
+        {
+            VoidWithError result = new();
+            result.Errors = Errors.Select(p => (GenericError)p).ToList();
+            return result;
+        }
     }
 
     public class VoidWithError : VoidWithError<GenericError>
@@ -51,8 +73,33 @@ namespace AventusSharp.Tools
         {
             get => Result;
         }
+
+        /// <summary>
+        /// Transform to generic errors
+        /// </summary>
+        /// <returns></returns>
+        public ResultWithError<X> ToGeneric<X>(Func<T?, X?> transform)
+        {
+            ResultWithError<X> result = new();
+            result.Errors = Errors.Select(p => (GenericError)p).ToList();
+            result.Result = transform(Result);
+            return result;
+        }
+
+        /// <summary>
+        /// <inheritdoc/>
+        /// </summary>
+        /// <returns></returns>
+        public new ResultWithError<T> ToGeneric()
+        {
+            ResultWithError<T> result = new();
+            result.Errors = Errors.Select(p => (GenericError)p).ToList();
+            result.Result = Result;
+            return result;
+        }
     }
 
+    [NoTypescript]
     public class ResultWithError<T> : ResultWithError<T, GenericError>
     {
 

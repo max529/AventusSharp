@@ -5,17 +5,17 @@
     "all": {
       "type": {},
       "result": {
-        "AventusSharp.Socket.WsEndPoint": {
-          "result": "WsEndPoint",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\socket\\WsEndPoint.lib.avt"
+        "AventusSharp.WebSocket.EndPoint": {
+          "result": "EndPoint",
+          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\EndPoint.lib.avt"
         },
-        "AventusSharp.Socket.WsEvent": {
-          "result": "WsEvent",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\socket\\WsEvent.lib.avt"
+        "AventusSharp.WebSocket.Event": {
+          "result": "Event",
+          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\Event.lib.avt"
         },
-        "AventusSharp.Socket.WsRoute": {
-          "result": "WsRoute",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\socket\\WsRoute.lib.avt"
+        "AventusSharp.WebSocket.Route": {
+          "result": "Route",
+          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\Route.lib.avt"
         }
       }
     }

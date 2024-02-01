@@ -22,12 +22,12 @@ namespace AventusSharp.Data.Manager
         List<X> GetAll<X>() where X : notnull;
         ResultWithDataError<List<X>> GetAllWithError<X>() where X : notnull;
         IQueryBuilder<X> CreateQuery<X>() where X : notnull;
-        IUpdateBuilder<X>? CreateUpdate<X>() where X : notnull;
-        IDeleteBuilder<X>? CreateDelete<X>() where X : notnull;
-        IExistBuilder<X>? CreateExist<X>() where X : notnull;
+        IUpdateBuilder<X> CreateUpdate<X>() where X : notnull;
+        IDeleteBuilder<X> CreateDelete<X>() where X : notnull;
+        IExistBuilder<X> CreateExist<X>() where X : notnull;
 
         object? GetById(int id);
-        X GetById<X>(int id) where X : notnull;
+        X? GetById<X>(int id) where X : notnull;
         ResultWithDataError<X> GetByIdWithError<X>(int id) where X : notnull;
 
         List<X> GetByIds<X>(List<int> ids) where X : notnull;
@@ -62,6 +62,8 @@ namespace AventusSharp.Data.Manager
         ResultWithDataError<X> DeleteWithError<X>(X value) where X : notnull, IStorable;
         #endregion
 
+
+        internal void PrintErrors(IWithError withError);
     }
     public interface IGenericDM<U> : IGenericDM where U : notnull, IStorable
     {

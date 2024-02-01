@@ -325,7 +325,12 @@ namespace AventusSharp.Data.Storage.Default
                             if (Debug)
                             {
                                 Console.WriteLine();
-                                Console.WriteLine(command.CommandText);
+                                string queryWithParam = command.CommandText;
+                                foreach (KeyValuePair<string, object?> parameter in parameters)
+                                {
+                                    queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
+                                }
+                                Console.WriteLine(queryWithParam);
                                 Console.WriteLine();
                             }
                             using IDataReader reader = command.ExecuteReader();
@@ -1426,7 +1431,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
 
-            CheckAutoCUDBeforeUpdate(updateInfo.ToCheckBefore, item, list);
+            CheckAutoCUDBeforeUpdate(updateInfo.ToCheckBefore, item, list, updateBuilder.DM);
 
             foreach (TableReverseMemberInfo reverseMember in updateInfo.ReverseMembers)
             {
@@ -1513,7 +1518,7 @@ namespace AventusSharp.Data.Storage.Default
             }
         }
 
-        protected VoidWithDataError CheckAutoCUDBeforeUpdate<X>(List<TableMemberInfoSql> members, X item, List<int> listIdUpdate) where X : IStorable
+        protected VoidWithDataError CheckAutoCUDBeforeUpdate<X>(List<TableMemberInfoSql> members, X item, List<int> listIdUpdate, IGenericDM DM) where X : IStorable
         {
             VoidWithDataError result = new VoidWithDataError();
             if (members.Count == 0)
@@ -1523,7 +1528,7 @@ namespace AventusSharp.Data.Storage.Default
             listIdUpdate = listIdUpdate.ToList();
 
             // query all update link
-            DatabaseQueryBuilder<X> queryBuilder = new DatabaseQueryBuilder<X>(this);
+            DatabaseQueryBuilder<X> queryBuilder = new DatabaseQueryBuilder<X>(this, DM);
             queryBuilder.Field(p => p.Id);
             foreach (TableMemberInfoSql member in members)
             {
@@ -1865,13 +1870,6 @@ namespace AventusSharp.Data.Storage.Default
             {
                 ResultWithDataError<bool> commitResult = RollbackTransaction(transactionResult.Result.transaction);
                 resultTemp.Errors.AddRange(commitResult.Errors);
-            }
-            if (!resultTemp.Success)
-            {
-                foreach (DataError error in resultTemp.Errors)
-                {
-                    error.Print();
-                }
             }
             return resultTemp;
         }

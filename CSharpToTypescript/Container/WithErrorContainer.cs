@@ -81,8 +81,8 @@ namespace CSharpToTypescript.Container
                     AddTxt("public static get Fullname(): string { return " + typeName + "; }", result);
                     return;
                 }
-                BaseContainer? baseContainer = FileToWrite.GetContainer(type.BaseType);
-                if (baseContainer != null && baseContainer.IsConvertible)
+                Type? realType = Tools.GetCompiledType(type.BaseType);
+                if (realType != null && !realType.IsInterface && !realType.IsAbstract)
                 {
                     AddTxt("public static override get Fullname(): string { return " + typeName + "; }", result);
                 }

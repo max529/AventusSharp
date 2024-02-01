@@ -1,16 +1,11 @@
-﻿using System;
+﻿using AventusSharp.WebSocket.Attributes;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace AventusSharp.WebSocket
 {
-    public enum WebSocketEventType
-    {
-        Response,
-        Others,
-        Broadcast
-    }
     public class WebSocketRouteInfo
     {
         public Regex pattern;
@@ -18,24 +13,33 @@ namespace AventusSharp.WebSocket
         public IWsRoute router;
         public int nbParamsFunction;
         public Dictionary<string, WebSocketRouterParameterInfo> parameters = new Dictionary<string, WebSocketRouterParameterInfo>();
-        public WebSocketEventType eventType;
+        public ResponseTypeEnum eventType;
+        public Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? CustomFct;
+        public WsEndPoint? endpoint;
         public string UniqueKey
         {
             get => pattern.ToString();
         }
 
-        public WebSocketRouteInfo(Regex pattern, MethodInfo action, IWsRoute router, int nbParamsFunction, WebSocketEventType eventType)
+        public WebSocketRouteInfo(Regex pattern, MethodInfo action, IWsRoute router, int nbParamsFunction, ResponseTypeEnum eventType, Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? customFct)
         {
             this.pattern = pattern;
             this.action = action;
             this.router = router;
             this.nbParamsFunction = nbParamsFunction;
             this.eventType = eventType;
+            CustomFct = customFct;
         }
 
         public override string ToString()
         {
-            return pattern.ToString();
+            string txt = "";
+            if(endpoint != null)
+            {
+                txt += endpoint.Path + " => ";
+            }
+            txt += pattern.ToString();
+            return txt;
         }
     }
 

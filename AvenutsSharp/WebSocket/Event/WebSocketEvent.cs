@@ -1,4 +1,7 @@
 ﻿using AventusSharp.Tools.Attributes;
+using AventusSharp.WebSocket.Attributes;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket.Event
@@ -14,7 +17,9 @@ namespace AventusSharp.WebSocket.Event
         protected WebSocketConnection? connection { get; set; }
         protected string uid { get; private set; } = "";
         protected string path { get; set; } = "";
-        protected WebSocketEventType eventType { get; set; }
+        protected ResponseTypeEnum eventType { get; set; }
+
+        protected Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? CustomFct; 
 
 
         public WebSocketEvent()
@@ -22,7 +27,7 @@ namespace AventusSharp.WebSocket.Event
 
         }
 
-        public void Configure(string path, WsEndPoint endPoint, WebSocketConnection connection, string uid, WebSocketEventType eventType)
+        public void Configure(string path, WsEndPoint endPoint, WebSocketConnection connection, string uid, ResponseTypeEnum eventType)
         {
             this.eventType = eventType;
             this.endPoint = endPoint;
@@ -34,6 +39,12 @@ namespace AventusSharp.WebSocket.Event
             }
         }
 
+        public void Configure(string path, WsEndPoint endPoint, WebSocketConnection connection, string uid, ResponseTypeEnum eventType, Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? customFct)
+        {
+            Configure(path, endPoint, connection, uid, eventType);
+            CustomFct = customFct;
+        }
+
         public Task EmitTo(WebSocketConnection connection)
         {
             this.connection = connection;
@@ -43,5 +54,32 @@ namespace AventusSharp.WebSocket.Event
 
 
         public abstract Task Emit();
+
+        protected async Task DefaultEmit(object? o)
+        {
+            if (eventType == ResponseTypeEnum.Single)
+            {
+                if (connection == null)
+                {
+                    throw new WsError(WsErrorCode.NoConnection, "You must provide a connection").GetException();
+                }
+                await connection.Send(path, o, uid);
+            }
+            else if (endPoint != null)
+            {
+                if (eventType == ResponseTypeEnum.Custom && CustomFct != null)
+                {
+                    await endPoint.Broadcast(path, o, uid, CustomFct(endPoint, connection));
+                }
+                else if (eventType == ResponseTypeEnum.Others && connection != null)
+                {
+                    await endPoint.Broadcast(path, o, uid, null, new List<WebSocketConnection>() { connection });
+                }
+                else
+                {
+                    await endPoint.Broadcast(path, o, uid);
+                }
+            }
+        }
     }
 }

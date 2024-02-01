@@ -111,6 +111,8 @@ namespace AventusSharp.Data.Manager
             get => GetType().Name.Split('`')[0] + "<" + typeof(U).Name.Split('`')[0] + ">";
         }
         public bool IsInit { get; protected set; }
+
+        protected bool printErrorInConsole { get; set; }
         #endregion
 
         protected PyramidInfo PyramidInfo { get; set; }
@@ -136,6 +138,15 @@ namespace AventusSharp.Data.Manager
                 PyramidsInfo[pyramid.aliasType] = pyramid;
             }
             this.Config = config;
+            bool? printError = MustPrintErrorInConsole();
+            if (printError != null)
+            {
+                printErrorInConsole = (bool)printError;
+            }
+            else
+            {
+                printErrorInConsole = config.log.printErrorInConsole;
+            }
             result = SetDMForType(pyramid, true);
             return Task.FromResult(result);
         }
@@ -195,6 +206,11 @@ namespace AventusSharp.Data.Manager
             return result;
         }
         protected abstract Task<VoidWithDataError> Initialize();
+
+        protected bool? MustPrintErrorInConsole()
+        {
+            return null;
+        }
         #endregion
 
         #region generic query
@@ -214,27 +230,39 @@ namespace AventusSharp.Data.Manager
 
         #region generic exist
         public abstract IExistBuilder<X> CreateExist<X>() where X : U;
-        IExistBuilder<X>? IGenericDM.CreateExist<X>()
+        IExistBuilder<X> IGenericDM.CreateExist<X>()
         {
             IExistBuilder<X>? result = InvokeMethod<IExistBuilder<X>, X>(Array.Empty<object>());
+            if(result == null)
+            {
+                throw new Exception("Create exist not exist => impossible");
+            }
             return result;
         }
         #endregion
 
         #region generic update
         public abstract IUpdateBuilder<X> CreateUpdate<X>() where X : U;
-        IUpdateBuilder<X>? IGenericDM.CreateUpdate<X>()
+        IUpdateBuilder<X> IGenericDM.CreateUpdate<X>()
         {
             IUpdateBuilder<X>? result = InvokeMethod<IUpdateBuilder<X>, X>(Array.Empty<object>());
+            if (result == null)
+            {
+                throw new Exception("Create update not exist => impossible");
+            }
             return result;
         }
         #endregion
 
         #region generic delete
         public abstract IDeleteBuilder<X> CreateDelete<X>() where X : U;
-        IDeleteBuilder<X>? IGenericDM.CreateDelete<X>()
+        IDeleteBuilder<X> IGenericDM.CreateDelete<X>()
         {
             IDeleteBuilder<X>? result = InvokeMethod<IDeleteBuilder<X>, X>(Array.Empty<object>());
+            if (result == null)
+            {
+                throw new Exception("Create delete not exist => impossible");
+            }
             return result;
         }
         #endregion
@@ -295,12 +323,14 @@ namespace AventusSharp.Data.Manager
             if (errors.Count > 0)
             {
                 result.Errors = errors;
+                PrintErrors(result);
                 return result;
             }
             DataError? error = WrapperBeforeGetAll();
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
             result = GetAllLogic<X>();
@@ -308,8 +338,10 @@ namespace AventusSharp.Data.Manager
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
+            PrintErrors(result);
             return result;
         }
         /// <summary>
@@ -415,12 +447,14 @@ namespace AventusSharp.Data.Manager
             if (errors.Count > 0)
             {
                 result.Errors = errors;
+                PrintErrors(result);
                 return result;
             }
             DataError? error = WrapperBeforeGetById(id);
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
             result = GetByIdLogic<X>(id);
@@ -428,8 +462,10 @@ namespace AventusSharp.Data.Manager
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
+            PrintErrors(result);
             return result;
         }
         /// <summary>
@@ -540,12 +576,14 @@ namespace AventusSharp.Data.Manager
             if (errors.Count > 0)
             {
                 result.Errors = errors;
+                PrintErrors(result);
                 return result;
             }
             DataError? error = WrapperBeforeGetByIds(ids);
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
             result = GetByIdsLogic<X>(ids);
@@ -553,8 +591,10 @@ namespace AventusSharp.Data.Manager
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
+            PrintErrors(result);
             return result;
         }
         /// <summary>
@@ -661,12 +701,14 @@ namespace AventusSharp.Data.Manager
             if (errors.Count > 0)
             {
                 result.Errors = errors;
+                PrintErrors(result);
                 return result;
             }
             DataError? error = WrapperBeforeWhere(func);
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
             result = WhereLogic(func);
@@ -674,6 +716,7 @@ namespace AventusSharp.Data.Manager
             if (error != null)
             {
                 result.Errors.Add(error);
+                PrintErrors(result);
                 return result;
             }
             return result;
@@ -1501,7 +1544,18 @@ namespace AventusSharp.Data.Manager
             return false;
         }
 
+        internal void PrintErrors(IWithError withError)
+        {
+            if(printErrorInConsole)
+            {
+                withError.Print();
+            }
+        }
 
+        void IGenericDM.PrintErrors(IWithError withError)
+        {
+            PrintErrors(withError);
+        }
 
         #endregion
 

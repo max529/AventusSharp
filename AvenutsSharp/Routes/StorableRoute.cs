@@ -2,6 +2,7 @@
 using AventusSharp.Routes.Attributes;
 using AventusSharp.Routes.Response;
 using AventusSharp.Tools;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -26,116 +27,116 @@ namespace AventusSharp.Routes
 
 
         [Get, Path("/[StorableName]")]
-        public async virtual Task<ResultWithDataError<List<T>>> GetAll()
+        public virtual ResultWithError<List<T>> GetAll(HttpContext context)
         {
-            ResultWithDataError<List<T>> result = DM_GetAll();
+            ResultWithError<List<T>> result = DM_GetAll(context);
             if (result.Result != null)
             {
                 List<T> list = new();
                 foreach (T item in result.Result)
                 {
-                    list.Add(OnSend(item));
+                    list.Add(OnSend(context, item));
                 }
                 result.Result = list;
             }
             return result;
         }
-        protected virtual ResultWithDataError<List<T>> DM_GetAll()
+        protected virtual ResultWithError<List<T>> DM_GetAll(HttpContext context)
         {
-            return Storable<T>.GetAllWithError();
+            return Storable<T>.GetAllWithError().ToGeneric();
         }
 
         [Post, Attributes.Path("/[StorableName]")]
-        public virtual ResultWithDataError<T> Create(T item)
+        public virtual ResultWithError<T> Create(HttpContext context, T item)
         {
-            item = OnReceive(item);
-            ResultWithDataError<T> result = DM_Create(item);
+            item = OnReceive(context, item);
+            ResultWithError<T> result = DM_Create(context, item);
             if (result.Result != null)
             {
-                result.Result = OnSend(item);
+                result.Result = OnSend(context, item);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Create(T item)
+        protected virtual ResultWithError<T> DM_Create(HttpContext context, T item)
         {
-            return Storable<T>.CreateWithError(item);
+            return Storable<T>.CreateWithError(item).ToGeneric();
         }
 
         [Post, Attributes.Path("/[StorableName]s")]
-        public virtual ResultWithDataError<List<T>> CreateMany(List<T> list)
+        public virtual ResultWithError<List<T>> CreateMany(HttpContext context, List<T> list)
         {
             List<T> _list = new();
             foreach (T item in list)
             {
-                _list.Add(OnReceive(item));
+                _list.Add(OnReceive(context, item));
             }
-            ResultWithDataError<List<T>> result = DM_CreateMany(_list);
+            ResultWithError<List<T>> result = DM_CreateMany(context, _list);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
                 foreach (T item in result.Result)
                 {
-                    listTemp.Add(OnSend(item));
+                    listTemp.Add(OnSend(context, item));
                 }
                 result.Result = listTemp;
             }
 
             return result;
         }
-        protected virtual ResultWithDataError<List<T>> DM_CreateMany(List<T> list)
+        protected virtual ResultWithError<List<T>> DM_CreateMany(HttpContext context, List<T> list)
         {
-            return Storable<T>.CreateWithError(list);
+            return Storable<T>.CreateWithError(list).ToGeneric();
         }
 
         [Get, Attributes.Path("/[StorableName]/{id}")]
-        public virtual ResultWithDataError<T> GetById(int id)
+        public virtual ResultWithError<T> GetById(HttpContext context, int id)
         {
-            ResultWithDataError<T> result = DM_GetById(id);
+            ResultWithError<T> result = DM_GetById(context, id);
             if (result.Result != null)
             {
-                result.Result = OnSend(result.Result);
+                result.Result = OnSend(context, result.Result);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_GetById(int id)
+        protected virtual ResultWithError<T> DM_GetById(HttpContext context, int id)
         {
-            return Storable<T>.GetByIdWithError(id);
+            return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
         [Put]
         [Attributes.Path("/[StorableName]/{id}")]
-        public virtual ResultWithDataError<T> Update(int id, T item)
+        public virtual ResultWithError<T> Update(HttpContext context, int id, T item)
         {
             item.Id = id;
-            item = OnReceive(item);
-            ResultWithDataError<T> result = DM_Update(item);
+            item = OnReceive(context, item);
+            ResultWithError<T> result = DM_Update(context, item);
             if (result.Result != null)
             {
-                result.Result = OnSend(item);
+                result.Result = OnSend(context, item);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Update(T item)
+        protected virtual ResultWithError<T> DM_Update(HttpContext context, T item)
         {
-            return Storable<T>.UpdateWithError(item);
+            return Storable<T>.UpdateWithError(item).ToGeneric();
         }
 
         [Put]
         [Attributes.Path("/[StorableName]s")]
-        public virtual ResultWithDataError<List<T>> UpdateMany(List<T> list)
+        public virtual ResultWithError<List<T>> UpdateMany(HttpContext context, List<T> list)
         {
             List<T> _list = new();
             foreach (T item in list)
             {
-                _list.Add(OnReceive(item));
+                _list.Add(OnReceive(context, item));
             }
-            ResultWithDataError<List<T>> result = DM_UpdateMany(_list);
+            ResultWithError<List<T>> result = DM_UpdateMany(context, _list);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
                 foreach (T item in result.Result)
                 {
-                    listTemp.Add(OnSend(item));
+                    listTemp.Add(OnSend(context, item));
                 }
                 result.Result = listTemp;
             }
@@ -143,36 +144,36 @@ namespace AventusSharp.Routes
             return result;
         }
 
-        protected virtual ResultWithDataError<List<T>> DM_UpdateMany(List<T> list)
+        protected virtual ResultWithError<List<T>> DM_UpdateMany(HttpContext context, List<T> list)
         {
-            return Storable<T>.UpdateWithError(list);
+            return Storable<T>.UpdateWithError(list).ToGeneric();
         }
 
         [Delete, Attributes.Path("/[StorableName]/{id}")]
-        public virtual ResultWithDataError<T> Delete(int id)
+        public virtual ResultWithError<T> Delete(HttpContext context, int id)
         {
-            ResultWithDataError<T> result = DM_Delete(id);
+            ResultWithError<T> result = DM_Delete(context, id);
             if (result.Result != null)
             {
-                result.Result = OnSend(result.Result);
+                result.Result = OnSend(context, result.Result);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Delete(int id)
+        protected virtual ResultWithError<T> DM_Delete(HttpContext context, int id)
         {
-            return Storable<T>.DeleteWithError(id);
+            return Storable<T>.DeleteWithError(id).ToGeneric();
         }
 
         [Delete, Attributes.Path("/[StorableName]s")]
-        public virtual ResultWithDataError<List<T>> DeleteMany(List<int> ids)
+        public virtual ResultWithError<List<T>> DeleteMany(HttpContext context, List<int> ids)
         {
-            ResultWithDataError<List<T>> result = DM_DeleteMany(ids);
+            ResultWithError<List<T>> result = DM_DeleteMany(context, ids);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
                 foreach (T item in result.Result)
                 {
-                    listTemp.Add(OnSend(item));
+                    listTemp.Add(OnSend(context, item));
                 }
                 result.Result = listTemp;
             }
@@ -180,16 +181,16 @@ namespace AventusSharp.Routes
             return result;
         }
 
-        protected virtual ResultWithDataError<List<T>> DM_DeleteMany(List<int> ids)
+        protected virtual ResultWithError<List<T>> DM_DeleteMany(HttpContext context, List<int> ids)
         {
-            return Storable<T>.DeleteWithError(ids);
+            return Storable<T>.DeleteWithError(ids).ToGeneric();
         }
 
-        protected virtual T OnReceive(T item)
+        protected virtual T OnReceive(HttpContext context, T item)
         {
             return item;
         }
-        protected virtual T OnSend(T item)
+        protected virtual T OnSend(HttpContext context, T item)
         {
             return item;
         }

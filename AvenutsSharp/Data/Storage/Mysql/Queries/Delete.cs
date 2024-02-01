@@ -51,8 +51,9 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         if(memberInfo.IsAutoDelete)
                         {
-                            string sql = "SELECT * FROM product where tag in (1,2)";
-                            sql = "SELECT COUNT(*)";
+                            // TODO : code
+                            //string sql = "SELECT * FROM product where tag in (1,2)";
+                            //sql = "SELECT COUNT(*)";
                             
                         }
                     }

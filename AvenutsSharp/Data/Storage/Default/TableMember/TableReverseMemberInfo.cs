@@ -114,7 +114,11 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         public VoidWithDataError ReverseLoadAndSet(IStorable o)
         {
             VoidWithDataError result = new();
-
+            if(TableLinked == null)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.LinkNotSet, "The table linked isn't set => internal error : contact an admin"));
+                return result;
+            }
             object? iresultTemp = GetType().GetMethod("_ReverseQuery", BindingFlags.NonPublic | BindingFlags.Instance)?.MakeGenericMethod(TableLinked.Type).Invoke(this, new object[] { o.Id });
             if(iresultTemp is IResultWithError resultTemp)
             {
@@ -155,8 +159,8 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 else
                 {
                     varType = typeof(int);
-                    Expression temp = Expression.PropertyOrField(argParam, "el");
-                    nameProperty = Expression.PropertyOrField(temp, reverseMember.SqlName);
+                    Expression temp = Expression.PropertyOrField(argParam, reverseMember.SqlName);
+                    nameProperty = Expression.PropertyOrField(temp, Storable.Id);
                 }
                 Expression<Func<int>> idLambda = () => id;
                 var var1 = Expression.Variable(varType, Storable.Id);

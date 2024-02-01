@@ -1,15 +1,16 @@
 
-namespace Socket {
+namespace WebSocket {
     export interface SocketMessage {
         channel: string;
         data?: any;
+        uid?: string;
     }
     export interface SocketRoute<T = any> {
         channel: string;
-        callback: (data: T, params: Aventus.Uri.UriParamsValue) => void;
+        callback: (data: T, params: Aventus.UriParamsValue, uid?: string) => void;
     }
-    export type InternalSocketRoute = SocketRoute & Aventus.Uri.PreparedUri;
-    export interface SocketOptions {
+    export type InternalSocketRoute = SocketRoute & Aventus.PreparedUri;
+    export interface ConnectionOptions {
         /** Enable or disable log */
         log?: boolean,
         /** Determine the host for the ws connection. By default it's the same as your current url  */
@@ -25,5 +26,18 @@ namespace Socket {
          * It ll open the ws connection on /ws/${socketName}
          */
         socketName?: string,
+        /**
+         * Define if the message must be buffered before the socket open.
+         * If true, when the socket is opened, all messages in buffered will be sent
+         */
+        allowSendBeforeOpen?: boolean;
     }
+
+    export interface SocketSendMessageOptions {
+        channel: string,
+        body?: { [key: string | number]: any; },
+        timeout?: number,
+        uid?: string;
+    }
+
 }

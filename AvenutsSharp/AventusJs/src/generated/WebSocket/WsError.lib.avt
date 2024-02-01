@@ -12,7 +12,7 @@ namespace WebSocket {
 	}
 
 	@Convertible()
-	export class WsError extends Aventus.GenericError<WsErrorCode>  {
+	export class WsError extends Aventus.GenericError<typeof WsErrorCode>  {
 		public static get Fullname(): string { return "AventusSharp.WebSocket.WsError, AventusSharp"; }
 	}
 

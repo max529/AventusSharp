@@ -133,8 +133,10 @@ namespace CSharpToTypescript
             }
             return true;
         }
-        public static Type? GetCompiledType(INamedTypeSymbol type)
+        public static Type? GetCompiledType(INamedTypeSymbol? type)
         {
+            if (type == null) return null;
+
             string fullName = "";
             string typeName = type.ContainingNamespace.ToString() + "." + type.Name;
             if (type.IsGenericType)
@@ -154,7 +156,7 @@ namespace CSharpToTypescript
                     }
                     catch (Exception ex)
                     {
-
+                        Console.WriteLine(ex.Message);
                     }
                 }
                 if (assembly != null)
@@ -196,15 +198,40 @@ namespace CSharpToTypescript
             return realType;
         }
 
-        public static INamedTypeSymbol? GetTypeSymbol(Type type)
+        public static ITypeSymbol GetTypeSymbol(Type type)
         {
-            string temp = type.WriteAsSymbol();
-            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(temp);
+            string fullName = string.IsNullOrEmpty(type.Namespace) ? type.Name : type.Namespace + "." + type.Name;
+            ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(fullName ?? "");
+
+            if (typeSymbol == null)
+            {
+                throw new Exception("impossbile");
+            }
             if (typeSymbol is INamedTypeSymbol namedType)
             {
-                return namedType;
+                if (type.IsGenericType && !type.IsGenericTypeDefinition)
+                {
+                    List<ITypeSymbol> types = new List<ITypeSymbol>();
+                    Type[] typeGenerics = type.GetGenericArguments();
+                    for (int i = 0; i < typeGenerics.Length; i++)
+                    {
+                        Type typeGeneric = typeGenerics[i];
+                        if (typeGeneric.IsGenericTypeParameter)
+                        {
+                            types.Add(namedType.TypeParameters[i]);
+                        }
+                        else
+                        {
+                            types.Add(GetTypeSymbol(typeGeneric));
+                        }
+                    }
+
+
+
+                    typeSymbol = namedType.Construct(types.ToArray());
+                }
             }
-            return null;
+            return typeSymbol;
         }
 
         public static MethodInfo? GetMethodInfo(IMethodSymbol methodSymbol, Type @class)
@@ -234,7 +261,7 @@ namespace CSharpToTypescript
                     }
                 }
             }
-            throw new Exception("impossible");
+            throw new Exception("impossible to load the method " + methodSymbol.Name + " from " + @class.Name);
         }
 
         public static bool IsSubclass(Type parent, Type child)
@@ -304,7 +331,7 @@ namespace CSharpToTypescript
                         name += "<" + string.Join(",", generics) + ">";
                     }
                 }
-                else if(loopType is ITypeParameterSymbol)
+                else if (loopType is ITypeParameterSymbol)
                 {
                     name = loopType.Name;
                 }

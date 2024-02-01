@@ -33,10 +33,14 @@ namespace AventusSharp.Data.Manager.DB
     }
 
     public interface IWhereGroup { }
-    public class WhereGroup : IWhereGroup
+    public interface IWhereRootGroup
+    {
+        public bool negate { get; set; }
+    }
+    public class WhereGroup : IWhereGroup, IWhereRootGroup
     {
         public List<IWhereGroup> Groups { get; set; } = new List<IWhereGroup>();
-        public bool negate = false;
+        public bool negate { get; set; } = false;
 
     }
     public class WhereGroupFct : IWhereGroup
@@ -45,6 +49,18 @@ namespace AventusSharp.Data.Manager.DB
         public WhereGroupFct(WhereGroupFctEnum fct)
         {
             Fct = fct;
+        }
+    }
+    public class WhereGroupSingleBool : IWhereGroup, IWhereRootGroup
+    {
+        public string Alias { get; set; }
+        public TableMemberInfoSql TableMemberInfo { get; set; }
+        public bool negate { get; set; } = false;
+
+        public WhereGroupSingleBool(string alias, TableMemberInfoSql tableMemberInfo)
+        {
+            Alias = alias;
+            TableMemberInfo = tableMemberInfo;
         }
     }
     public class WhereGroupConstantNull : IWhereGroup
@@ -115,7 +131,7 @@ namespace AventusSharp.Data.Manager.DB
 
         public bool IsNameSimilar(string name)
         {
-            return Regex.IsMatch(name, @"^" + name + @"(\.|$)");
+            return Regex.IsMatch(name, @"^" + this.Name + @"(\.|$)");
         }
         public void SetValue(object value)
         {
@@ -140,7 +156,7 @@ namespace AventusSharp.Data.Manager.DB
                         {
                             ids.Add(storable.Id);
                         }
-                        else if(valueUnique is int storableId)
+                        else if (valueUnique is int storableId)
                         {
                             ids.Add(storableId);
                         }

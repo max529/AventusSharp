@@ -1,6 +1,7 @@
 ﻿using AventusSharp.Data.Attributes;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.TableMember;
+using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http.Extensions;
 using System;
 using System.Collections.Generic;
@@ -14,18 +15,21 @@ namespace AventusSharp.Data.Manager.DB
         public Dictionary<string, bool> AllMembersByPath = new Dictionary<string, bool>() { { "", true } };
         public IDBStorage Storage { get; private set; }
 
+        public IGenericDM DM { get; private set; }
+
         public Dictionary<string, DatabaseBuilderInfo> InfoByPath { get; set; } = new Dictionary<string, DatabaseBuilderInfo>();
 
         public Dictionary<string, Type> Aliases { get; set; } = new Dictionary<string, Type>();
         public Dictionary<Type, TableInfo> LoadedTableInfo { get; set; } = new Dictionary<Type, TableInfo>();
-        public List<WhereGroup>? Wheres { get; set; } = null;
+        public List<IWhereRootGroup>? Wheres { get; set; } = null;
         public bool ReplaceWhereByParameters { get; set; } = false;
 
         public Dictionary<string, ParamsInfo> WhereParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>(); // type is the type of the variable to use
 
-        public DatabaseGenericBuilder(IDBStorage storage, Type? baseType = null) : base()
+        public DatabaseGenericBuilder(IDBStorage storage, IGenericDM DM, Type? baseType = null) : base()
         {
             Storage = storage;
+            this.DM = DM;
             // load basic info for the main class
             if (baseType == null)
             {

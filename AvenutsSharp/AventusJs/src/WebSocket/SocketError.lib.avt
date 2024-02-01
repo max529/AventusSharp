@@ -1,5 +1,5 @@
 
-namespace Socket {
+namespace WebSocket {
     export enum SocketErrorCode {
         socketClosed,
         timeout,

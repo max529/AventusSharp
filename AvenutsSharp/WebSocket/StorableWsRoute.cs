@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data;
+using AventusSharp.Tools;
 using AventusSharp.WebSocket.Attributes;
 using System;
 using System.Collections.Generic;
@@ -24,9 +25,9 @@ namespace AventusSharp.WebSocket
 
 
         [Path("/[StorableName]")]
-        public virtual ResultWithDataError<List<T>> GetAll()
+        public virtual ResultWithError<List<T>> GetAll()
         {
-            ResultWithDataError<List<T>> result = DM_GetAll();
+            ResultWithError<List<T>> result = DM_GetAll();
             if (result.Result != null)
             {
                 List<T> list = new();
@@ -38,36 +39,36 @@ namespace AventusSharp.WebSocket
             }
             return result;
         }
-        protected virtual ResultWithDataError<List<T>> DM_GetAll()
+        protected virtual ResultWithError<List<T>> DM_GetAll()
         {
-            return Storable<T>.GetAllWithError();
+            return Storable<T>.GetAllWithError().ToGeneric();
         }
 
         [Path("/[StorableName]"), Broadcast]
-        public virtual ResultWithDataError<T> Create(T item)
+        public virtual ResultWithError<T> Create(T item)
         {
             item = OnReceive(item);
-            ResultWithDataError<T> result = DM_Create(item);
+            ResultWithError<T> result = DM_Create(item);
             if (result.Result != null)
             {
                 result.Result = OnSend(item);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Create(T item)
+        protected virtual ResultWithError<T> DM_Create(T item)
         {
-            return Storable<T>.CreateWithError(item);
+            return Storable<T>.CreateWithError(item).ToGeneric();
         }
 
         [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithDataError<List<T>> CreateMany(List<T> list)
+        public virtual ResultWithError<List<T>> CreateMany(List<T> list)
         {
             List<T> _list = new();
             foreach (T item in list)
             {
                 _list.Add(OnReceive(item));
             }
-            ResultWithDataError<List<T>> result = DM_CreateMany(_list);
+            ResultWithError<List<T>> result = DM_CreateMany(_list);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
@@ -80,52 +81,52 @@ namespace AventusSharp.WebSocket
 
             return result;
         }
-        protected virtual ResultWithDataError<List<T>> DM_CreateMany(List<T> list)
+        protected virtual ResultWithError<List<T>> DM_CreateMany(List<T> list)
         {
-            return Storable<T>.CreateWithError(list);
+            return Storable<T>.CreateWithError(list).ToGeneric();
         }
 
         [Path("/[StorableName]/{id}")]
-        public virtual ResultWithDataError<T> GetById(int id)
+        public virtual ResultWithError<T> GetById(int id)
         {
-            ResultWithDataError<T> result = DM_GetById(id);
+            ResultWithError<T> result = DM_GetById(id);
             if (result.Result != null)
             {
                 result.Result = OnSend(result.Result);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_GetById(int id)
+        protected virtual ResultWithError<T> DM_GetById(int id)
         {
-            return Storable<T>.GetByIdWithError(id);
+            return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
         [Path("/[StorableName]/{id}"), Broadcast]
-        public virtual ResultWithDataError<T> Update(int id, T item)
+        public virtual ResultWithError<T> Update(int id, T item)
         {
             item.Id = id;
             item = OnReceive(item);
-            ResultWithDataError<T> result = DM_Update(item);
+            ResultWithError<T> result = DM_Update(item);
             if (result.Result != null)
             {
                 result.Result = OnSend(item);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Update(T item)
+        protected virtual ResultWithError<T> DM_Update(T item)
         {
-            return Storable<T>.UpdateWithError(item);
+            return Storable<T>.UpdateWithError(item).ToGeneric();
         }
 
         [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithDataError<List<T>> UpdateMany(List<T> list)
+        public virtual ResultWithError<List<T>> UpdateMany(List<T> list)
         {
             List<T> _list = new();
             foreach (T item in list)
             {
                 _list.Add(OnReceive(item));
             }
-            ResultWithDataError<List<T>> result = DM_UpdateMany(_list);
+            ResultWithError<List<T>> result = DM_UpdateMany(_list);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
@@ -139,30 +140,30 @@ namespace AventusSharp.WebSocket
             return result;
         }
 
-        protected virtual ResultWithDataError<List<T>> DM_UpdateMany(List<T> list)
+        protected virtual ResultWithError<List<T>> DM_UpdateMany(List<T> list)
         {
-            return Storable<T>.UpdateWithError(list);
+            return Storable<T>.UpdateWithError(list).ToGeneric();
         }
 
         [Path("/[StorableName]/{id}"), Broadcast]
-        public virtual ResultWithDataError<T> Delete(int id)
+        public virtual ResultWithError<T> Delete(int id)
         {
-            ResultWithDataError<T> result = DM_Delete(id);
+            ResultWithError<T> result = DM_Delete(id);
             if (result.Result != null)
             {
                 result.Result = OnSend(result.Result);
             }
             return result;
         }
-        protected virtual ResultWithDataError<T> DM_Delete(int id)
+        protected virtual ResultWithError<T> DM_Delete(int id)
         {
-            return Storable<T>.DeleteWithError(id);
+            return Storable<T>.DeleteWithError(id).ToGeneric();
         }
 
         [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithDataError<List<T>> DeleteMany(List<int> ids)
+        public virtual ResultWithError<List<T>> DeleteMany(List<int> ids)
         {
-            ResultWithDataError<List<T>> result = DM_DeleteMany(ids);
+            ResultWithError<List<T>> result = DM_DeleteMany(ids);
             if (result.Result != null)
             {
                 List<T> listTemp = new();
@@ -176,9 +177,9 @@ namespace AventusSharp.WebSocket
             return result;
         }
 
-        protected virtual ResultWithDataError<List<T>> DM_DeleteMany(List<int> ids)
+        protected virtual ResultWithError<List<T>> DM_DeleteMany(List<int> ids)
         {
-            return Storable<T>.DeleteWithError(ids);
+            return Storable<T>.DeleteWithError(ids).ToGeneric();
         }
 
 

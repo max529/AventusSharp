@@ -1,0 +1,16 @@
+import { EndPoint } from "./EndPoint.lib.avt";
+
+namespace WebSocket {
+
+    export interface WsRouteSendOptions {
+        uid?: string, 
+        timeout?: number
+    }
+
+    export class Route {
+        public readonly endpoint: EndPoint;
+        public constructor(endpoint: EndPoint) {
+            this.endpoint = endpoint;
+        }
+    }
+}

@@ -28,13 +28,11 @@ namespace AventusSharp.Data.Manager.DB.Builders
         public Dictionary<string, ParamsInfo> UpdateParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>();
 
         public DatabaseUpdateBuilderInfo? Query { get; set; }
-        private readonly IGenericDM DM;
         private readonly bool NeedUpdateField;
         public bool AllFieldsUpdate { get; private set; } = true;
 
-        public DatabaseUpdateBuilder(IDBStorage storage, IGenericDM dm, bool needUpdateField, Type? baseType = null) : base(storage, baseType)
+        public DatabaseUpdateBuilder(IDBStorage storage, IGenericDM dm, bool needUpdateField, Type? baseType = null) : base(storage, dm, baseType)
         {
-            DM = dm;
             NeedUpdateField = needUpdateField;
         }
 
@@ -80,7 +78,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
             {
                 result.Errors.AddRange(resultTemp.Errors);
             }
-
+            DM.PrintErrors(result);
             return result;
         }
 
@@ -106,6 +104,8 @@ namespace AventusSharp.Data.Manager.DB.Builders
             }
             else
                 result.Errors.AddRange(resultTemp.Errors);
+            
+            DM.PrintErrors(result);
             return result;
 
         }

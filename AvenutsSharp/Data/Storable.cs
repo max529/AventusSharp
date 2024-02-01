@@ -51,22 +51,24 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetAllWithError<T>();
         }
-        public static IQueryBuilder<T>? StartQuery()
+        public static IQueryBuilder<T> StartQuery()
         {
             return GenericDM.Get<T>().CreateQuery<T>();
         }
-        public static IUpdateBuilder<T>? StartUpdate()
+        public static IUpdateBuilder<T> StartUpdate()
         {
-            IUpdateBuilder<T>? result = GenericDM.Get<T>().CreateUpdate<T>();
-            return result;
+            return GenericDM.Get<T>().CreateUpdate<T>();
         }
-        public static IDeleteBuilder<T>? StartDelete()
+        public static IDeleteBuilder<T> StartDelete()
         {
-            IDeleteBuilder<T>? result = GenericDM.Get<T>().CreateDelete<T>();
-            return result;
+            return GenericDM.Get<T>().CreateDelete<T>();
+        }
+        public static IExistBuilder<T> StartExist()
+        {
+            return GenericDM.Get<T>().CreateExist<T>();
         }
 
-        public static T GetById(int id)
+        public static T? GetById(int id)
         {
             return GenericDM.Get<T>().GetById<T>(id);
         }
@@ -191,7 +193,6 @@ namespace AventusSharp.Data
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            error.Print();
             return new List<DataError>() { error };
         }
         #endregion
@@ -282,7 +283,6 @@ namespace AventusSharp.Data
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            error.Print();
             return new List<DataError>() { error };
         }
         #endregion
@@ -425,7 +425,6 @@ namespace AventusSharp.Data
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            error.Print();
             return new List<DataError>() { error };
         }
         #endregion

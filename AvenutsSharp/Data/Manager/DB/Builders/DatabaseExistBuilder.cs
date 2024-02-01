@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data.Storage.Default;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -18,7 +19,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
     {
 
         public DatabaseExistBuilderInfo? info = null;
-        public DatabaseExistBuilder(IDBStorage storage, Type? baseType = null) : base(storage, baseType)
+        public DatabaseExistBuilder(IDBStorage storage, IGenericDM DM, Type? baseType = null) : base(storage, DM, baseType)
         {
 
         }
@@ -56,7 +57,9 @@ namespace AventusSharp.Data.Manager.DB.Builders
 
         public ResultWithDataError<bool> RunWithError()
         {
-            return Storage.ExistFromBuilder(this);
+            ResultWithDataError<bool> result = Storage.ExistFromBuilder(this);
+            DM.PrintErrors(result);
+            return result;
         }
 
     }

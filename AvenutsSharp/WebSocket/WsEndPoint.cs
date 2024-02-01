@@ -15,20 +15,23 @@ namespace AventusSharp.WebSocket
 {
     public interface IWsEndPoint
     {
-        string Path();
+        string Path { get; }
+        string DefinePath();
 
         bool Main();
     }
-    
+
     [NoTypescript]
     public abstract class WsEndPoint : IWsEndPoint
     {
-       
+
 
         internal Dictionary<string, WebSocketRouteInfo> routesInfo = new Dictionary<string, WebSocketRouteInfo>();
         private readonly List<WebSocketConnection> connections = new();
         private readonly List<Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>>> middlewares = new();
         internal JsonConverter converter;
+        public string Path { get; }
+
         public WsEndPoint()
         {
             Configure();
@@ -36,8 +39,9 @@ namespace AventusSharp.WebSocket
             {
                 converter = WebSocketMiddleware.config.CustomJSONConverter;
             }
+            Path = DefinePath();
         }
-        public abstract string Path();
+        public abstract string DefinePath();
 
         public virtual bool Main()
         {
@@ -87,6 +91,14 @@ namespace AventusSharp.WebSocket
             {
                 WebSocketConnection connection = new(context, webSocket, this);
                 connections.Add(connection);
+                try
+                {
+                    await OnConnectionOpen(connection);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
                 await connection.Start();
             }
             else
@@ -95,16 +107,22 @@ namespace AventusSharp.WebSocket
                 webSocket.Abort();
             }
         }
+
+        protected virtual Task OnConnectionOpen(WebSocketConnection connection)
+        {
+            return Task.CompletedTask;
+        }
         /// <summary>
         /// Remove connection of WS 
         /// </summary>
         /// <param name="connection"></param>
-        public void RemoveInstance(WebSocketConnection connection)
+        public async void RemoveInstance(WebSocketConnection connection)
         {
             try
             {
                 if (connections.Contains(connection))
                 {
+                    await OnConnectionClose(connection);
                     connections.Remove(connection);
                 }
             }
@@ -122,14 +140,18 @@ namespace AventusSharp.WebSocket
             }
 
         }
+        protected virtual Task OnConnectionClose(WebSocketConnection connection)
+        {
+            return Task.CompletedTask;
+        }
 
 
         /// <summary>
         /// This function is called to route to request to correct route
         /// </summary>
         /// <param name="connection"></param>
-        /// <param name="channel"></param>
-        /// <param name="data"></param>
+        /// <param name="path"></param>
+        /// <param name="body"></param>
         /// <param name="uid"></param>
         /// <returns></returns>
         public async Task Route(WebSocketConnection connection, string path, WebSocketRouterBody body, string uid = "")
@@ -164,7 +186,7 @@ namespace AventusSharp.WebSocket
                         {
                             if (parameter.positionUrl == -1)
                             {
-                                if(wellKnowned.ContainsKey(parameter.type))
+                                if (wellKnowned.ContainsKey(parameter.type))
                                 {
                                     param[parameter.positionCSharp] = wellKnowned[parameter.type];
                                 }
@@ -243,7 +265,7 @@ namespace AventusSharp.WebSocket
                                 _event = new JsonEvent(o);
                             }
                         }
-                        _event.Configure(path, this, connection, uid, routeInfo.eventType);
+                        _event.Configure(path, this, connection, uid, routeInfo.eventType, routeInfo.CustomFct);
                         await _event.Emit();
                     }
                 }
@@ -256,15 +278,15 @@ namespace AventusSharp.WebSocket
         /// Dispatch a message to all active connections
         /// </summary>
         /// <param name="eventName"></param>
-        /// <param name="o"></param>
-        /// <param name="connectionsToAvoid"></param>
-        /// <param name="idsUser"></param>
+        /// <param name="data"></param>
+        /// <param name="uid"></param>
+        /// <param name="connections"></param>
+        /// <param name="omit"></param>
         /// <returns></returns>
-        private async Task Broadcast(string eventName, JObject o, string? uid = null, List<WebSocketConnection>? omit = null)
+        private async Task Broadcast(string eventName, string data, string? uid = null, List<WebSocketConnection>? connections = null, List<WebSocketConnection>? omit = null)
         {
             try
             {
-                string data = o.ToString(Formatting.None);
                 JObject toSend = new()
                 {
                     { "channel", eventName },
@@ -275,7 +297,7 @@ namespace AventusSharp.WebSocket
                     toSend.Add("uid", uid);
                 }
                 byte[] dataToSend = Encoding.UTF8.GetBytes(toSend.ToString(Formatting.None));
-                await Broadcast(dataToSend, omit);
+                await Broadcast(dataToSend, connections, omit);
             }
             catch (Exception e)
             {
@@ -283,15 +305,36 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        // <summary>
+        /// <summary>
         /// Dispatch a message to all active connections
         /// </summary>
         /// <param name="eventName"></param>
         /// <param name="o"></param>
-        /// <param name="connectionsToAvoid"></param>
-        /// <param name="idsUser"></param>
+        /// <param name="uid"></param>
+        /// <param name="connections"></param>
+        /// <param name="omit"></param>
         /// <returns></returns>
-        private async Task Broadcast(byte[] dataToSend, List<WebSocketConnection>? omit = null)
+        private async Task Broadcast(string eventName, JObject o, string? uid = null, List<WebSocketConnection>? connections = null, List<WebSocketConnection>? omit = null)
+        {
+            try
+            {
+                string data = o.ToString(Formatting.None);
+                await Broadcast(eventName, data, uid, connections, omit);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+        }
+
+        /// <summary>
+        /// Dispatch a message to all active connections
+        /// </summary>
+        /// <param name="dataToSend"></param>
+        /// <param name="connections"></param>
+        /// <param name="omit"></param>
+        /// <returns></returns>
+        private async Task Broadcast(byte[] dataToSend, List<WebSocketConnection>? connections = null, List<WebSocketConnection>? omit = null)
         {
             try
             {
@@ -299,6 +342,12 @@ namespace AventusSharp.WebSocket
                 {
                     omit = new();
                 }
+
+                if(connections == null)
+                {
+                    connections = this.connections;
+                }
+
                 for (int i = 0; i < connections.Count; i++)
                 {
                     WebSocketConnection conn = connections.ElementAt(i);
@@ -329,21 +378,24 @@ namespace AventusSharp.WebSocket
         /// Dispatch a message to all active connections
         /// </summary>
         /// <param name="eventName"></param>
-        /// <param name="o"></param>
-        /// <param name="connectionsToAvoid"></param>
-        /// <param name="idsUser"></param>
+        /// <param name="obj"></param>
+        /// <param name="uid"></param>
+        /// <param name="connections"></param>
+        /// <param name="omit"></param>
         /// <returns></returns>
-        public async Task Broadcast(string eventName, object? obj = null, string? uid = null, List<WebSocketConnection>? omit = null)
+        public async Task Broadcast(string eventName, object? obj = null, string? uid = null, List<WebSocketConnection>? connections = null, List<WebSocketConnection>? omit = null)
         {
             try
             {
-                JObject jObject = new JObject();
                 if (obj != null)
                 {
                     string json = JsonConvert.SerializeObject(obj, converter);
-                    jObject = JObject.Parse(json);
+                    await Broadcast(eventName, json, uid, connections, omit);
                 }
-                await Broadcast(eventName, jObject, uid, omit);
+                else
+                {
+                    await Broadcast(eventName, new JObject(), uid, connections, omit);
+                }
 
             }
             catch (Exception e)
@@ -357,7 +409,7 @@ namespace AventusSharp.WebSocket
     [NoTypescript]
     public sealed class DefaultWsEndPoint : WsEndPoint
     {
-        public override string Path()
+        public override string DefinePath()
         {
             return "/ws";
         }

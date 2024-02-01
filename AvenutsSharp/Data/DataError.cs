@@ -49,7 +49,8 @@ namespace AventusSharp.Data
         TooMuchMemberFound,
         TypeNotFound,
         ReverseLinkNotExist,
-        ErrorCreatingReverseQuery
+        ErrorCreatingReverseQuery,
+        LinkNotSet
     }
     
     

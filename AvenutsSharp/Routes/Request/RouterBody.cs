@@ -24,7 +24,7 @@ namespace AventusSharp.Routes.Request
 
         internal async Task<VoidWithRouteError> Parse()
         {
-            VoidWithRouteError result = new ();
+            VoidWithRouteError result = new();
             string? contentType = context.Request.ContentType?.ToLower();
             if (!string.IsNullOrEmpty(contentType))
             {
@@ -60,13 +60,14 @@ namespace AventusSharp.Routes.Request
                 {
                     int i = 0;
                     string fileNameToUse = fileName;
-                    while (files.ContainsKey(fileNameToUse))
-                    {
-                        List<string> splitted = fileName.Split(".").ToList();
-                        splitted.Insert(splitted.Count - 2, i + "");
-                        i++;
-                        fileNameToUse = string.Join(".", splitted);
-                    }
+                    //while (files.ContainsKey(fileNameToUse))
+                    //{
+                    //    List<string> splitted = fileName.Split(".").ToList();
+                    //    splitted.Insert(splitted.Count - 2, i + "");
+                    //    i++;
+                    //    fileNameToUse = string.Join(".", splitted);
+                    //}
+
                     if (partNumber == 0)
                     {
                         if (!files.ContainsKey(fileNameToUse))
@@ -81,27 +82,22 @@ namespace AventusSharp.Routes.Request
                             {
                                 File.Delete(filePath);
                             }
-                            HttpFile file = new HttpFile(name, filePath, type, new FileStream(filePath, FileMode.Create));
+                            HttpFile file = new HttpFile(fileName, filePath, type, new FileStream(filePath, FileMode.Create));
                             files.Add(fileNameToUse, file);
                         }
                     }
                     files[fileNameToUse].stream.Write(buffer, 0, bytes);
 
                 };
-                parser.StreamClosedHandler += () =>
-                {
-                    foreach (HttpFile file in files.Values)
-                    {
-
-                        file.stream.Close();
-                        file.stream.Dispose();
-                    }
-                };
 
                 // You can parse synchronously:
                 await parser.RunAsync();
+                foreach (HttpFile file in files.Values)
+                {
+                    file.stream.Close();
+                    file.stream.Dispose();
+                }
                 data = JObject.Parse("{" + string.Join(",", bodyJSON.Select(p => "\"" + p.Key + "\":\"" + p.Value + "\"")) + "}");
-
             }
             catch (Exception e)
             {
@@ -117,7 +113,7 @@ namespace AventusSharp.Routes.Request
             {
                 context.Request.EnableBuffering();
                 string jsonString = String.Empty;
-                
+
                 context.Request.Body.Position = 0;
                 using (var inputStream = new StreamReader(context.Request.Body))
                 {
@@ -153,7 +149,7 @@ namespace AventusSharp.Routes.Request
         /// <returns></returns>
         public ResultWithRouteError<object> GetData(Type type, string propPath)
         {
-            ResultWithRouteError<object> result = new ();
+            ResultWithRouteError<object> result = new();
             //try
             //{
             //    object? temp = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(data), new JsonSerializerSettings { 
@@ -190,9 +186,10 @@ namespace AventusSharp.Routes.Request
                 object? temp = JsonConvert.DeserializeObject(
                     JsonConvert.SerializeObject(dataToUse),
                     type,
-                    new JsonSerializerSettings { 
-                        TypeNameHandling = TypeNameHandling.Auto, 
-                        NullValueHandling = NullValueHandling.Ignore 
+                    new JsonSerializerSettings
+                    {
+                        TypeNameHandling = TypeNameHandling.Auto,
+                        NullValueHandling = NullValueHandling.Ignore
                     }
                 );
                 if (temp != null)

@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 
 namespace AventusSharp.Routes.Attributes
 {
-    
+
     [AttributeUsage(AttributeTargets.Method)]
     public class Path : Attribute
     {
@@ -10,6 +11,14 @@ namespace AventusSharp.Routes.Attributes
         public Path(string pattern)
         {
             this.pattern = pattern;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class PathRegex : Path
+    {
+        public PathRegex(string pattern) :base("°" + pattern + "°")
+        {
         }
     }
 }

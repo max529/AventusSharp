@@ -23,7 +23,6 @@ namespace AventusSharp.Data.Manager.DB.Builders
     }
     public class DatabaseDeleteBuilder<T> : DatabaseGenericBuilder<T>, ILambdaTranslatable, IDeleteBuilder<T> where T : IStorable
     {
-        private readonly IGenericDM DM;
         private readonly bool NeedDeleteField;
 
         private readonly Dictionary<string, object?> parameters = new();
@@ -33,11 +32,10 @@ namespace AventusSharp.Data.Manager.DB.Builders
         public DatabaseQueryBuilder<T> queryBuilder;
 
 
-        public DatabaseDeleteBuilder(IDBStorage storage, IGenericDM dm, bool needDeleteField, Type? baseType = null) : base(storage, baseType)
+        public DatabaseDeleteBuilder(IDBStorage storage, IGenericDM dm, bool needDeleteField, Type? baseType = null) : base(storage, dm, baseType)
         {
-            DM = dm;
             NeedDeleteField = needDeleteField;
-            queryBuilder = new DatabaseQueryBuilder<T>(storage);
+            queryBuilder = new DatabaseQueryBuilder<T>(storage, dm);
         }
 
 
@@ -74,7 +72,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
             {
                 result.Errors.AddRange(result.Errors);
             }
-
+            DM.PrintErrors(result);
             return result;
         }
 

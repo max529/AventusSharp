@@ -9,7 +9,7 @@ namespace Routes {
 	}
 
 	@Convertible()
-	export class RouteError extends Aventus.GenericError<RouteErrorCode>  {
+	export class RouteError extends Aventus.GenericError<typeof RouteErrorCode>  {
 		public static get Fullname(): string { return "AventusSharp.Routes.RouteError, AventusSharp"; }
 	}
 

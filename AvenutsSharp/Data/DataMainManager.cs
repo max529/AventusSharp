@@ -45,7 +45,12 @@ namespace AventusSharp.Data
         public bool monitorManagerOrdered = false;
         public bool monitorDataOrdering = false;
         public bool monitorDataOrdered = false;
+        /// <summary>
+        /// Print all errors from storable action in the console
+        /// </summary>
+        public bool printErrorInConsole = false;
     }
+    
     public static class DataMainManager
     {
         static internal DataManagerConfig Config { get; private set; } = new DataManagerConfig();

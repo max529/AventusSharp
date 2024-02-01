@@ -1,16 +1,22 @@
 import type { SocketRoute } from "./ISocket.lib.avt";
-import { WsEndPoint } from "./WsEndPoint.lib.avt";
+import { EndPoint } from "./EndPoint.lib.avt";
 
-namespace Socket {
-    export abstract class WsEvent<T extends any = any> {
-        protected endpoint: WsEndPoint;
+namespace WebSocket {
+    export abstract class Event<T extends any = any> {
+        protected endpoint: EndPoint;
 
-        public onTrigger: Aventus.Callback<(item: T, params: Aventus.Uri.UriParamsValue) => void> = new Aventus.Callback();
+        public onTrigger: Aventus.Callback<(item: T, params: Aventus.UriParamsValue) => void> = new Aventus.Callback();
 
         protected routeInfo: SocketRoute<T>;
 
-        public constructor(endpoint: WsEndPoint) {
+        protected _listening: boolean = false;
+        public get listening(): boolean {
+            return this._listening;
+        }
+
+        public constructor(endpoint: EndPoint) {
             this.endpoint = endpoint;
+            this.onEvent = this.onEvent.bind(this);
             this.routeInfo = {
                 channel: this.path(),
                 callback: this.onEvent
@@ -37,19 +43,24 @@ namespace Socket {
         /**
          * Add the event to the endpoint. After that, the on trigger event can be triggered
          */
-        protected listen() {
-            this.endpoint.addRoute(this.routeInfo);
+        public listen() {
+            if(!this._listening) {
+                this._listening = true;
+                this.endpoint.addRoute(this.routeInfo);
+            }
         }
 
         /**
          * Remove the event from the endpoint. After that, the on trigger event won't be triggered
          */
-        protected close() {
-            this.endpoint.removeRoute(this.routeInfo);
+        public stop() {
+            if(this._listening) {
+                this._listening = false;
+                this.endpoint.removeRoute(this.routeInfo);
+            }
         }
 
-        @BindThis()
-        protected onEvent(data: T, params: Aventus.Uri.UriParamsValue) {
+        protected onEvent(data: T, params: Aventus.UriParamsValue) {
             this.onTrigger.trigger([data, params]);
         }
 

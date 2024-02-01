@@ -2,7 +2,9 @@
 
 namespace AventusSharp.WebSocket.Attributes
 {
-
+    /// <summary>
+    /// Determine if the typescript must start listening this event when the connection open
+    /// </summary>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
     public class ListenOnBoot : Attribute
     {

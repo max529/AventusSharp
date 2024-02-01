@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using AventusSharp.WebSocket.Attributes;
+using System;
+using System.Collections.Generic;
 
 namespace AventusSharp.WebSocket
 {
@@ -6,6 +8,7 @@ namespace AventusSharp.WebSocket
     {
         public List<string> pathes = new List<string>();
         public List<WsEndPoint> endPoints = new List<WsEndPoint>();
-        public WebSocketEventType eventType = WebSocketEventType.Response;
+        public ResponseTypeEnum eventType = ResponseTypeEnum.Single;
+        public Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? CustomFct;
     }
 }

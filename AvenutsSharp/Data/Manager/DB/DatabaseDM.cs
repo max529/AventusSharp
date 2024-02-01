@@ -194,7 +194,7 @@ namespace AventusSharp.Data.Manager.DB
         #region Get
         public override IQueryBuilder<X> CreateQuery<X>()
         {
-            return new DatabaseQueryBuilder<X>(Storage) { UseShortObject = false };
+            return new DatabaseQueryBuilder<X>(Storage, this) { UseShortObject = false };
         }
 
         private readonly Dictionary<Type, object> savedGetAllQuery = new();
@@ -255,7 +255,7 @@ namespace AventusSharp.Data.Manager.DB
             Type x = typeof(X);
             if (!savedGetAllQuery.ContainsKey(x))
             {
-                savedGetAllQuery[x] = new DatabaseQueryBuilder<X>(Storage);
+                savedGetAllQuery[x] = new DatabaseQueryBuilder<X>(Storage, this);
             }
             return ((DatabaseQueryBuilder<X>)savedGetAllQuery[x]).RunWithError();
         }
@@ -295,13 +295,13 @@ namespace AventusSharp.Data.Manager.DB
             Type x = typeof(X);
             if (!savedGetByIdQuery.ContainsKey(x))
             {
-                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
+                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage, this);
                 queryBuilderTemp.WhereWithParameters(i => i.Id == id);
                 savedGetByIdQuery[x] = queryBuilderTemp;
             }
 
             DatabaseQueryBuilder<X> queryBuilder = (DatabaseQueryBuilder<X>)savedGetByIdQuery[x];
-            queryBuilder.SetVariable(Storable.Id, id);
+            queryBuilder.SetVariable("id", id);
             ResultWithDataError<List<X>> resultTemp = queryBuilder.RunWithError();
 
             if (resultTemp.Success)
@@ -380,7 +380,7 @@ namespace AventusSharp.Data.Manager.DB
             Type x = typeof(X);
             if (!savedGetByIdsQuery.ContainsKey(x))
             {
-                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage);
+                DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage, this);
                 queryBuilderTemp.WhereWithParameters(i => ids.Contains(i.Id));
                 savedGetByIdsQuery[x] = queryBuilderTemp;
             }
@@ -437,7 +437,7 @@ namespace AventusSharp.Data.Manager.DB
 
         public ResultWithDataError<List<X>> WhereWithErrorNoCache<X>(Expression<Func<X, bool>> func) where X : U
         {
-            DatabaseQueryBuilder<X> queryBuilder = new(Storage);
+            DatabaseQueryBuilder<X> queryBuilder = new(Storage, this);
             queryBuilder.Where(func);
             return queryBuilder.RunWithError();
         }
@@ -447,7 +447,7 @@ namespace AventusSharp.Data.Manager.DB
         #region Exist
         public override IExistBuilder<X> CreateExist<X>()
         {
-            return new DatabaseExistBuilder<X>(Storage);
+            return new DatabaseExistBuilder<X>(Storage, this);
         }
 
         #endregion
@@ -469,7 +469,7 @@ namespace AventusSharp.Data.Manager.DB
                     Type type = value.GetType();
                     if (!savedCreateQuery.ContainsKey(type))
                     {
-                        DatabaseCreateBuilder<X> query = new(Storage, type);
+                        DatabaseCreateBuilder<X> query = new(Storage, this, type);
                         savedCreateQuery[type] = query;
                     }
 

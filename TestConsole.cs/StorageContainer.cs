@@ -24,8 +24,8 @@ namespace TestConsole.cs
             MySQLStorage storage = new(new StorageCredentials(
                 host: "localhost",
                 database: "aventus",
-                username: "maxime",
-                password: "pass$1234"
+                username: "root",
+                password: ""
             )
             {
                 keepConnectionOpen = true,
@@ -48,8 +48,8 @@ namespace TestConsole.cs
             MySQLStorage storage = new(new StorageCredentials(
                 host: "localhost",
                 database: "aventus2",
-                username: "maxime",
-                password: "pass$1234"
+                username: "root",
+                password: ""
             )
             {
                 keepConnectionOpen = true,

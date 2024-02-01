@@ -56,7 +56,7 @@ namespace CSharpToTypescript.Container
                 throw new Exception("something went wrong on ws end point");
             }
 
-            path = endPoint.Path();
+            path = endPoint.Path;
             isMain = endPoint.Main();
         }
 

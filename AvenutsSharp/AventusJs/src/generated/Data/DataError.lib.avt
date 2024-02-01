@@ -40,11 +40,12 @@ namespace Data {
 		TooMuchMemberFound,
 		TypeNotFound,
 		ReverseLinkNotExist,
-		ErrorCreatingReverseQuery
+		ErrorCreatingReverseQuery,
+		LinkNotSet
 	}
 
 	@Convertible()
-	export class DataError extends Aventus.GenericError<DataErrorCode>  {
+	export class DataError extends Aventus.GenericError<typeof DataErrorCode>  {
 		public static get Fullname(): string { return "AventusSharp.Data.DataError, AventusSharp"; }
 	}
 

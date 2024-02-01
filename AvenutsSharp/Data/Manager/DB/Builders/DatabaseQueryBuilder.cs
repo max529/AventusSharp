@@ -23,7 +23,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
         public DatabaseQueryBuilderInfo? info = null;
         public bool UseShortObject { get; set; } = true;
 
-        public DatabaseQueryBuilder(IDBStorage storage) : base(storage)
+        public DatabaseQueryBuilder(IDBStorage storage, IGenericDM DM) : base(storage, DM)
         {
 
         }
@@ -39,7 +39,10 @@ namespace AventusSharp.Data.Manager.DB.Builders
         }
         public ResultWithDataError<List<T>> RunWithError()
         {
-            return Storage.QueryFromBuilder(this);
+            var result = Storage.QueryFromBuilder(this);
+            DM.PrintErrors(result);
+            return result;
+            
         }
 
         public IQueryBuilder<T> Where(Expression<Func<T, bool>> expression)

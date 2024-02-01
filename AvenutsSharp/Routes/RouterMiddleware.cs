@@ -12,6 +12,7 @@ using AventusSharp.Routes.Response;
 using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
+using Scriban.Syntax;
 
 namespace AventusSharp.Routes
 {
@@ -65,6 +66,16 @@ namespace AventusSharp.Routes
                         routerInstances[t] = routerTemp;
                     }
 
+                    List<Attribute> routeAttributes = t.GetCustomAttributes().ToList();
+                    string prefix = "";
+                    foreach (Attribute routeAttribute in routeAttributes)
+                    {
+                        if (routeAttribute is Prefix prefixAttr)
+                        {
+                            prefix = prefixAttr.txt;
+                        }
+                    }
+
                     List<MethodInfo> methods = t.GetMethods()
                                                 //.Where(p => p.GetCustomAttributes().Where(p1 => p1 is Attributes.Path).Count() > 0)
                                                 .ToList();
@@ -91,10 +102,12 @@ namespace AventusSharp.Routes
                         List<MethodType> methodsToUse = new List<MethodType>();
                         foreach (Attribute methodAttribute in methodsAttribute)
                         {
-                            if (methodAttribute is Attributes.Path pathAttr) {
-                                if (!routes.Contains(pathAttr.pattern))
+                            if (methodAttribute is Attributes.Path pathAttr)
+                            {
+                                string pattern = prefix + pathAttr.pattern;
+                                if (!routes.Contains(pattern))
                                 {
-                                    routes.Add(pathAttr.pattern);
+                                    routes.Add(pattern);
                                 }
                             }
                             else if (methodAttribute is Get) { methodsToUse.Add(MethodType.Get); }
@@ -107,7 +120,7 @@ namespace AventusSharp.Routes
                         {
                             methodsToUse.Add(MethodType.Get);
                         }
-                        if(routes.Count == 0)
+                        if (routes.Count == 0)
                         {
                             string defaultName = Tools.GetDefaultMethodUrl(method);
                             routes.Add(defaultName);
@@ -116,27 +129,33 @@ namespace AventusSharp.Routes
                         {
                             foreach (MethodType methodType in methodsToUse)
                             {
+
                                 Dictionary<string, RouterParameterInfo> @params = fctParams.ToDictionary(p => p.name, p => p);
                                 string urlPattern = route;
-
-                                Regex regex = transformPattern(urlPattern, @params, t);
-
-                                RouteInfo info = new RouteInfo(regex, methodType, method, routerInstances[t], parameters.Length);
-                                info.parameters = @params;
-
-
-                                if (!routesInfo.ContainsKey(info.UniqueKey))
+                                try
                                 {
-                                    if (config.PrintRoute)
-                                        Console.WriteLine("Add " + info.ToString());
-                                    routesInfo.Add(info.UniqueKey, info);
+                                    Regex regex = transformPattern(urlPattern, @params, t);
+                                    RouteInfo info = new RouteInfo(regex, methodType, method, routerInstances[t], parameters.Length);
+                                    info.parameters = @params;
+
+
+                                    if (!routesInfo.ContainsKey(info.UniqueKey))
+                                    {
+                                        if (config.PrintRoute)
+                                            Console.WriteLine("Add http : " + info.ToString());
+                                        routesInfo.Add(info.UniqueKey, info);
+                                    }
+                                    else
+                                    {
+                                        if (config.PrintRoute)
+                                            Console.WriteLine("Add http : " + info.ToString());
+                                        RouteInfo otherInfo = routesInfo[info.UniqueKey];
+                                        throw new Exception(info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")");
+                                    }
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    if (config.PrintRoute)
-                                        Console.WriteLine("Add " + info.ToString());
-                                    RouteInfo otherInfo = routesInfo[info.UniqueKey];
-                                    throw new Exception(info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")");
+                                    Console.WriteLine(e);
                                 }
                             }
                         }
@@ -151,6 +170,9 @@ namespace AventusSharp.Routes
         }
         public static Regex PrepareUrl(string urlPattern, Dictionary<string, RouterParameterInfo> @params, Type t)
         {
+            if(urlPattern.StartsWith("°") && urlPattern.EndsWith("°")) {
+                return new Regex(urlPattern.Substring(1, urlPattern.Length - 2));
+            }
             urlPattern = ReplaceParams(urlPattern, @params);
             urlPattern = ReplaceFunction(urlPattern, t);
             Regex regex = PrepareRegex(urlPattern);
@@ -165,7 +187,7 @@ namespace AventusSharp.Routes
                 {
                     string value = match.Value.Replace("[", "").Replace("]", "");
                     MethodInfo? method = t.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    if(method == null)
+                    if (method == null)
                     {
                         Console.WriteLine("Can't find method " + value + " on " + t.FullName);
                         continue;
@@ -221,6 +243,7 @@ namespace AventusSharp.Routes
             string replaceSlash = @"([a-zA-Z0-9_-]|^)\/";
             urlPattern = Regex.Replace(urlPattern, replaceSlash, "$1\\/");
             urlPattern = urlPattern.ToLower();
+
             return new Regex(urlPattern);
         }
 

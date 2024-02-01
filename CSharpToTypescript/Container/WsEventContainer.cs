@@ -167,7 +167,7 @@ namespace CSharpToTypescript.Container
             AddTxt("/**", result);
             AddTxt(" * @inheritdoc", result);
             AddTxt(" */", result);
-            AddTxtOpen("protected override get path(): string {", result);
+            AddTxtOpen("protected override path(): string {", result);
             AddTxt("return `" + eventPath+"`;", result);
             AddTxtClose("}", result);
 

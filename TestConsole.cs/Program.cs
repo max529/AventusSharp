@@ -5,6 +5,8 @@ using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Mysql;
 using AventusSharp.Tools;
 using AventusSharp.WebSocket;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +14,8 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using TestConsole.cs;
 using TestConsole.cs.Data;
+using TestConsole.cs.Data.Abstract;
+
 
 StorageContainer.Init();
 
@@ -24,6 +28,7 @@ DataMainManager.Configure(config =>
     config.nullByDefault = false;
     config.log.monitorDataOrdered = true;
     config.log.monitorManagerOrdered = true;
+    config.log.printErrorInConsole = true;
 });
 
 Task<VoidWithDataError> registeringProcess = DataMainManager.Init();
@@ -40,97 +45,141 @@ if (!appResult.Success)
     return;
 }
 
-if (false)
+new Cat()
 {
-    Tag tag1 = new Tag()
-    {
-        Name = "Tag1"
-    };
-    var t1 = tag1.CreateWithError();
+    color = "r",
+    name = "111",
+    test = true,
+    
+}.Create();
 
-    Tag tag2 = new Tag()
-    {
-        Name = "Tag2"
-    };
-    t1 = tag2.CreateWithError();
-
-    Product p = new Product()
-    {
-        Name = "Product",
-        //    Tags = new List<Tag>()
-        //{
-        //    tag1, tag2
-        //}
-        tag = tag1
-    };
-    t1 = p.CreateWithError();
-
-    t1 = p.UpdateWithError();
-
-    t1 = p.DeleteWithError();
-
-    //var ps = Product.GetAllWithError();
-    return;
-}
-
-if (false)
+new Cat()
 {
-    Desktop.StartQuery().Where(x => x.Positions.Any(p => p.Position == 0));
-    Desktop.StartQuery().Where(x => x.Positions.All(p => p.Position == 0));
-    Desktop.StartQuery().Where(x => x.Positions.Exists(p => p.Position == 0));
-    Desktop.StartQuery().Where(x => x.Positions.TrueForAll(p => p.Position == 0));
-    Desktop.StartQuery().Where(x => x.Positions.Count() == 0);
-    Desktop.StartQuery().Where(x => x.Positions.Where(p => p.Position == 0).Count() > 0);
-    return;
-}
+    color = "g",
+    name = "2222",
+    test = false,
 
-if (true)
-{
-    new Application()
-    {
-        Name = "My app"
-    }.Create();
+}.Create();
+Animal<IAnimal>.Where(p => !p.test);
+Animal<IAnimal>.Where(p => p.test != true);
+Animal<IAnimal>.Where(p => p.Id == 1 && !p.test);
+Animal<IAnimal>.Where(p => !p.test && p.Id == 1);
 
-    var d = new Desktop()
-    {
-        Name = "My Desktop",
-        Positions = new List<DesktopPosition>()
-    {
-        new DesktopPosition()
-        {
-            ApplicationId = 1,
-        }
-    }
-    };
-    d.Create();
+//if (false)
+//{
+//    Tag tag1 = new Tag()
+//    {
+//        Name = "Tag1"
+//    };
+//    var t1 = tag1.CreateWithError();
 
-    d.Positions.Add(new DesktopPosition()
-    {
-        ApplicationId = 1,
-        Position = 2
-    });
-    d.Positions[0].Position = 1;
-    d.Update();
+//    Tag tag2 = new Tag()
+//    {
+//        Name = "Tag2"
+//    };
+//    t1 = tag2.CreateWithError();
+
+//    Product p = new Product()
+//    {
+//        Name = "Product",
+//        //    Tags = new List<Tag>()
+//        //{
+//        //    tag1, tag2
+//        //}
+//        tag = tag1
+//    };
+//    t1 = p.CreateWithError();
+
+//    t1 = p.UpdateWithError();
+
+//    t1 = p.DeleteWithError();
+
+//    //var ps = Product.GetAllWithError();
+//    return;
+//}
+
+//if (false)
+//{
+//    Desktop.StartQuery().Where(x => x.Positions.Any(p => p.Position == 0));
+//    Desktop.StartQuery().Where(x => x.Positions.All(p => p.Position == 0));
+//    Desktop.StartQuery().Where(x => x.Positions.Exists(p => p.Position == 0));
+//    Desktop.StartQuery().Where(x => x.Positions.TrueForAll(p => p.Position == 0));
+//    Desktop.StartQuery().Where(x => x.Positions.Count() == 0);
+//    Desktop.StartQuery().Where(x => x.Positions.Where(p => p.Position == 0).Count() > 0);
+//    return;
+//}
+
+//if (false)
+//{
+//    new Application()
+//    {
+//        Name = "My app"
+//    }.Create();
+
+//    var d = new Desktop()
+//    {
+//        Name = "My Desktop",
+//        Positions = new List<DesktopPosition>()
+//    {
+//        new DesktopPosition()
+//        {
+//            ApplicationId = 1,
+//        }
+//    }
+//    };
+//    d.Create();
+
+//    d.Positions.Add(new DesktopPosition()
+//    {
+//        ApplicationId = 1,
+//        Position = 2
+//    });
+//    d.Positions[0].Position = 1;
+//    d.Update();
 
 
-    d.Positions.RemoveAt(0);
-    d.Update();
+//    d.Positions.RemoveAt(0);
+//    d.Update();
 
-    Console.WriteLine(d.Positions[0].Id);
+//    Console.WriteLine(d.Positions[0].Id);
 
-    //new DesktopPosition()
-    //{
-    //    ApplicationId = 1,
-    //    DesktopId = 1
-    //}.Create();
+//    //new DesktopPosition()
+//    //{
+//    //    ApplicationId = 1,
+//    //    DesktopId = 1
+//    //}.Create();
 
-    List<Desktop> result = Desktop.GetAll();
+//    List<Desktop> result = Desktop.GetAll();
 
-    var t1 = d.DeleteWithError();
+//    var t1 = d.DeleteWithError();
 
-    //List<Desktop> desktops = Desktop.GetAll();
-    Console.WriteLine("end");
-}
+//    //List<Desktop> desktops = Desktop.GetAll();
+//    Console.WriteLine("end");
+//}
+
+//if(false)
+//{
+//    User u1 = new User()
+//    {
+//        Name = "Maxime"
+//    };
+//    u1.Create();
+
+//    Permission p1 = new Permission()
+//    {
+//        Name = "Test"
+//    };
+//    p1.Create();
+
+//    new PermissionUser()
+//    {
+//        User = u1,
+//        Permission = p1
+//    }.Create();
+
+//    PermissionUser.StartQuery().Field(p => p.CreatedDate).Where(pu => pu.Permission.Id == 1 && pu.User.Id == 1).Run();
+//    bool can = PermissionUser.Exist(pu => pu.Permission.Id == 1 && pu.User.Id == 1);
+//}
 
 //#region Creation
 //Console.WriteLine("Creation ");

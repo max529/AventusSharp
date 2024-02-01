@@ -35,8 +35,9 @@ namespace CSharpToTypescript.Container
 
         private List<HttpRouteContainer> routes = new List<HttpRouteContainer>();
         public Type realType;
-        private List<Func<string>> additionalFcts = new();
+        private Dictionary<string, Func<string>> additionalFcts = new();
         public string routePath = "";
+        public string? prefix;
         public HttpRouterContainer(INamedTypeSymbol type) : base(type)
         {
             string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
@@ -53,7 +54,7 @@ namespace CSharpToTypescript.Container
             foreach (ISymbol symbol in type.GetMembers())
             {
 
-                if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor)
+                if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor && !methodSymbol.IsExtern && !methodSymbol.IsStatic)
                 {
                     routes.Add(new HttpRouteContainer(methodSymbol, realType, this));
                 }
@@ -65,6 +66,24 @@ namespace CSharpToTypescript.Container
             if (pathAttr is TypescriptPath tpath)
             {
                 routePath = tpath.path;
+            }
+            else if (ProjectManager.Config.httpRouter.autobindRoute != ProjectConfigHttpRouterRouteBind.none)
+            {
+                routePath = type.Name;
+                if (ProjectManager.Config.httpRouter.autobindRoute == ProjectConfigHttpRouterRouteBind.auto)
+                {
+                    routePath = routePath.Replace("Router", "").Replace("Route", "");
+                    if (routePath.ToLower() == "index" || routePath.ToLower() == "main")
+                    {
+                        routePath = "";
+                    }
+                }
+            }
+
+            Attribute? prefixAttr = realType.GetCustomAttributes().FirstOrDefault(p => p is Prefix);
+            if (prefixAttr is Prefix prefix)
+            {
+                this.prefix = prefix.txt;
             }
         }
 
@@ -83,6 +102,10 @@ namespace CSharpToTypescript.Container
                 result.Add(documentation);
             }
             AddTxtOpen(GetAccessibilityExport(type) + GetAbstract() + "class " + GetTypeName(type, 0, true) + " " + GetExtension() + "{", result);
+            if (prefix != null)
+            {
+                AddTxt("public override getPrefix(): string { return \"" + prefix + "\"; }", result);
+            }
             result.Add(GetContent());
             AddTxtClose("}", result);
             if (ProjectManager.Config.useNamespace && Namespace.Length > 0)
@@ -97,6 +120,9 @@ namespace CSharpToTypescript.Container
         {
             List<string> result = new();
             Dictionary<string, string> functionNeeded = new Dictionary<string, string>();
+
+            
+
             foreach (HttpRouteContainer route in routes)
             {
                 if (route.canBeAdded)
@@ -116,9 +142,12 @@ namespace CSharpToTypescript.Container
             {
                 result.Add(fct.Value);
             }
-            foreach (Func<string> fct in additionalFcts)
+            foreach (KeyValuePair<string, Func<string>> fct in additionalFcts)
             {
-                result.Add(fct());
+                if (!functionNeeded.ContainsKey(fct.Key))
+                {
+                    result.Add(fct.Value());
+                }
             }
             return string.Join("\r\n\r\n", result);
         }
@@ -231,7 +260,7 @@ namespace CSharpToTypescript.Container
                         AddTxtClose("}", resultTemp);
                         return string.Join("\r\n", resultTemp);
                     };
-                    additionalFcts.Add(getFct);
+                    additionalFcts.Add(method.Name, getFct);
                 }
             }
         }
@@ -251,7 +280,6 @@ namespace CSharpToTypescript.Container
             }
         }
 
-        
         protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.httpRouter, fullname, result);
@@ -275,6 +303,7 @@ namespace CSharpToTypescript.Container
         private List<string?> listReturns = new();
         private List<string?> listReturnsWithoutErrors = new();
         private Type? typeContainer;
+        private string overrideTxt = "";
 
         public bool AvoidResultError
         {
@@ -290,7 +319,9 @@ namespace CSharpToTypescript.Container
             this.methodSymbol = methodSymbol;
             this.@class = @class;
             this.name = methodSymbol.Name;
-            
+
+
+
             MethodInfo? methodTemp = Tools.GetMethodInfo(methodSymbol, @class);
             if (methodTemp == null || !methodTemp.IsPublic)
             {
@@ -299,14 +330,24 @@ namespace CSharpToTypescript.Container
             }
             method = methodTemp;
             canBeAdded = true;
-            LoadHttpMethod(methodSymbol);
+
+            if (method.GetCustomAttribute(typeof(NoTypescript)) != null)
+            {
+                canBeAdded = false;
+                return;
+            }
+            if (methodSymbol.IsOverride)
+            {
+                overrideTxt = "override ";
+            }
+            LoadHttpMethod(method);
 
             Attribute? attr = method.GetCustomAttribute(typeof(TypescriptName));
             if (attr != null)
             {
                 this.name = ((TypescriptName)attr).name;
             }
-            
+
 
             Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
             foreach (KeyValuePair<string, ParameterInfo> pair in @params)
@@ -335,7 +376,7 @@ namespace CSharpToTypescript.Container
             }
 
             Type returnType = method.ReturnType;
-            if(returnType == typeof(Task))
+            if (returnType == typeof(Task))
             {
                 returnType = typeof(void);
             }
@@ -350,11 +391,6 @@ namespace CSharpToTypescript.Container
                 if (returnType.GetInterfaces().Contains(typeof(IResponse)))
                 {
                     typeContainer = returnType;
-                    if (typeContainer == typeof(View))
-                    {
-                        canBeAdded = false;
-                        return;
-                    }
                 }
                 else if (returnType == typeof(IResponse))
                 {
@@ -403,50 +439,45 @@ namespace CSharpToTypescript.Container
                     }
                 }
 
-                if (typeContainer == null)
+                if (typeContainer == null || typeContainer == typeof(View) || typeContainer == typeof(ViewDynamic))
                 {
                     canBeAdded = false;
                 }
             }
+
+
         }
 
-        private void LoadHttpMethod(IMethodSymbol methodSymbol)
+        private void LoadHttpMethod(MethodInfo methodSymbol)
         {
-            List<AttributeData> attrs = methodSymbol.GetAttributes().ToList();
-            foreach (AttributeData attr in attrs)
+            List<object> attrs = methodSymbol.GetCustomAttributes(true).ToList();
+            foreach (object attr in attrs)
             {
-                if (attr.AttributeClass != null)
+                if (attr is Get && !httpMethods.Contains("get"))
                 {
-                    if (attr.AttributeClass.ToString() == typeof(Get).FullName)
-                    {
-                        httpMethods.Add("get");
-                    }
-                    else if (attr.AttributeClass.ToString() == typeof(Post).FullName)
-                    {
-                        httpMethods.Add("post");
-                    }
-                    else if (attr.AttributeClass.ToString() == typeof(Put).FullName)
-                    {
-                        httpMethods.Add("put");
-                    }
-                    else if (attr.AttributeClass.ToString() == typeof(Delete).FullName)
-                    {
-                        httpMethods.Add("delete");
-                    }
-                    else if (attr.AttributeClass.ToString() == typeof(Options).FullName)
-                    {
-                        httpMethods.Add("options");
-                    }
-                    else if (attr.AttributeClass.ToString() == typeof(AventusSharp.Routes.Attributes.Path).FullName)
-                    {
-                        Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
-                        if (attr.ConstructorArguments.Length == 1)
-                        {
-                            ParseRoute(attr.ConstructorArguments[0].Value?.ToString(), @params);
-                        }
-                    }
+                    httpMethods.Add("get");
                 }
-
+                else if (attr is Post && !httpMethods.Contains("post"))
+                {
+                    httpMethods.Add("post");
+                }
+                else if (attr is Put && !httpMethods.Contains("put"))
+                {
+                    httpMethods.Add("put");
+                }
+                else if (attr is Delete && !httpMethods.Contains("delete"))
+                {
+                    httpMethods.Add("delete");
+                }
+                else if (attr is Options && !httpMethods.Contains("options"))
+                {
+                    httpMethods.Add("options");
+                }
+                else if (attr is AventusSharp.Routes.Attributes.Path pathAttr)
+                {
+                    Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
+                    ParseRoute(pathAttr.pattern, @params);
+                }
             }
             if (httpMethods.Count == 0)
             {
@@ -458,6 +489,7 @@ namespace CSharpToTypescript.Container
                 ParseRoute(defaultName, new Dictionary<string, ParameterInfo>());
             }
         }
+
 
         private void ParseRoute(string? txtRoute, Dictionary<string, ParameterInfo> @params)
         {
@@ -503,7 +535,6 @@ namespace CSharpToTypescript.Container
             }
             return urlPattern;
         }
-
         public string ParseFunctions(string urlPattern)
         {
             MatchCollection matchingFct = new Regex("\\[.*?\\]").Matches(urlPattern);
@@ -553,7 +584,6 @@ namespace CSharpToTypescript.Container
             }
             return urlPattern;
         }
-
         private void AddTypeToListReturn(ISymbol type)
         {
             if (type is INamedTypeSymbol namedType)
@@ -645,7 +675,6 @@ namespace CSharpToTypescript.Container
                 }
             }
         }
-
         private void GetTypeFirstParameterType(ArgumentSyntax? argument)
         {
             if (argument == null)
@@ -697,46 +726,86 @@ namespace CSharpToTypescript.Container
 
             string @params = string.Join(", ", parametersUrlAndType.Select(p => p.Key + ": " + p.Value));
 
-            parent.AddTxtOpen(BaseContainer.GetAccessibility(methodSymbol) + "async " + name + "(" + @params + ") {", result);
-
-            parent.AddTxt("const request = new Aventus.HttpRequest(`" + route + "`, Aventus.HttpMethod." + this.httpMethods[0].ToUpper() + ");", result);
+            string fctDesc = BaseContainer.GetAccessibility(methodSymbol) + overrideTxt + "async " + name + "(" + @params + "): $resultType {";
+            string request = "const request = new Aventus.HttpRequest(`${this.getPrefix()}" + route + "`, Aventus.HttpMethod." + this.httpMethods[0].ToUpper() + ");";
+            string body = "";
             if (parametersBodyAndType.Count > 0)
             {
-                parent.AddTxt("request.setBody(" + bodyKey + ");", result);
+                body = "request.setBody(" + bodyKey + ");";
             }
-
-            if(typeContainer == null)
+            string returnTxt = "";
+            string typeTxt = "";
+            if (typeContainer == null)
             {
-                parent.AddTxt("return await request.queryVoid(this.router);", result);
+                returnTxt = "return await request.queryVoid(this.router);";
+                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
             }
             else if (typeContainer == typeof(Json))
             {
                 if (listReturns.Count == 0)
                 {
-                    parent.AddTxt("return await request.queryVoid(this.router);", result);
+                    returnTxt = "return await request.queryVoid(this.router);";
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
                 }
                 else if (listReturns.Count == 1 && new Regex("Aventus\\.VoidWithError(<|$)").IsMatch(listReturns[0] ?? ""))
                 {
-                    parent.AddTxt("return await request.queryVoid(this.router);", result);
+                    returnTxt = "return await request.queryVoid(this.router);";
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
                 }
                 else
                 {
-                    for (int i = 0; i < listReturns.Count; i++)
+                    List<string> realTypes = new List<string>();
+                    foreach (string? itemReturn in listReturns)
                     {
-                        listReturns[i] = new Regex("Aventus\\.GenericResultWithError<(.*?)>").Replace(listReturns[i] ?? "", "$1");
+                        if (itemReturn == null) continue;
+                        string item = itemReturn;
+                        item = new Regex("Aventus\\.GenericResultWithError<(.*?)>").Replace(itemReturn ?? "", "$1");
+                        if(item.EndsWith("?"))
+                        {
+                            item = item.Substring(0, item.Length - 1);
+                            realTypes.Add(item);
+                            if (!realTypes.Contains("undefined"))
+                            {
+                                realTypes.Add("undefined");
+                            }
+                        }
+                        else
+                        {
+                            realTypes.Add(item);
+                        }
                     }
-                    string typeReturn = string.Join(" | ", listReturns);
-                    parent.AddTxt("type TypeResult = " + typeReturn + ";", result);
-                    parent.AddTxt("return await request.queryJSON<TypeResult>(this.router);", result);
+                    
+                    string typeReturn = string.Join(" | ", realTypes);
+                    typeTxt = "type TypeResult = " + typeReturn + ";";
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<" + typeReturn + ", Aventus.GenericError<number>>>");
+                    returnTxt = "return await request.queryJSON<TypeResult>(this.router);";
                 }
 
             }
             else if (typeContainer == typeof(TextResponse))
             {
-                parent.AddTxt("return await request.queryTxt(this.router);", result);
+                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<string, Aventus.GenericError<number>>>");
+                returnTxt = "return await request.queryTxt(this.router);";
             }
 
+            fctDesc = fctDesc.Replace("$resultType", "any");
 
+
+
+            parent.AddTxtOpen(fctDesc, result);
+            parent.AddTxt(request, result);
+            if(!string.IsNullOrEmpty(body))
+            {
+                parent.AddTxt(body, result);
+            }
+            if (!string.IsNullOrEmpty(typeTxt))
+            {
+                parent.AddTxt(typeTxt, result);
+            }
+            if (!string.IsNullOrEmpty(returnTxt))
+            {
+                parent.AddTxt(returnTxt, result);
+            }
             parent.AddTxtClose("}", result);
 
 

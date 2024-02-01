@@ -20,7 +20,7 @@ namespace AventusSharp.Routes.Response
             this.viewName = viewName;
             this.model = model;
         }
-        async Task IResponse.send(HttpContext context)
+        public async Task send(HttpContext context)
         {
             string path = Path.Combine(directory, viewName);
             if (!path.EndsWith(".sbnhtml"))

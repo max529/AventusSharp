@@ -95,7 +95,7 @@ namespace AventusSharp.WebSocket
                                 {
                                     Console.WriteLine("on a reçu sur " + o["channel"], "onMessage");
                                 }
-                                string? channel = o["channel"]?.ToString();
+                                string? channel = o["channel"]?.ToString().ToLower();
                                 if (channel == null)
                                 {
                                     return;
@@ -141,12 +141,11 @@ namespace AventusSharp.WebSocket
         /// Send a msg though this connection
         /// </summary>
         /// <param name="eventName">Event name</param>
-        /// <param name="o">Object to send</param>
+        /// <param name="data">string to send</param>
         /// <param name="uid">Uid to identify request</param>
         /// <returns></returns>
-        private async Task Send(string eventName, JObject o, string? uid = null)
+        private async Task Send(string eventName, string data, string? uid = null)
         {
-            string data = o.ToString(Formatting.None);
             JObject toSend = new()
             {
                 { "channel", eventName },
@@ -160,11 +159,22 @@ namespace AventusSharp.WebSocket
 
             await Send(dataToSend);
         }
-
         /// <summary>
         /// Send a msg though this connection
         /// </summary>
         /// <param name="eventName">Event name</param>
+        /// <param name="o">Object to send</param>
+        /// <param name="uid">Uid to identify request</param>
+        /// <returns></returns>
+        private async Task Send(string eventName, JObject o, string? uid = null)
+        {
+            string data = o.ToString(Formatting.None);
+            await Send(eventName, data, uid);
+        }
+
+        /// <summary>
+        /// Send a msg though this connection
+        /// </summary>
         /// <param name="dataToSend">Object to send</param>
         /// <returns></returns>
         internal async Task Send(byte[] dataToSend)
@@ -186,18 +196,26 @@ namespace AventusSharp.WebSocket
                 this.instance.RemoveInstance(this);
             }
         }
-
+        /// <summary>
+        /// Send a msg though this connection
+        /// </summary>
+        /// <param name="eventName"></param>
+        /// <param name="obj"></param>
+        /// <param name="uid"></param>
+        /// <returns></returns>
         public async Task Send(string eventName, object? obj = null, string? uid = null)
         {
             try
             {
-                JObject jObject = new JObject();
                 if (obj != null)
                 {
                     string json = JsonConvert.SerializeObject(obj, instance.converter);
-                    jObject = JObject.Parse(json);
+                    await Send(eventName, json, uid);
                 }
-                await Send(eventName, jObject, uid);
+                else
+                {
+                    await Send(eventName, new JObject(), uid);
+                }
             }
             catch (Exception e)
             {
