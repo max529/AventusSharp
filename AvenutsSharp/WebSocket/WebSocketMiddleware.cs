@@ -36,6 +36,12 @@ namespace AventusSharp.WebSocket
             injected[o.GetType()] = o;
         }
 
+
+        public static async Task Stop() {
+            foreach(KeyValuePair<string, WsEndPoint> endpoint in endPointInstances) {
+                await endpoint.Value.Stop();
+            }
+        }
         public static VoidWithWsError Register()
         {
             Assembly? entry = Assembly.GetEntryAssembly();

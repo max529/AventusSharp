@@ -26,6 +26,8 @@ namespace AventusSharp.WebSocket
         private readonly WsEndPoint instance;
         private WebSocketReceiveResult? result;
 
+        private bool IsStopped = false;
+
         /// <summary>
         /// get context of the request
         /// </summary>
@@ -69,7 +71,7 @@ namespace AventusSharp.WebSocket
 
                 string msg = "";
 
-                while (!result.CloseStatus.HasValue)
+                while (!result.CloseStatus.HasValue && !IsStopped)
                 {
 
                     websocketHasError = false;
@@ -134,6 +136,16 @@ namespace AventusSharp.WebSocket
                 }
             }
             instance.RemoveInstance(this);
+        }
+
+        public async Task Close()
+        {
+            try
+            {
+                IsStopped = true;
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+            }
+            catch { }
         }
 
         #region Send

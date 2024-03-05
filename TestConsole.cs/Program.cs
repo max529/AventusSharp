@@ -14,7 +14,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using TestConsole.cs;
 using TestConsole.cs.Data;
-using TestConsole.cs.Data.Abstract;
+
 
 
 StorageContainer.Init();
@@ -45,25 +45,21 @@ if (!appResult.Success)
     return;
 }
 
-new Cat()
+PersonHuman p = new PersonHuman()
 {
-    color = "r",
-    name = "111",
-    test = true,
-    
-}.Create();
+    firstname = "Maxime",
+    lastname = "Bétrisey",
+    picture = new AventusFile()
+    {
+        Uri = "/monuri"
+    }
+};
 
-new Cat()
-{
-    color = "g",
-    name = "2222",
-    test = false,
+p.Create();
 
-}.Create();
-Animal<IAnimal>.Where(p => !p.test);
-Animal<IAnimal>.Where(p => p.test != true);
-Animal<IAnimal>.Where(p => p.Id == 1 && !p.test);
-Animal<IAnimal>.Where(p => !p.test && p.Id == 1);
+
+PersonHuman p1 = PersonHuman.GetById(1);
+Console.WriteLine();
 
 //if (false)
 //{

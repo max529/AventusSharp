@@ -64,7 +64,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return null;
         }
 
-        protected override void _SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string value)
         {
             // it's link
             if (string.IsNullOrEmpty(value))

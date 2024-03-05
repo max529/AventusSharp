@@ -307,11 +307,11 @@ namespace AventusSharp.Routes
                                             }
                                             if (parameter.type == typeof(HttpFile))
                                             {
-                                                value = body.GetFile();
+                                                value = body.GetFile(parameter.name);
                                             }
                                             else if (parameter.type == typeof(List<HttpFile>))
                                             {
-                                                value = body.GetFiles();
+                                                value = body.GetFiles(parameter.name);
                                             }
                                             else
                                             {

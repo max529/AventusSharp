@@ -4,7 +4,7 @@ using System.Data;
 
 namespace AventusSharp.Data.Storage.Default.TableMember
 {
-    public class CustomTableMemberInfoSql : TableMemberInfoSql, ITableMemberInfoSqlWritable
+    internal class CustomInternalTableMemberInfoSql : TableMemberInfoSql, ITableMemberInfoSqlWritable
     {
         public DbType SqlType { get; protected set; } = DbType.String;
 
@@ -12,7 +12,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         private Func<object, object?>? fctGetSQLValue;
         private Action<object, object?>? fctSetValue;
         private Action<object, object?>? fctSetSQLValue;
-        public CustomTableMemberInfoSql(string name, Type type, TableInfo tableInfo) : base(tableInfo)
+        public CustomInternalTableMemberInfoSql(string name, Type type, TableInfo tableInfo) : base(tableInfo)
         {
             _Name = name;
             _Type = type;
@@ -74,7 +74,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             }
             return GetValue(obj);
         }
-        protected override void _SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string value)
         {
             if (fctSetSQLValue != null)
             {

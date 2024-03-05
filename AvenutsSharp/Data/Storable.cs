@@ -23,13 +23,13 @@ namespace AventusSharp.Data
         public List<string> IsValid(StorableAction action);
 
         bool Create();
-        public List<DataError> CreateWithError();
+        public List<GenericError> CreateWithError();
 
         bool Update();
-        public List<DataError> UpdateWithError();
+        public List<GenericError> UpdateWithError();
 
         public bool Delete();
-        public List<DataError> DeleteWithError();
+        public List<GenericError> DeleteWithError();
     }
 
     [ForceInherit]
@@ -47,7 +47,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetAll<T>();
         }
-        public static ResultWithDataError<List<T>> GetAllWithError()
+        public static ResultWithError<List<T>> GetAllWithError()
         {
             return GenericDM.Get<T>().GetAllWithError<T>();
         }
@@ -72,7 +72,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetById<T>(id);
         }
-        public static ResultWithDataError<T> GetByIdWithError(int id)
+        public static ResultWithError<T> GetByIdWithError(int id)
         {
             return GenericDM.Get<T>().GetByIdWithError<T>(id);
         }
@@ -80,11 +80,11 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetByIds<T>(ids);
         }
-        public static ResultWithDataError<List<T>> GetByIdsWithError(List<int> ids)
+        public static ResultWithError<List<T>> GetByIdsWithError(List<int> ids)
         {
             return GenericDM.Get<T>().GetByIdsWithError<T>(ids);
         }
-        public static ResultWithDataError<List<T>> GetByIdsWithError(params int[] ids)
+        public static ResultWithError<List<T>> GetByIdsWithError(params int[] ids)
         {
             return GenericDM.Get<T>().GetByIdsWithError<T>(ids.ToList());
         }
@@ -93,7 +93,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().Where(func);
         }
-        public static ResultWithDataError<List<T>> WhereWithError(Expression<Func<T, bool>> func)
+        public static ResultWithError<List<T>> WhereWithError(Expression<Func<T, bool>> func)
         {
             return GenericDM.Get<T>().WhereWithError(func);
         }
@@ -102,7 +102,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().Exist(func);
         }
-        public static ResultWithDataError<bool> ExistWithError(Expression<Func<T, bool>> func)
+        public static ResultWithError<bool> ExistWithError(Expression<Func<T, bool>> func)
         {
             return GenericDM.Get<T>().ExistWithError(func);
         }
@@ -127,14 +127,14 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
-        public static ResultWithDataError<List<T>> CreateWithError(List<T> values)
+        public static ResultWithError<List<T>> CreateWithError(List<T> values)
         {
             if (values != null && values.Count > 0)
             {
                 return GenericDM.Get<T>().CreateWithError(values);
             }
 
-            ResultWithDataError<List<T>> result = new();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to create"));
             result.Result = new List<T>();
             return result;
@@ -158,7 +158,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static ResultWithDataError<T> CreateWithError(T value)
+        public static ResultWithError<T> CreateWithError(T value)
         {
             return GenericDM.Get<T>().CreateWithError(value);
         }
@@ -175,25 +175,25 @@ namespace AventusSharp.Data
         /// If return Count == 0 it means no error and your item is stored
         /// </summary>
         /// <returns></returns>
-        public List<DataError> CreateWithError()
+        public List<GenericError> CreateWithError()
         {
             if (this is T TThis)
             {
-                ResultWithDataError<T> result = GenericDM.Get<T>().CreateWithError(TThis);
+                ResultWithError<T> result = GenericDM.Get<T>().CreateWithError(TThis);
                 if (result.Success)
                 {
                     if (Equals(result.Result, this))
                     {
-                        return new List<DataError>();
+                        return new List<GenericError>();
                     }
-                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
+                    return new List<GenericError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
                 }
                 return result.Errors;
 
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            return new List<DataError>() { error };
+            return new List<GenericError>() { error };
         }
         #endregion
 
@@ -217,14 +217,14 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
-        public static ResultWithDataError<List<T>> UpdateWithError(List<T> values)
+        public static ResultWithError<List<T>> UpdateWithError(List<T> values)
         {
             if (values != null && values.Count > 0)
             {
                 return GenericDM.Get<T>().UpdateWithError(values);
             }
 
-            ResultWithDataError<List<T>> result = new();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to Update"));
             result.Result = new List<T>();
             return result;
@@ -248,7 +248,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static ResultWithDataError<T> UpdateWithError(T value)
+        public static ResultWithError<T> UpdateWithError(T value)
         {
             return GenericDM.Get<T>().UpdateWithError(value);
         }
@@ -266,24 +266,24 @@ namespace AventusSharp.Data
         /// If return Count == 0 it means no error and your item is stored
         /// </summary>
         /// <returns></returns>
-        public List<DataError> UpdateWithError()
+        public List<GenericError> UpdateWithError()
         {
             if (this is T TThis)
             {
-                ResultWithDataError<T> result = GenericDM.Get<T>().UpdateWithError(TThis);
+                ResultWithError<T> result = GenericDM.Get<T>().UpdateWithError(TThis);
                 if (result.Success)
                 {
                     if (Equals(result.Result, this))
                     {
                         return result.Errors;
                     }
-                    return new List<DataError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
+                    return new List<GenericError>() { new DataError(DataErrorCode.UnknowError, "Element is overrided => impossible") };
                 }
                 return result.Errors;
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            return new List<DataError>() { error };
+            return new List<GenericError>() { error };
         }
         #endregion
 
@@ -312,7 +312,7 @@ namespace AventusSharp.Data
         {
             if (ids != null && ids.Count > 0)
             {
-                ResultWithDataError<List<T>> resultTemp = DeleteWithError(ids);
+                ResultWithError<List<T>> resultTemp = DeleteWithError(ids);
                 if(resultTemp.Result != null)
                 {
                     return resultTemp.Result;
@@ -325,14 +325,14 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
-        public static ResultWithDataError<List<T>> DeleteWithError(List<T> values)
+        public static ResultWithError<List<T>> DeleteWithError(List<T> values)
         {
             if (values != null && values.Count > 0)
             {
                 return GenericDM.Get<T>().DeleteWithError(values);
             }
 
-            ResultWithDataError<List<T>> result = new();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to Delete"));
             result.Result = new List<T>();
             return result;
@@ -342,11 +342,11 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
-        public static ResultWithDataError<List<T>> DeleteWithError(List<int> ids)
+        public static ResultWithError<List<T>> DeleteWithError(List<int> ids)
         {
             if (ids != null && ids.Count > 0)
             {
-                ResultWithDataError<List<T>> resultTemp = GenericDM.Get<T>().GetByIdsWithError<T>(ids);
+                ResultWithError<List<T>> resultTemp = GenericDM.Get<T>().GetByIdsWithError<T>(ids);
                 if (resultTemp.Success && resultTemp.Result != null)
                 {
                     return GenericDM.Get<T>().DeleteWithError(resultTemp.Result);
@@ -354,7 +354,7 @@ namespace AventusSharp.Data
                 return resultTemp;
             }
 
-            ResultWithDataError<List<T>> result = new();
+            ResultWithError<List<T>> result = new();
             result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide values to Delete"));
             result.Result = new List<T>();
             return result;
@@ -376,7 +376,7 @@ namespace AventusSharp.Data
 
         public static T? Delete(int id)
         {
-            ResultWithDataError<T> resultTemp = DeleteWithError(id);
+            ResultWithError<T> resultTemp = DeleteWithError(id);
             if (resultTemp.Success && resultTemp.Result != null)
             {
                 return resultTemp.Result;
@@ -384,9 +384,9 @@ namespace AventusSharp.Data
             return default;
         }
 
-        public static ResultWithDataError<T> DeleteWithError(int id)
+        public static ResultWithError<T> DeleteWithError(int id)
         {
-            ResultWithDataError<T> resultTemp = GenericDM.Get<T>().GetByIdWithError<T>(id);
+            ResultWithError<T> resultTemp = GenericDM.Get<T>().GetByIdWithError<T>(id);
             if (resultTemp.Success && resultTemp.Result != null)
             {
                 resultTemp.Errors = resultTemp.Result.DeleteWithError();
@@ -398,7 +398,7 @@ namespace AventusSharp.Data
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static ResultWithDataError<T> DeleteWithError(T value)
+        public static ResultWithError<T> DeleteWithError(T value)
         {
             return GenericDM.Get<T>().DeleteWithError(value);
         }
@@ -416,16 +416,16 @@ namespace AventusSharp.Data
         /// If return Count == 0 it means no error and your item is stored
         /// </summary>
         /// <returns></returns>
-        public List<DataError> DeleteWithError()
+        public List<GenericError> DeleteWithError()
         {
             if (this is T TThis)
             {
-                ResultWithDataError<T> result = GenericDM.Get<T>().DeleteWithError(TThis);
+                ResultWithError<T> result = GenericDM.Get<T>().DeleteWithError(TThis);
                 return result.Errors;
             }
             string errorMsg = "Element " + this.GetType() + " isn't a " + typeof(T).Name + ". This should be impossible";
             DataError error = new(DataErrorCode.WrongType, errorMsg);
-            return new List<DataError>() { error };
+            return new List<GenericError>() { error };
         }
         #endregion
 

@@ -125,7 +125,7 @@ namespace CSharpToTypescript
                 {
                     fullName += "`" + type.TypeParameters.Length;
                 }
-                Type? realType = ProjectManager.Config.compiledAssembly.GetType(fullName);
+                Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
                 if (realType != null && realType.Assembly == typeof(IStorable).Assembly)
                 {
                     return false;

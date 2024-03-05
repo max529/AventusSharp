@@ -12,28 +12,28 @@ namespace AventusSharp.Data.Storage.Default
     {
         public bool IsConnectedOneTime { get; }
         public bool Debug { get; set; }
-        public VoidWithDataError CreateLinks();
+        public VoidWithError CreateLinks();
         public VoidWithDataError AddPyramid(PyramidInfo pyramid);
         public TableInfo? GetTableInfo(Type type);
-        public ResultWithDataError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable;
-        public ResultWithDataError<bool> ExistFromBuilder<X>(DatabaseExistBuilder<X> queryBuilder) where X : IStorable;
-        public VoidWithDataError CreateFromBuilder<X>(DatabaseCreateBuilder<X> queryBuilder, X item) where X : IStorable;
-        public ResultWithDataError<List<int>> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> queryBuilder, X item) where X : IStorable;
-        public VoidWithDataError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> queryBuilder, List<X> elementsToDelete) where X : IStorable;
-        public VoidWithDataError CreateTable(PyramidInfo pyramid);
-        public ResultWithDataError<bool> TableExist(PyramidInfo pyramid);
+        public ResultWithError<List<X>> QueryFromBuilder<X>(DatabaseQueryBuilder<X> queryBuilder) where X : IStorable;
+        public ResultWithError<bool> ExistFromBuilder<X>(DatabaseExistBuilder<X> queryBuilder) where X : IStorable;
+        public VoidWithError CreateFromBuilder<X>(DatabaseCreateBuilder<X> queryBuilder, X item) where X : IStorable;
+        public ResultWithError<List<int>> UpdateFromBuilder<X>(DatabaseUpdateBuilder<X> queryBuilder, X item) where X : IStorable;
+        public VoidWithError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> queryBuilder, List<X> elementsToDelete) where X : IStorable;
+        public VoidWithError CreateTable(PyramidInfo pyramid);
+        public ResultWithError<bool> TableExist(PyramidInfo pyramid);
 
-        public ResultWithDataError<BeginTransactionResult> BeginTransaction();
-        public ResultWithDataError<bool> CommitTransaction(DbTransaction transaction);
-        public ResultWithDataError<bool> RollbackTransaction(DbTransaction transaction);
+        public ResultWithError<BeginTransactionResult> BeginTransaction();
+        public ResultWithError<bool> CommitTransaction(DbTransaction transaction);
+        public ResultWithError<bool> RollbackTransaction(DbTransaction transaction);
 
-        public VoidWithDataError ConnectWithError();
-        public ResultWithDataError<bool> ResetStorage();
+        public VoidWithError ConnectWithError();
+        public ResultWithError<bool> ResetStorage();
 
         public string GetDatabaseName();
-        public ResultWithDataError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data);
+        public ResultWithError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data);
 
-        public ResultWithDataError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithDataError<Y>> action);
+        public ResultWithError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithError<Y>> action);
     }
 
 

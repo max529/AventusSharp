@@ -28,7 +28,7 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
-        public ResultWithDataError<List<T>> RunWithError()
+        public ResultWithError<List<T>> RunWithError()
         {
             throw new NotImplementedException();
         }

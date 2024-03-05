@@ -36,7 +36,7 @@ namespace CSharpToTypescript.Container
 
         private void LoadGenericsType()
         {
-            Type[] types = ProjectManager.Config.compiledAssembly.GetTypes();
+            Type[] types = ProjectManager.Config.compiledAssembly?.GetTypes() ?? [];
             matchingTypes = new();
             string fullNameBase = Tools.GetFullName(type);
             foreach (Type t in types)
@@ -135,6 +135,10 @@ namespace CSharpToTypescript.Container
             if (IsConvertible)
             {
                 AddTxt("@Convertible()", result);
+            }
+            if(IsInternal)
+            {
+                AddTxt("@Internal()", result);
             }
             
             AddTxtOpen(GetAccessibilityExport(type) + GetAbstract() + GetKind() + GetTypeName(type, 0, true) + " " + GetExtension() + "{", result);

@@ -4,10 +4,14 @@
 	"build": [
 		{
 			"name": "Main",
-			"inputPath": [
+			"src": [
 				"./src/*"
 			],
-			"outputPackage": "D:\\Aventus\\Aventus\\lib\\Aventus@Sharp.package.avt",
+			"compile": [
+				{
+					"package": "D:\\Aventus\\Aventus\\lib\\Aventus@Sharp.package.avt"
+				}
+			],
 			"hideWarnings": true
 		}
 	]

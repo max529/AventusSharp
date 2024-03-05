@@ -22,12 +22,12 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
-        public ResultWithDataError<List<T>> RunWithError(T item)
+        public ResultWithError<List<T>> RunWithError(T item)
         {
             throw new NotImplementedException();
         }
 
-        public ResultWithDataError<T> RunWithErrorSingle(T item)
+        public ResultWithError<T> RunWithErrorSingle(T item)
         {
             throw new NotImplementedException();
         }

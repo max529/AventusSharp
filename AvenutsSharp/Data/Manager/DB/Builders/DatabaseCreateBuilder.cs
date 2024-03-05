@@ -54,10 +54,10 @@ namespace AventusSharp.Data.Manager.DB.Builders
             TableInfo = tableInfo;
         }
 
-        public ResultWithDataError<T> RunWithError(T item)
+        public ResultWithError<T> RunWithError(T item)
         {
-            ResultWithDataError<T> result = new();
-            VoidWithDataError resultTemp = Storage.CreateFromBuilder(this, item);
+            ResultWithError<T> result = new();
+            VoidWithError resultTemp = Storage.CreateFromBuilder(this, item);
             if (resultTemp.Success)
             {
                 result.Result = item;

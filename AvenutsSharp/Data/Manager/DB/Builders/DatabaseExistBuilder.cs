@@ -47,7 +47,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
         }
         public bool Run()
         {
-            ResultWithDataError<bool> result = Storage.ExistFromBuilder(this);
+            ResultWithError<bool> result = Storage.ExistFromBuilder(this);
             if (result.Success)
             {
                 return result.Result;
@@ -55,9 +55,9 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return false;
         }
 
-        public ResultWithDataError<bool> RunWithError()
+        public ResultWithError<bool> RunWithError()
         {
-            ResultWithDataError<bool> result = Storage.ExistFromBuilder(this);
+            ResultWithError<bool> result = Storage.ExistFromBuilder(this);
             DM.PrintErrors(result);
             return result;
         }

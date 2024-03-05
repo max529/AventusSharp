@@ -41,7 +41,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
 
         public List<T>? Run()
         {
-            ResultWithDataError<List<T>> result = RunWithError();
+            ResultWithError<List<T>> result = RunWithError();
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -49,13 +49,13 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return null;
         }
 
-        public ResultWithDataError<List<T>> RunWithError()
+        public ResultWithError<List<T>> RunWithError()
         {
-            ResultWithDataError<List<T>> result = queryBuilder.RunWithError();
+            ResultWithError<List<T>> result = queryBuilder.RunWithError().ToGeneric();
 
             if (result.Success && result.Result != null)
             {
-                VoidWithDataError resultTemp = Storage.DeleteFromBuilder(this, result.Result);
+                VoidWithError resultTemp = Storage.DeleteFromBuilder(this, result.Result);
                 if (resultTemp.Success && DM is IDatabaseDM databaseDM)
                 {
                     if (NeedDeleteField)

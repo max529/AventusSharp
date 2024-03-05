@@ -10,7 +10,9 @@ namespace AventusSharp.Routes
     {
         UnknowError,
         FormContentTypeUnknown,
-        CantGetValueFromBody
+        CantGetValueFromBody,
+        CantMoveFile,
+        CantCreateFolders,
     }
     public class RouteError : GenericError<RouteErrorCode>
     {

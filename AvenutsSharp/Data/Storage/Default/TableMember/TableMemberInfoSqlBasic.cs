@@ -56,7 +56,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return GetValue(obj);
         }
 
-        protected override void _SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string value)
         {
             if (MemberType == typeof(int))
             {

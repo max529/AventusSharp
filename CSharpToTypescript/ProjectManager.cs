@@ -11,14 +11,17 @@ namespace CSharpToTypescript
 {
     internal class ProjectManager
     {
-        public static string CurrentAssemblyName { get; private set; }
+        public static string? CurrentAssemblyName { get; private set; }
+#pragma warning disable CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
         public static Compilation Compilation { get; private set; }
         public static ProjectConfig Config { get; private set; }
+#pragma warning restore CS8618 // Un champ non-nullable doit contenir une valeur non-null lors de la fermeture du constructeur. Envisagez de déclarer le champ comme nullable.
+
         public static bool CompilingAventusSharp
         {
             get
             {
-                return Config.compiledAssembly.FullName?.StartsWith("AventusSharp,") == true;
+                return Config.compiledAssembly?.FullName?.StartsWith("AventusSharp,") == true;
             }
         }
 

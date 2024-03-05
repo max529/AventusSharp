@@ -207,7 +207,7 @@ namespace CSharpToTypescript
                             importByPath.Add(relativePath, new());
                         }
                         string name = symbol.Name;
-                        if(symbol is ITypeSymbol typeSymbol && typeSymbol.TypeKind == TypeKind.Interface)
+                        if (symbol is ITypeSymbol typeSymbol && typeSymbol.TypeKind == TypeKind.Interface)
                         {
                             name = "type " + name;
                         }
@@ -259,7 +259,11 @@ namespace CSharpToTypescript
 
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string? dirName = Path.GetDirectoryName(path);
+            if (dirName != null)
+            {
+                Directory.CreateDirectory(dirName);
+            }
 
             File.WriteAllText(path + Extension, string.Join("\r\n", txt));
         }
@@ -271,6 +275,8 @@ namespace CSharpToTypescript
 
         private static void AddRouterFile()
         {
+            FileWriter fileWriter = new FileWriter();
+
             ProjectConfigHttpRouter routerConfig = ProjectManager.Config.httpRouter;
             if (!routerConfig.createRouter)
             {
@@ -278,7 +284,12 @@ namespace CSharpToTypescript
             }
             Dictionary<string, List<string>> imports = new();
             string path = Path.Combine(ProjectManager.Config.outputPath, routerConfig.routerName + ".lib.avt");
-            string txt = "export const " + routerConfig.variableRoutesName + " = [\r\n";
+            if (!string.IsNullOrWhiteSpace(routerConfig._namespace))
+            {
+                fileWriter.AddTxtOpen("namespace " + routerConfig._namespace + " {");
+            }
+            fileWriter.AddTxtOpen("export const " + routerConfig.variableRoutesName + " : [");
+            List<string> routes = new List<string>();
             int nbRoute = 0;
             foreach (KeyValuePair<string, FileToWrite> file in allFiles)
             {
@@ -289,7 +300,8 @@ namespace CSharpToTypescript
                         if (!http.realType.IsAbstract)
                         {
                             nbRoute++;
-                            txt += "\t{ type: " + http.type.Name + ", path: \"" + http.routePath + "\" },\r\n";
+                            routes.Add("{ type: " + http.type.Name + ", path: \"" + http.routePath + "\" },");
+                            fileWriter.AddTxt($"Aventus.HttpRouteType<typeof {http.type.Name}, \"{http.routePath}\">,");
                             string importFileName = GetFileName(http.type) ?? "";
                             string relativePath = Tools.GetRelativePath(path, importFileName);
                             string importFile = relativePath + allFiles[importFileName].Extension;
@@ -302,18 +314,28 @@ namespace CSharpToTypescript
                     }
                 }
             }
+            fileWriter.AddTxt("] = [");
+            foreach(string route in routes)
+            {
+                fileWriter.AddTxt(route);
+            }
+            fileWriter.AddTxtClose("] as const;");
 
             string host = routerConfig.host ?? "location.protocol + \"//\" + location.host";
             host += " + \"" + routerConfig.uri + "\"";
-            txt += $@"] as const;
+            fileWriter.AddTxt("");
+            fileWriter.AddTxt($"export const {routerConfig.routerName}Type: Aventus.HttpRouterType<typeof {routerConfig.variableRoutesName}> = Aventus.HttpRouter.WithRoute({routerConfig.variableRoutesName})");
+            fileWriter.AddTxtOpen($"export class {routerConfig.routerName} extends {routerConfig.routerName}Type {{");
+            fileWriter.AddTxtOpen("protected override defineOptions(options: Aventus.HttpRouterOptions): Aventus.HttpRouterOptions {");
+            fileWriter.AddTxt($"options.url = {host};");
+            fileWriter.AddTxt("return options;");
+            fileWriter.AddTxtClose("}");
+            fileWriter.AddTxtClose("}");
 
-export class {routerConfig.routerName} extends {routerConfig.parent}.WithRoute({routerConfig.variableRoutesName}) {{
-    protected override defineOptions(options: Aventus.HttpRouterOptions): Aventus.HttpRouterOptions {{
-        options.url = {host};
-        return options;
-    }}
-}}";
-
+            if (!string.IsNullOrWhiteSpace(routerConfig._namespace))
+            {
+                fileWriter.AddTxtClose("}");
+            }
             string importTxt = "";
             foreach (var pair in imports)
             {
@@ -322,7 +344,7 @@ export class {routerConfig.routerName} extends {routerConfig.parent}.WithRoute({
             importTxt += "\r\n";
             if (nbRoute > 0)
             {
-                File.WriteAllText(path, importTxt + txt);
+                File.WriteAllText(path, importTxt + fileWriter.GetContent());
             }
 
         }

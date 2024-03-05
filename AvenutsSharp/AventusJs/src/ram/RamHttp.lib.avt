@@ -5,15 +5,7 @@ namespace RAM {
     export abstract class RamHttp<T extends Storable> extends Aventus.Ram<T> {
         protected getAllDone: boolean = false;
         protected routes: StorableRoute<T>;
-        protected getAllProms: (() => void)[] = [];
-        protected isLoading: boolean = false;
-        protected async wait() {
-            return new Promise<void>((resolve) => {
-                this.getAllProms.push(() => {
-                    resolve();
-                });
-            });
-        }
+
 
         public abstract defineRoutes(): StorableRoute<T>;
 
@@ -24,30 +16,19 @@ namespace RAM {
 
         protected override async beforeGetAll(result: Aventus.ResultRamWithError<Map<number, Aventus.RamItem<T>>>): Promise<void> {
             if(!this.getAllDone) {
-                if(this.isLoading) {
-                    await this.wait();
+                let response = await this.routes.GetAll();
+                if(response.success && response.result) {
+                    for(let item of response.result) {
+                        let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
+                        this.addOrUpdateData(item, resultTemp);
+                        if(!resultTemp.success) {
+                            result.errors = [...result.errors, ...resultTemp.errors];
+                        }
+                    }
+                    this.getAllDone = true;
                 }
                 else {
-                    this.isLoading = true;
-                    let response = await this.routes.GetAll();
-                    if(response.success && response.result) {
-                        for(let item of response.result) {
-                            let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
-                            this.addOrUpdateData(item, resultTemp);
-                            if(!resultTemp.success) {
-                                result.errors = [...result.errors, ...resultTemp.errors];
-                            }
-                        }
-                        this.getAllDone = true;
-                    }
-                    else {
-                        result.errors = [...result.errors, ...response.errors];
-                    }
-
-                    this.isLoading = false;
-                    for(let cb of this.getAllProms) {
-                        cb();
-                    }
+                    result.errors = [...result.errors, ...response.errors];
                 }
             }
 

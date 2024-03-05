@@ -138,15 +138,20 @@ namespace AventusSharp.Data.Manager.DB
             if (value.GetType() == TypeLvl0)
             {
                 object? valueToSet = value;
-                foreach (TableMemberInfo member in MembersList)
+                for (int i = 0; i < MembersList.Count - 1; i++)
                 {
+                    TableMemberInfo member = MembersList[i];
                     valueToSet = member.GetValue(valueToSet);
                     if (valueToSet == null)
                     {
-                        break;
+                        Value = null;
+                        return;
                     }
                 }
-
+                if (MembersList.Count > 0)
+                {
+                    valueToSet = MembersList[MembersList.Count - 1].GetValueToSave(valueToSet);
+                }
                 if (valueToSet is IList listToSet)
                 {
                     List<int> ids = new List<int>();
@@ -168,7 +173,7 @@ namespace AventusSharp.Data.Manager.DB
                     valueToSet = storable.Id;
                 }
 
-                this.Value = valueToSet;
+                Value = valueToSet;
             }
         }
 
@@ -196,7 +201,14 @@ namespace AventusSharp.Data.Manager.DB
                 }
                 if (whereToSet != null)
                 {
-                    MembersList[^1].SetValue(whereToSet, Value);
+                    if (Value is string stringVal)
+                    {
+                        MembersList[^1].ApplySqlValue(whereToSet, stringVal);
+                    }
+                    else
+                    {
+                        MembersList[^1].SetValue(whereToSet, Value);
+                    }
                 }
             }
         }

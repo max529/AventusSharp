@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using AventusSharp.Tools;
 
 namespace AventusSharp.Data.Manager
 {
     public interface IExistBuilder<T>
     {
         public bool Run();
-        public ResultWithDataError<bool> RunWithError();
+        public ResultWithError<bool> RunWithError();
 
         public IExistBuilder<T> Prepare(params object[] objects);
         public IExistBuilder<T> SetVariable(string name, object value);

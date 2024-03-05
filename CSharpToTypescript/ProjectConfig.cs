@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -22,8 +23,8 @@ namespace CSharpToTypescript
 
 
         private string? _basedir;
-        public Assembly compiledAssembly;
-        public string outputDir;
+        public Assembly? compiledAssembly;
+        public string outputDir = "";
         public string baseDir
         {
             get
@@ -82,6 +83,8 @@ namespace CSharpToTypescript
         public string uri = "";
         public string? host;
         public string parent = "Aventus.HttpRouter";
+        [JsonProperty("namespace")]
+        public string? _namespace;
     }
     #endregion
 

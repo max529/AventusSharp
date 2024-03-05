@@ -1,12 +1,17 @@
-﻿using AventusSharp.Tools;
+﻿using AventusSharp.Data;
+using AventusSharp.Tools;
 using HttpMultipartParser;
 using Microsoft.AspNetCore.Http;
+using Mysqlx.Expr;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace AventusSharp.Routes.Request
@@ -54,39 +59,59 @@ namespace AventusSharp.Routes.Request
                 StreamingMultipartFormDataParser parser = new StreamingMultipartFormDataParser(context.Request.Body);
                 parser.ParameterHandler += parameter =>
                 {
-                    bodyJSON[parameter.Name] = parameter.Data;
+                    string name = Regex.Replace(parameter.Name, @"\[(.*?)\]", ".$1");
+                    string[] splitted = name.Split(".");
+                    JToken container = data;
+                    for (int i = 0; i < splitted.Length; i++)
+                    {
+                        if (i + 1 < splitted.Length)
+                        {
+                            int nb;
+                            if (int.TryParse(splitted[i + 1], out nb))
+                            {
+                                if (container[splitted[i]] == null)
+                                {
+                                    container[splitted[i]] = new JArray();
+                                }
+                                container = container[splitted[i]];
+                            }
+                            else
+                            {
+                                if (container[splitted[i]] == null)
+                                {
+                                    container[splitted[i]] = new JObject();
+                                }
+                                container = container[splitted[i]];
+                            }
+                        }
+                        else
+                        {
+                            container[splitted[i]] = parameter.Data;
+                        }
+                    }
                 };
                 parser.FileHandler += (name, fileName, type, disposition, buffer, bytes, partNumber, additionalProperties) =>
                 {
-                    int i = 0;
-                    string fileNameToUse = fileName;
-                    //while (files.ContainsKey(fileNameToUse))
-                    //{
-                    //    List<string> splitted = fileName.Split(".").ToList();
-                    //    splitted.Insert(splitted.Count - 2, i + "");
-                    //    i++;
-                    //    fileNameToUse = string.Join(".", splitted);
-                    //}
-
+                    string realName = Regex.Replace(name, @"\[(.*?)\]", ".$1");
                     if (partNumber == 0)
                     {
-                        if (!files.ContainsKey(fileNameToUse))
+                        if (!files.ContainsKey(realName))
                         {
                             string tempFolder = RouterMiddleware.config.FileUploadTempDir;
                             if (!Directory.Exists(tempFolder))
                             {
                                 Directory.CreateDirectory(tempFolder);
                             }
-                            string filePath = Path.Combine(tempFolder, fileNameToUse);
+                            string filePath = Path.Combine(tempFolder, fileName);
                             if (File.Exists(filePath))
                             {
                                 File.Delete(filePath);
                             }
-                            HttpFile file = new HttpFile(fileName, filePath, type, new FileStream(filePath, FileMode.Create));
-                            files.Add(fileNameToUse, file);
+                            HttpFile file = new HttpFile(name, fileName, filePath, type, new FileStream(filePath, FileMode.Create));
+                            files.Add(realName, file);
                         }
                     }
-                    files[fileNameToUse].stream.Write(buffer, 0, bytes);
+                    files[realName].stream.Write(buffer, 0, bytes);
 
                 };
 
@@ -97,7 +122,6 @@ namespace AventusSharp.Routes.Request
                     file.stream.Close();
                     file.stream.Dispose();
                 }
-                data = JObject.Parse("{" + string.Join(",", bodyJSON.Select(p => "\"" + p.Key + "\":\"" + p.Value + "\"")) + "}");
             }
             catch (Exception e)
             {
@@ -128,17 +152,119 @@ namespace AventusSharp.Routes.Request
             return result;
         }
 
-        public HttpFile? GetFile()
+        public HttpFile? GetFile(string propPath)
         {
             if (files.Count > 0)
             {
-                return files.Values.ElementAt(0);
+                return files.Values.FirstOrDefault(f => f.FormName == propPath);
             }
             return null;
         }
-        public List<HttpFile> GetFiles()
+        public List<HttpFile> GetFiles(string propPath)
         {
-            return files.Values.ToList();
+            return files.Values.Where(f => f.FormName == propPath).ToList();
+        }
+
+        /// <summary>
+        /// Find reference inside object to add File
+        /// </summary>
+        /// <param name="propPath"></param>
+        /// <param name="result"></param>
+        protected void AddFileToResult(string propPath, object result)
+        {
+            foreach (KeyValuePair<string, HttpFile> fileStored in files)
+            {
+                if (fileStored.Key.StartsWith(propPath))
+                {
+                    string missingPath = fileStored.Key.Replace(propPath + ".", "");
+                    string[] splitted = missingPath.Split(".");
+                    object? current = result;
+                    for (int i = 0; i < splitted.Length - 1; i++)
+                    {
+                        string s = splitted[i];
+                        Func<object?, object?>? fct = null;
+                        Action<object?, object?>? setTemp = null;
+                        Type? typeFieldGet = null;
+
+                        PropertyInfo? propertyInfoGet = current?.GetType().GetProperty(s);
+                        if (propertyInfoGet != null)
+                        {
+                            fct = propertyInfoGet.GetValue;
+                            typeFieldGet = propertyInfoGet.PropertyType;
+                            setTemp = propertyInfoGet.SetValue;
+                        }
+                        else
+                        {
+                            FieldInfo? fieldInfoGet = current?.GetType().GetField(s);
+                            if (fieldInfoGet != null)
+                            {
+                                fct = fieldInfoGet.GetValue;
+                                typeFieldGet = fieldInfoGet.FieldType;
+                                setTemp = fieldInfoGet.SetValue;
+                            }
+                        }
+
+                        if (fct == null)
+                        {
+                            break;
+                        }
+
+                        object? temp = fct(current);
+                        if (temp == null && setTemp != null && typeFieldGet != null && typeFieldGet.GetInterfaces().Contains(typeof(IList)))
+                        {
+                            setTemp(current, Activator.CreateInstance(typeFieldGet));
+                            temp = fct(current);
+                        }
+                        current = temp;
+                    }
+
+                    if (current == null)
+                    {
+                        continue;
+                    }
+
+                    Action<object?, object?>? set = null;
+                    string last = splitted[splitted.Length - 1];
+                    PropertyInfo? propertyInfoSet = current?.GetType().GetProperty(last);
+                    if (propertyInfoSet != null)
+                    {
+                        if (propertyInfoSet.PropertyType == typeof(HttpFile))
+                        {
+                            set = propertyInfoSet.SetValue;
+                        }
+                        else if (propertyInfoSet.PropertyType == typeof(List<HttpFile>))
+                        {
+                            set = propertyInfoSet.SetValue;
+                            set = (target, data) =>
+                            {
+                                object? o = propertyInfoSet.GetValue(target);
+                                if (o is IList list)
+                                {
+                                    list.Add(data);
+                                }
+                            };
+                        }
+                    }
+                    else
+                    {
+                        FieldInfo? fieldInfoSet = current?.GetType().GetField(last);
+                        if (fieldInfoSet != null)
+                        {
+                            if (fieldInfoSet.FieldType.GetInterfaces().Contains(typeof(HttpFile)))
+                            {
+                                set = fieldInfoSet.SetValue;
+                            }
+                        }
+                    }
+
+                    if (set == null)
+                    {
+                        break;
+                    }
+
+                    set(current, fileStored.Value);
+                }
+            }
         }
 
         /// <summary>
@@ -150,22 +276,6 @@ namespace AventusSharp.Routes.Request
         public ResultWithRouteError<object> GetData(Type type, string propPath)
         {
             ResultWithRouteError<object> result = new();
-            //try
-            //{
-            //    object? temp = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(data), new JsonSerializerSettings { 
-            //        TypeNameHandling = TypeNameHandling.Objects,
-            //        NullValueHandling = NullValueHandling.Ignore,
-            //    });
-            //    if (type.IsInstanceOfType(temp))
-            //    {
-            //        result.Result = temp;
-            //        return result;
-            //    }
-            //}
-            //catch (Exception e)
-            //{
-            //    result.Errors.Add(new RouteError(RouteErrorCode.UnknowError, e));
-            //}
 
             try
             {
@@ -194,6 +304,7 @@ namespace AventusSharp.Routes.Request
                 );
                 if (temp != null)
                 {
+                    AddFileToResult(propPath, temp);
                     result.Result = temp;
                 }
             }
@@ -208,17 +319,80 @@ namespace AventusSharp.Routes.Request
 
     public class HttpFile
     {
-        public string Filename { get; set; }
-        public string Filepath { get; set; }
+        public string FormName { get; set; }
+        public string FileName { get; set; }
+        public string FilePath { get; set; }
         public string Type { get; set; }
 
+        /// <summary>
+        /// Only use during the upload process
+        /// </summary>
         internal FileStream stream;
-        public HttpFile(string filename, string filepath, string type, FileStream stream)
+        public HttpFile(string formName, string filename, string filepath, string type, FileStream stream)
         {
-            Filename = filename;
-            Filepath = filepath;
+            FormName = formName;
+            FileName = filename;
+            FilePath = filepath;
             Type = type;
             this.stream = stream;
+        }
+
+        public bool IsInsideTemp
+        {
+            get
+            {
+                return FilePath.StartsWith(RouterMiddleware.config.FileUploadTempDir);
+            }
+        }
+
+        public bool Move(string path)
+        {
+            ResultWithRouteError<bool> result = MoveWithError(path);
+            return result.Success && result.Result;
+        }
+        public ResultWithRouteError<bool> MoveWithError(string path)
+        {
+            ResultWithRouteError<bool> result = new ResultWithRouteError<bool>();
+            try
+            {
+                string? dirPath = Path.GetDirectoryName(path);
+                if (dirPath != null)
+                    Directory.CreateDirectory(dirPath);
+
+                File.Move(FilePath, path, true);
+                result.Result = true;
+                FilePath = path;
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new RouteError(RouteErrorCode.CantMoveFile, e));
+            }
+            return result;
+        }
+
+        public bool Copy(string path)
+        {
+            ResultWithRouteError<bool> result = CopyWithError(path);
+            return result.Success && result.Result;
+        }
+        public ResultWithRouteError<bool> CopyWithError(string path)
+        {
+            ResultWithRouteError<bool> result = new ResultWithRouteError<bool>();
+            try
+            {
+                string? dirPath = Path.GetDirectoryName(path);
+                if (dirPath != null)
+                    Directory.CreateDirectory(dirPath);
+
+                File.Copy(FilePath, path, true);
+                result.Result = true;
+                FilePath = path;
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new RouteError(RouteErrorCode.CantMoveFile, e));
+            }
+            return result;
         }
     }
 }

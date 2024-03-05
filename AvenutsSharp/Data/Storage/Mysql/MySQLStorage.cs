@@ -36,9 +36,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return connection;
         }
 
-        public override VoidWithDataError ConnectWithError()
+        public override VoidWithError ConnectWithError()
         {
-            VoidWithDataError result = new();
+            VoidWithError result = new();
             try
             {
                 IsConnectedOneTime = true;
@@ -126,9 +126,9 @@ namespace AventusSharp.Data.Storage.Mysql
             return new MySqlParameter();
         }
 
-        public override ResultWithDataError<bool> ResetStorage()
+        public override ResultWithError<bool> ResetStorage()
         {
-            ResultWithDataError<bool> result = new();
+            ResultWithError<bool> result = new();
             string sql = "SELECT concat('DROP TABLE IF EXISTS `', table_name, '`;') as query FROM information_schema.tables WHERE table_schema = '" + this.database + "'; ";
             StorageQueryResult queryResult = Query(sql);
             if (!queryResult.Success)

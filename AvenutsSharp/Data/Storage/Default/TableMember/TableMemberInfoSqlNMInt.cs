@@ -135,7 +135,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             throw new System.NotImplementedException();
         }
 
-        protected override void _SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string value)
         {
             List<int> ids = new();
             string[] splitted = value.Split(",");

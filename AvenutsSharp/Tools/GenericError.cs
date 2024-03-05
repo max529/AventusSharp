@@ -85,6 +85,11 @@ namespace AventusSharp.Tools
             this.Code = code;
         }
 
+        public GenericError(T code, Exception exception, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0) : base((int)Convert.ChangeType(code, typeof(int)), exception, callerPath, callerNo)
+        {
+            Code = code;
+        }
+
 
 
     }

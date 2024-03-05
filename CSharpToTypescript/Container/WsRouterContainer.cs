@@ -32,7 +32,6 @@ namespace CSharpToTypescript.Container
         }
 
 
-        public Type realType;
         public string typescriptPath = "";
         public string fileName = "";
         private List<WsRouteContainer> routes = new List<WsRouteContainer>();
@@ -42,17 +41,6 @@ namespace CSharpToTypescript.Container
         public WsRouterContainer(INamedTypeSymbol type, string fileName) : base(type)
         {
             this.fileName = fileName;
-            string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
-            if (type.IsGenericType)
-            {
-                fullName += "`" + type.TypeParameters.Length;
-            }
-            Type? realType = ProjectManager.Config.compiledAssembly.GetType(fullName);
-            if (realType == null)
-            {
-                throw new Exception("something went wrong");
-            }
-            this.realType = realType;
 
             foreach (ISymbol symbol in type.GetMembers())
             {

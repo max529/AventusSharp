@@ -101,7 +101,7 @@ namespace AventusSharp.Data
             configureAction = config;
         }
 
-        public static Task<VoidWithDataError> Init()
+        public static Task<VoidWithError> Init()
         {
             List<Assembly> searchingAssemblies = new();
             Assembly? assembly = Assembly.GetEntryAssembly();
@@ -111,7 +111,7 @@ namespace AventusSharp.Data
             }
             return Init(searchingAssemblies);
         }
-        public static Task<VoidWithDataError> Init(Assembly assembly)
+        public static Task<VoidWithError> Init(Assembly assembly)
         {
             List<Assembly> searchingAssemblies = new();
             if (assembly != null)
@@ -121,12 +121,12 @@ namespace AventusSharp.Data
             return Init(searchingAssemblies);
         }
 
-        public static async Task<VoidWithDataError> Init(List<Assembly> assemblies)
+        public static async Task<VoidWithError> Init(List<Assembly> assemblies)
         {
             if (!registerDone)
             {
                 configureAction(Config);
-                VoidWithDataError resultTemp = DefineTypeDM(Config.defaultDM);
+                VoidWithError resultTemp = DefineTypeDM(Config.defaultDM).ToGeneric();
                 if (!resultTemp.Success)
                 {
                     return resultTemp;
@@ -136,7 +136,7 @@ namespace AventusSharp.Data
 
             if (MergeAssemblies(assemblies) == 0)
             {
-                return new VoidWithDataError();
+                return new VoidWithError();
             }
             return await new DataInit().Init();
         }
@@ -184,32 +184,32 @@ namespace AventusSharp.Data
             }
 
 
-            public async Task<VoidWithDataError> Init()
+            public async Task<VoidWithError> Init()
             {
-                VoidWithDataError resultTemp = new VoidWithDataError();
+                VoidWithError resultTemp = new VoidWithError();
                 try
                 {
-                    resultTemp = GetAllManagers();
+                    resultTemp = GetAllManagers().ToGeneric();
                     if (!resultTemp.Success)
                     {
                         return resultTemp;
                     }
-                    resultTemp = CalculateDataDependances();
+                    resultTemp = CalculateDataDependances().ToGeneric();
                     if (!resultTemp.Success)
                     {
                         return resultTemp;
                     }
-                    resultTemp = OrderData();
+                    resultTemp = OrderData().ToGeneric();
                     if (!resultTemp.Success)
                     {
                         return resultTemp;
                     }
-                    resultTemp = MergeManager();
+                    resultTemp = MergeManager().ToGeneric();
                     if (!resultTemp.Success)
                     {
                         return resultTemp;
                     }
-                    resultTemp = OrderedManager();
+                    resultTemp = OrderedManager().ToGeneric();
                     if (!resultTemp.Success)
                     {
                         return resultTemp;
@@ -222,7 +222,7 @@ namespace AventusSharp.Data
                 }
                 catch (Exception e)
                 {
-                    resultTemp.Errors.Add(new(DataErrorCode.UnknowError, e));
+                    resultTemp.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
                 }
                 return resultTemp;
             }
@@ -817,9 +817,9 @@ namespace AventusSharp.Data
                 result.Result = orderedManager.Count;
                 return result;
             }
-            private async Task<VoidWithDataError> InitManager()
+            private async Task<VoidWithError> InitManager()
             {
-                VoidWithDataError result = new VoidWithDataError();
+                VoidWithError result = new VoidWithError();
                 bool monitor = this.config.log.monitorManagerInit;
                 if (monitor)
                 {
@@ -843,7 +843,7 @@ namespace AventusSharp.Data
                             result.Errors.AddRange(pyramidResult.Errors);
                             return result;
                         }
-                        VoidWithDataError resultTemp = await manager.SetConfiguration(pyramidResult.Result, this.config);
+                        VoidWithError resultTemp = await manager.SetConfiguration(pyramidResult.Result, this.config);
                         if (!resultTemp.Success)
                         {
                             result.Errors.AddRange(resultTemp.Errors);
@@ -858,7 +858,7 @@ namespace AventusSharp.Data
                         time = new Stopwatch();
                         time.Restart();
                     }
-                    VoidWithDataError resultTemp = await dm.Init();
+                    VoidWithError resultTemp = await dm.Init();
                     if (!resultTemp.Success)
                     {
                         result.Errors.AddRange(resultTemp.Errors);

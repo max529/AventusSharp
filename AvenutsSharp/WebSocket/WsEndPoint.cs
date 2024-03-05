@@ -145,6 +145,11 @@ namespace AventusSharp.WebSocket
             return Task.CompletedTask;
         }
 
+        public async Task Stop() {
+            foreach(WebSocketConnection connection in connections) {
+                await connection.Close();
+            }
+        }
 
         /// <summary>
         /// This function is called to route to request to correct route

@@ -34,23 +34,11 @@ namespace CSharpToTypescript.Container
         }
 
         private List<HttpRouteContainer> routes = new List<HttpRouteContainer>();
-        public Type realType;
         private Dictionary<string, Func<string>> additionalFcts = new();
         public string routePath = "";
         public string? prefix;
         public HttpRouterContainer(INamedTypeSymbol type) : base(type)
         {
-            string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
-            if (type.IsGenericType)
-            {
-                fullName += "`" + type.TypeParameters.Length;
-            }
-            Type? realType = ProjectManager.Config.compiledAssembly.GetType(fullName);
-            if (realType == null)
-            {
-                throw new Exception("something went wrong");
-            }
-            this.realType = realType;
             foreach (ISymbol symbol in type.GetMembers())
             {
 
@@ -121,7 +109,7 @@ namespace CSharpToTypescript.Container
             List<string> result = new();
             Dictionary<string, string> functionNeeded = new Dictionary<string, string>();
 
-            
+
 
             foreach (HttpRouteContainer route in routes)
             {
@@ -245,7 +233,7 @@ namespace CSharpToTypescript.Container
             foreach (string fct in fcts)
             {
                 MethodInfo? method = realType.GetMethod(fct, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                object? o = method.Invoke(routerTemp, Array.Empty<object>());
+                object? o = method?.Invoke(routerTemp, Array.Empty<object>());
                 if (method == null)
                 {
                     throw new Exception("Can't find method " + fct + " on " + realType.FullName);
@@ -292,7 +280,15 @@ namespace CSharpToTypescript.Container
         private IMethodSymbol methodSymbol;
         public bool canBeAdded = false;
         public string name = "";
-        public MethodInfo method;
+        private MethodInfo? _method;
+        public MethodInfo method
+        {
+            get
+            {
+                if (_method == null) throw new Exception("Impossible");
+                return _method;
+            }
+        }
         public List<string> httpMethods = new List<string>() { };
         private Type @class;
         public Dictionary<string, string> parametersBodyAndType = new();
@@ -328,7 +324,7 @@ namespace CSharpToTypescript.Container
                 canBeAdded = false;
                 return;
             }
-            method = methodTemp;
+            _method = methodTemp;
             canBeAdded = true;
 
             if (method.GetCustomAttribute(typeof(NoTypescript)) != null)
@@ -632,7 +628,7 @@ namespace CSharpToTypescript.Container
                         listReturns.Add("bool");
                         return;
                     }
-                    var temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(returnStatement.Expression);
+                    SymbolInfo temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(returnStatement.Expression);
                     if (temp.Symbol is ILocalSymbol localSymbol)
                     {
                         AddTypeToListReturn(localSymbol.Type);
@@ -686,7 +682,7 @@ namespace CSharpToTypescript.Container
                 listReturns.Add(literal.ToString());
                 return;
             }
-            var argumentSymbol = ProjectManager.Compilation.GetSemanticModel(argument.SyntaxTree).GetSymbolInfo(argument.Expression);
+            SymbolInfo argumentSymbol = ProjectManager.Compilation.GetSemanticModel(argument.SyntaxTree).GetSymbolInfo(argument.Expression);
             if (argumentSymbol.Symbol is ILocalSymbol localSymbol)
             {
                 AddTypeToListReturn(localSymbol.Type);
@@ -760,7 +756,7 @@ namespace CSharpToTypescript.Container
                         if (itemReturn == null) continue;
                         string item = itemReturn;
                         item = new Regex("Aventus\\.GenericResultWithError<(.*?)>").Replace(itemReturn ?? "", "$1");
-                        if(item.EndsWith("?"))
+                        if (item.EndsWith("?"))
                         {
                             item = item.Substring(0, item.Length - 1);
                             realTypes.Add(item);
@@ -774,7 +770,7 @@ namespace CSharpToTypescript.Container
                             realTypes.Add(item);
                         }
                     }
-                    
+
                     string typeReturn = string.Join(" | ", realTypes);
                     typeTxt = "type TypeResult = " + typeReturn + ";";
                     fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<" + typeReturn + ", Aventus.GenericError<number>>>");
@@ -794,7 +790,7 @@ namespace CSharpToTypescript.Container
 
             parent.AddTxtOpen(fctDesc, result);
             parent.AddTxt(request, result);
-            if(!string.IsNullOrEmpty(body))
+            if (!string.IsNullOrEmpty(body))
             {
                 parent.AddTxt(body, result);
             }

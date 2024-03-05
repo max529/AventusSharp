@@ -33,6 +33,10 @@ namespace AventusSharp.Data.Manager
         {
             memberInfo = propertyInfo;
         }
+        public DataMemberInfo(MemberInfo memberInfo)
+        {
+            this.memberInfo = memberInfo;
+        }
 
         #region merge info
         /// <summary>

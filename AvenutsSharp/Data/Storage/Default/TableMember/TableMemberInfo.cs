@@ -164,6 +164,16 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return false;
         }
 
+        /// <summary>
+        /// Return the value for the storage
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public virtual object? GetValueToSave(object? obj)
+        {
+            if(obj == null) return null;
+            return GetValue(obj);
+        }
         #endregion
 
         #region merge info

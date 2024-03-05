@@ -44,7 +44,7 @@ namespace CSharpToTypescript.Container
             {
                 fullName += "`" + type.TypeParameters.Length;
             }
-            Type? realType = ProjectManager.Config.compiledAssembly.GetType(fullName);
+            Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
             if (realType == null)
             {
                 throw new Exception("something went wrong on ws end point");

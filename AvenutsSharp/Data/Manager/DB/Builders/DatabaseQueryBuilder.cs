@@ -30,14 +30,14 @@ namespace AventusSharp.Data.Manager.DB.Builders
 
         public List<T> Run()
         {
-            ResultWithDataError<List<T>> result = Storage.QueryFromBuilder(this);
+            ResultWithError<List<T>> result = Storage.QueryFromBuilder(this);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
             }
             return new List<T>();
         }
-        public ResultWithDataError<List<T>> RunWithError()
+        public ResultWithError<List<T>> RunWithError()
         {
             var result = Storage.QueryFromBuilder(this);
             DM.PrintErrors(result);

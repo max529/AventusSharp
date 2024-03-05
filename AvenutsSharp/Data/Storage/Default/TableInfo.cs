@@ -54,7 +54,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <remarks></remarks>
         public List<TableMemberInfoSql> Members { get; private set; } = new List<TableMemberInfoSql>();
 
-        public CustomTableMemberInfoSql? TypeMember { get; private set; } = null;
+        internal CustomInternalTableMemberInfoSql? TypeMember { get; private set; } = null;
 
         /// <summary>
         /// List of primaries members for this class only
@@ -87,10 +87,10 @@ namespace AventusSharp.Data.Storage.Default
             return LoadMembers(Type);
         }
 
-        public VoidWithDataError LoadDM()
+        public VoidWithError LoadDM()
         {
-            VoidWithDataError result = new VoidWithDataError();
-            var resultTemp = GenericDM.GetWithError(Type);
+            VoidWithError result = new VoidWithError();
+            ResultWithError<IGenericDM> resultTemp = GenericDM.GetWithError(Type);
             if (resultTemp.Success && resultTemp.Result != null)
             {
                 DM = resultTemp.Result;
@@ -104,7 +104,7 @@ namespace AventusSharp.Data.Storage.Default
 
         public void AddTypeMember()
         {
-            CustomTableMemberInfoSql typeMember = new(TypeIdentifierName, typeof(string), this);
+            CustomInternalTableMemberInfoSql typeMember = new(TypeIdentifierName, typeof(string), this);
             typeMember.DefineSQLInformation(new SQLInformation()
             {
                 SqlName = TypeIdentifierName,

@@ -2,6 +2,7 @@
 using AventusSharp.Routes;
 using AventusSharp.Routes.Request;
 using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using AventusSharp.WebSocket;
 using AventusSharp.WebSocket.Event;
 using Microsoft.CodeAnalysis;
@@ -12,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace CSharpToTypescript.Container
 {
@@ -36,6 +38,10 @@ namespace CSharpToTypescript.Container
 
         protected Dictionary<string, string?> defaultValueForGenerics = new Dictionary<string, string?>();
 
+        public Type realType;
+
+        public bool IsInternal { get; set; } = false;
+
         public BaseContainer(INamedTypeSymbol type)
         {
             this.type = type;
@@ -45,56 +51,72 @@ namespace CSharpToTypescript.Container
                 splitted.RemoveAt(0);
                 Namespace = string.Join(".", splitted);
             }
-        }
+            string sep = ".";
+            if (type.ContainingSymbol.ToString() != type.ContainingNamespace.ToString())
+            {
+                sep = "+";
+            }
+            string fullName = type.ContainingSymbol.ToString() + sep + type.Name;
+            if (type.IsGenericType)
+            {
+                fullName += "`" + type.TypeParameters.Length;
+            }
+            Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
+            if (realType == null)
+            {
+                throw new Exception("something went wrong");
+            }
+            this.realType = realType;
 
+            object? attr = this.realType.GetCustomAttributes(false).ToList().Find(p => p is Typescript);
+            if (attr != null)
+            {
+                Typescript typescriptAttr = (Typescript)attr;
+                if (typescriptAttr.Namespace != null)
+                {
+                    Namespace = typescriptAttr.Namespace;
+                }
+                if (typescriptAttr.Internal != null)
+                {
+                    IsInternal = (bool)typescriptAttr.Internal;
+                }
+            }
+        }
         public void Write()
         {
             Content = WriteAction();
         }
         protected abstract string WriteAction();
 
-        protected int indent = 0;
+        protected FileWriter fileWriter = new FileWriter();
         public string GetIndentedText(string txt)
         {
-            for (int i = 0; i < indent; i++)
-            {
-                txt = "\t" + txt;
-            }
-            return txt;
+            return fileWriter.GetIndentedText(txt);
         }
         public void AddTxt(string txt, List<string> result)
         {
-            for (int i = 0; i < indent; i++)
-            {
-                txt = "\t" + txt;
-            }
-            result.Add(txt);
+            fileWriter.AddTxt(txt, result);
         }
         public void AddTxt(List<string> txts, List<string> result)
         {
-            foreach (var txt in txts)
-            {
-                AddTxt(txt, result);
-            }
+            fileWriter.AddTxt(txts, result);
         }
         public void AddTxtOpen(string txt, List<string> result)
         {
-            AddTxt(txt, result);
-            indent++;
+            fileWriter.AddTxtOpen(txt, result);
         }
         public void AddTxtClose(string txt, List<string> result)
         {
-            indent--;
-            AddTxt(txt, result);
+            fileWriter.AddTxtClose(txt, result);
         }
 
         public void AddIndent()
         {
-            indent++;
+            fileWriter.AddIndent();
         }
         public void RemoveIndent()
         {
-            indent--;
+            fileWriter.RemoveIndent();
         }
 
         public static string GetAccessibilityExport(ISymbol type)
@@ -301,8 +323,8 @@ namespace CSharpToTypescript.Container
             {
                 fullName += "?";
             }
-            result = applyReplacer(ProjectManager.Config.replacer.all, fullName, result);
-            return CustomReplacer(type, fullName, result);
+            result = applyReplacer(ProjectManager.Config.replacer.all, fullName, result) ?? "";
+            return CustomReplacer(type, fullName, result) ?? "";
         }
         protected virtual string? CustomReplacer(ISymbol type, string fullname, string? result)
         {

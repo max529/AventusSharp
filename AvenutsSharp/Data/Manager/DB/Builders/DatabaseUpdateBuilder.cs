@@ -39,7 +39,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
 
         public List<T>? Run(T item)
         {
-            ResultWithDataError<List<T>> result = RunWithError(item);
+            ResultWithError<List<T>> result = RunWithError(item);
             if (result.Success && result.Result != null)
             {
                 return result.Result;
@@ -47,13 +47,13 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return null;
         }
 
-        public ResultWithDataError<List<T>> RunWithError(T item)
+        public ResultWithError<List<T>> RunWithError(T item)
         {
-            ResultWithDataError<List<T>> result = new();
-            ResultWithDataError<List<int>> resultTemp = Storage.UpdateFromBuilder(this, item);
+            ResultWithError<List<T>> result = new();
+            ResultWithError<List<int>> resultTemp = Storage.UpdateFromBuilder(this, item);
             if (resultTemp.Success && resultTemp.Result != null)
             {
-                ResultWithDataError<List<T>> resultQuery = DM.GetByIdsWithError<T>(resultTemp.Result);
+                ResultWithError<List<T>> resultQuery = DM.GetByIdsWithError<T>(resultTemp.Result);
                 if (resultQuery.Success && resultQuery.Result != null)
                 {
                     // update data in cache
@@ -71,7 +71,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
                 }
                 else
                 {
-                    result.Errors.AddRange(resultTemp.Errors);
+                    result.Errors.AddRange(resultQuery.Errors);
                 }
             }
             else
@@ -82,10 +82,10 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return result;
         }
 
-        public ResultWithDataError<T> RunWithErrorSingle(T item)
+        public ResultWithError<T> RunWithErrorSingle(T item)
         {
-            ResultWithDataError<T> result = new();
-            ResultWithDataError<List<T>> resultTemp = RunWithError(item);
+            ResultWithError<T> result = new();
+            ResultWithError<List<T>> resultTemp = RunWithError(item);
 
             if (resultTemp.Success && resultTemp.Result != null)
             {

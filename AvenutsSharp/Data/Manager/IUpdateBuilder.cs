@@ -8,8 +8,8 @@ namespace AventusSharp.Data.Manager
     public interface IUpdateBuilder<T>
     {
         public List<T>? Run(T item);
-        public ResultWithDataError<List<T>> RunWithError(T item);
-        public ResultWithDataError<T> RunWithErrorSingle(T item);
+        public ResultWithError<List<T>> RunWithError(T item);
+        public ResultWithError<T> RunWithErrorSingle(T item);
 
         public IUpdateBuilder<T> Field<U>(Expression<Func<T, U>> fct);
 
