@@ -146,7 +146,8 @@ namespace AventusSharp.WebSocket
         }
 
         public async Task Stop() {
-            foreach(WebSocketConnection connection in connections) {
+            List<WebSocketConnection> conns = connections.ToList();
+            foreach(WebSocketConnection connection in conns) {
                 await connection.Close();
             }
         }

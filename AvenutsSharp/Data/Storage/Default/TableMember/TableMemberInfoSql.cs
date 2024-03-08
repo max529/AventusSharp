@@ -181,7 +181,11 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         }
         public TableMemberInfoSql(MemberInfo? memberInfo, TableInfo tableInfo, bool isNullable) : base(memberInfo, tableInfo)
         {
-            IsNullable = isNullable;
+            // prevent ? overriding attribute
+            if (!IsNullByAttribute)
+            {
+                IsNullable = isNullable;
+            }
         }
 
         #region SQL
@@ -243,7 +247,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         #endregion
 
         public abstract VoidWithDataError PrepareForSQL();
-        
+
 
         #endregion
 
@@ -255,6 +259,8 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         public bool IsUpdatable { get; internal set; } = true;
         public bool IsUnique { get; internal set; }
         public string SqlName { get; protected set; } = "";
+
+        protected bool IsNullByAttribute { get; set; } = false;
 
 
         protected override void ParseAttributes()
@@ -285,14 +291,24 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 IsAutoIncrement = true;
                 return true;
             }
+            if (attribute.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute")
+            {
+                // use it to handle null on string
+                // by default a string can be null so the compiler won't change the type but add an attribute
+                IsNullable = true;
+                IsNullByAttribute = true;
+                return true;
+            }
             if (attribute is Attributes.Nullable)
             {
                 IsNullable = true;
+                IsNullByAttribute = true;
                 return true;
             }
             if (attribute is NotNullable notNullable)
             {
                 IsNullable = false;
+                IsNullByAttribute = true;
                 return true;
             }
             if (attribute is DeleteOnCascade)

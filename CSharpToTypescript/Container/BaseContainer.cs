@@ -215,6 +215,10 @@ namespace CSharpToTypescript.Container
         }
         protected string DetermineGenericType(INamedTypeSymbol type, string name, int depth, bool genericExtendsConstraint)
         {
+            if(name == "")
+            {
+                return name;
+            }
             int i = 0;
             if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IStorable>(p)) != null)
             {

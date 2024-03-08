@@ -64,29 +64,38 @@ namespace AventusSharp.Routes.Request
                     JToken container = data;
                     for (int i = 0; i < splitted.Length; i++)
                     {
+                        Action<JToken> set = (obj) => container[splitted[i]] = obj;
+                        Func<JToken> get = () => { return container[splitted[i]]; };
+
+                        if (container is JArray array)
+                        {
+                            int key = int.Parse(splitted[i]);
+                            set = (obj) => container[key] = obj;
+                            get = () => { return container[key]; };
+                        }
                         if (i + 1 < splitted.Length)
                         {
                             int nb;
                             if (int.TryParse(splitted[i + 1], out nb))
                             {
-                                if (container[splitted[i]] == null)
+                                if (get() == null)
                                 {
-                                    container[splitted[i]] = new JArray();
+                                    set(new JArray());
                                 }
-                                container = container[splitted[i]];
+                                container = get();
                             }
                             else
                             {
-                                if (container[splitted[i]] == null)
+                                if (get() == null)
                                 {
-                                    container[splitted[i]] = new JObject();
+                                    set(new JObject());
                                 }
-                                container = container[splitted[i]];
+                                container = get();
                             }
                         }
                         else
                         {
-                            container[splitted[i]] = parameter.Data;
+                            set(parameter.Data);
                         }
                     }
                 };

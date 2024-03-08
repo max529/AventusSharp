@@ -167,6 +167,7 @@ namespace CSharpToTypescript.Container
             return isInterface ? "interface " : "class ";
         }
 
+        protected List<string> extends = new List<string>();
         private string GetExtension()
         {
             BaseContainer.enumToTypeof = true;
@@ -243,6 +244,7 @@ namespace CSharpToTypescript.Container
             AddImplements(implements);
 
             string txt = "";
+            extends = extends.Where(e => !string.IsNullOrWhiteSpace(e)).ToList();
             if (extends.Count > 0)
             {
                 txt += "extends " + string.Join(", ", extends);
@@ -251,7 +253,9 @@ namespace CSharpToTypescript.Container
             {
                 txt += " ";
             }
+            this.extends = extends;
 
+            implements = implements.Where(e => !string.IsNullOrWhiteSpace(e)).ToList();
             if (implements.Count > 0)
             {
                 txt += "implements " + string.Join(", ", implements);
@@ -401,7 +405,7 @@ namespace CSharpToTypescript.Container
 
                 string typeName = "\"" + Tools.GetFullName(type) + ", " + type.ContainingAssembly.Name + "\"";
                 Type? realType = Tools.GetCompiledType(type.BaseType);
-                if (realType != null && !realType.IsInterface && !realType.IsAbstract && realType != typeof(object))
+                if (realType != null && !realType.IsInterface && !realType.IsAbstract && realType != typeof(object) && extends.Count > 0)
                 {
                     AddTxt("public static override get Fullname(): string { return " + typeName + "; }", result);
                 }

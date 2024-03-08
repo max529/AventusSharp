@@ -28,6 +28,8 @@ namespace AventusSharp.WebSocket
 
         private bool IsStopped = false;
 
+        private CancellationTokenSource tokenSource;
+
         /// <summary>
         /// get context of the request
         /// </summary>
@@ -56,6 +58,7 @@ namespace AventusSharp.WebSocket
             this.context = context;
             this.webSocket = webSocket;
             this.instance = instance;
+            tokenSource = new CancellationTokenSource();
         }
         /// <summary>
         /// Start the WebSocket connection
@@ -67,13 +70,11 @@ namespace AventusSharp.WebSocket
             bool websocketHasError = false;
             try
             {
-                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
+                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), tokenSource.Token);
                 string msg = "";
 
                 while (!result.CloseStatus.HasValue && !IsStopped)
                 {
-
                     websocketHasError = false;
                     byte[] buffTemp = new byte[result.Count];
                     for (int i = 0; i < buffTemp.Length; i++)
@@ -123,13 +124,13 @@ namespace AventusSharp.WebSocket
                         }
                         msg = "";
                     }
-                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), tokenSource.Token);
                 }
                 await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
             }
             catch (Exception e)
             {
-                if (!websocketHasError)
+                if (!websocketHasError && !(e is OperationCanceledException))
                 {
                     websocketHasError = true;
                     Console.WriteLine(e);
@@ -143,6 +144,7 @@ namespace AventusSharp.WebSocket
             try
             {
                 IsStopped = true;
+                tokenSource.Cancel();
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
             }
             catch { }
@@ -195,7 +197,7 @@ namespace AventusSharp.WebSocket
             {
                 if (webSocket.State == WebSocketState.Open || webSocket.State == WebSocketState.CloseReceived)
                 {
-                    await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, CancellationToken.None);
+                    await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, tokenSource.Token);
                 }
                 else
                 {
