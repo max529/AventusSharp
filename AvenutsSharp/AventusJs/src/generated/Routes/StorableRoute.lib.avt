@@ -1,9 +1,9 @@
 namespace Routes {
 
 	export abstract class StorableRoute<T extends Aventus.IData> extends Aventus.HttpRoute {
-		public async GetAll(): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
+		public async GetAll(): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
 			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}`, Aventus.HttpMethod.GET);
-			type TypeResult = T[];
+			type TypeResult = [];
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
@@ -14,10 +14,10 @@ namespace Routes {
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
-		public async CreateMany(body: { list: T[] } | FormData): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
+		public async CreateMany(body: { list: [] } | FormData): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
 			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}s`, Aventus.HttpMethod.POST);
 			request.setBody(body);
-			type TypeResult = T[];
+			type TypeResult = [];
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
@@ -34,10 +34,10 @@ namespace Routes {
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
-		public async UpdateMany(body: { list: T[] } | FormData): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
+		public async UpdateMany(body: { list: [] } | FormData): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
 			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}s`, Aventus.HttpMethod.PUT);
 			request.setBody(body);
-			type TypeResult = T[];
+			type TypeResult = [];
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
@@ -47,10 +47,10 @@ namespace Routes {
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 
-		public async DeleteMany(body: { ids: number[] } | FormData): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
+		public async DeleteMany(body: { ids: [] } | FormData): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
 			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}s`, Aventus.HttpMethod.DELETE);
 			request.setBody(body);
-			type TypeResult = T[];
+			type TypeResult = [];
 			return await request.queryJSON<TypeResult>(this.router);
 		}
 

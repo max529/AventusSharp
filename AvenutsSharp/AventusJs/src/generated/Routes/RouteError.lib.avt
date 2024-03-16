@@ -5,7 +5,9 @@ namespace Routes {
 	export enum RouteErrorCode {
 		UnknowError,
 		FormContentTypeUnknown,
-		CantGetValueFromBody
+		CantGetValueFromBody,
+		CantMoveFile,
+		CantCreateFolders
 	}
 
 	@Convertible()

@@ -690,7 +690,7 @@ namespace AventusSharp.Data.Storage.Default
         protected abstract object? TransformValueForFct(ParamsInfo paramsInfo);
         protected StorageQueryResult QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
         {
-            List<string> errors = new();
+            List<DataError> errors = new();
 
             if (item != null)
             {
@@ -702,9 +702,9 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     Result = new List<Dictionary<string, string>>()
                 };
-                foreach (string error in errors)
+                foreach (DataError error in errors)
                 {
-                    queryResultTemp.Errors.Add(new DataError(DataErrorCode.ValidationError, error));
+                    queryResultTemp.Errors.Add(error);
                 }
                 return queryResultTemp;
             }
@@ -782,9 +782,9 @@ namespace AventusSharp.Data.Storage.Default
                 {
                     Result = new List<Dictionary<string, string>>()
                 };
-                foreach (string error in errors)
+                foreach (DataError error in errors)
                 {
-                    queryResult.Errors.Add(new DataError(DataErrorCode.ValidationError, error));
+                    queryResult.Errors.Add(error);
                 }
             }
             else
@@ -1787,7 +1787,6 @@ namespace AventusSharp.Data.Storage.Default
         /// <summary>
         /// Order data but type
         /// </summary>
-        /// <param name="table"></param>
         /// <param name="data"></param>
         /// <returns></returns>
         public ResultWithError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data)

@@ -1,21 +1,21 @@
 ﻿{
-  "outputPath": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\generated",
-  "csProj": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusSharp.csproj",
+  "outputPath": "./AventusJs/src/generated",
+  "csProj": "./AventusSharp.csproj",
   "replacer": {
     "all": {
       "type": {},
       "result": {
         "AventusSharp.WebSocket.EndPoint": {
           "result": "EndPoint",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\EndPoint.lib.avt"
+          "file": "./AventusJs/src/WebSocket/EndPoint.lib.avt"
         },
         "AventusSharp.WebSocket.Event": {
           "result": "Event",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\Event.lib.avt"
+          "file": "./AventusJs/src/WebSocket/Event.lib.avt"
         },
         "AventusSharp.WebSocket.Route": {
           "result": "Route",
-          "file": "D:\\Aventus\\AvenutsSharp\\AvenutsSharp\\AventusJs\\src\\WebSocket\\Route.lib.avt"
+          "file": "./AventusJs/src/WebSocket/Route.lib.avt"
         }
       }
     }

@@ -213,7 +213,7 @@ namespace AventusSharp.Data.Manager.DB
             }
         }
 
-        public List<string> IsValueValid()
+        public List<DataError> IsValueValid()
         {
             TableMemberInfo memberInfo = MembersList[^1];
             return memberInfo.IsValid(Value);

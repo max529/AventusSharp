@@ -387,6 +387,7 @@ namespace CSharpToTypescript.Container
                         string file = ProjectManager.Config.AbsoluteUrl(info.Value.file);
                         if (!importedFiles.ContainsKey(file))
                         {
+                            File.AppendAllText("D:\\debug.txt", file + "\r\n");
                             importedFiles[file] = new();
                         }
                         if (!importedFiles[file].Contains(result))

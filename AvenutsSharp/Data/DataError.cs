@@ -52,8 +52,8 @@ namespace AventusSharp.Data
         ErrorCreatingReverseQuery,
         LinkNotSet
     }
-    
-    
+
+
     public class DataError : GenericError<DataErrorCode>
     {
         public DataError(DataErrorCode code, string message, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0) : base(code, message, callerPath, callerNo)
@@ -72,6 +72,17 @@ namespace AventusSharp.Data
     }
     public class ResultWithDataError<T> : ResultWithError<T, DataError>
     {
+
+    }
+
+    [Typescript]
+    public class FieldErrorInfo
+    {
+        public string Name { get; set; }
+        public FieldErrorInfo(string name)
+        {
+            Name = name;
+        }
 
     }
 }

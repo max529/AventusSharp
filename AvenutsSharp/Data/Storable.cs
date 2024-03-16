@@ -20,7 +20,7 @@ namespace AventusSharp.Data
     {
         int Id { get; set; }
 
-        public List<string> IsValid(StorableAction action);
+        public List<DataError> IsValid(StorableAction action);
 
         bool Create();
         public List<GenericError> CreateWithError();
@@ -430,16 +430,16 @@ namespace AventusSharp.Data
         #endregion
 
 
-        public List<string> IsValid(StorableAction action)
+        public List<DataError> IsValid(StorableAction action)
         {
-            List<string> errors = new();
+            List<DataError> errors = new();
             errors.AddRange(ValidationRules(action));
             return errors;
         }
 
-        protected virtual List<string> ValidationRules(StorableAction action)
+        protected virtual List<DataError> ValidationRules(StorableAction action)
         {
-            return new List<string>();
+            return new List<DataError>();
         }
     }
 

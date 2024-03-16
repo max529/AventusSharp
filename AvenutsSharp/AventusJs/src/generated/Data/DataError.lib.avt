@@ -59,4 +59,10 @@ namespace Data {
 		public static override get Fullname(): string { return "AventusSharp.Data.ResultWithDataError, AventusSharp"; }
 	}
 
+	@Convertible()
+	export class FieldErrorInfo {
+		public static get Fullname(): string { return "AventusSharp.Data.FieldErrorInfo, AventusSharp"; }
+		public Name!: string;
+	}
+
 }
