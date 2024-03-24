@@ -432,11 +432,11 @@ namespace AventusSharp.Data.Storage.Default
                 if (transaction == null)
                 {
                     transaction = connection.BeginTransaction();
-                    result.Result = new BeginTransactionResult(true, transaction);
+                    result.Result = new BeginTransactionResult(true, transaction, CommitTransaction, RollbackTransaction);
                 }
                 else
                 {
-                    result.Result = new BeginTransactionResult(false, transaction);
+                    result.Result = new BeginTransactionResult(false, transaction, CommitTransaction, RollbackTransaction);
                 }
             }
             catch (Exception e)
@@ -1894,10 +1894,24 @@ namespace AventusSharp.Data.Storage.Default
         public bool isNew;
         public DbTransaction transaction;
 
-        public BeginTransactionResult(bool isNew, DbTransaction transaction)
+        private Func<DbTransaction, ResultWithError<bool>> _Commit;
+        private Func<DbTransaction, ResultWithError<bool>> _Rollback;
+
+        public BeginTransactionResult(bool isNew, DbTransaction transaction, Func<DbTransaction, ResultWithError<bool>> commit, Func<DbTransaction, ResultWithError<bool>> rollback)
         {
             this.isNew = isNew;
             this.transaction = transaction;
+            _Commit = commit;
+            _Rollback = rollback;
+        }
+
+
+        public ResultWithError<bool> Commit() {
+            return _Commit(transaction);
+        }
+
+        public ResultWithError<bool> Rollback() {
+            return _Rollback(transaction);
         }
     }
 }
