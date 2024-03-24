@@ -32,12 +32,12 @@ namespace WebSocket {
 			};
 		}
 
-		public async GetAll(options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
+		public async GetAll(options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
 			const info: SocketSendMessageOptions = {
 				channel: `/${this.StorableName()}`,
 				...options,
 			};
-			return await this.endpoint.sendMessageAndWait<[]>(info);
+			return await this.endpoint.sendMessageAndWait<T[]>(info);
 		}
 
 		public async Create(body: { item: T } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T, Aventus.GenericError<number>>> {
@@ -49,13 +49,13 @@ namespace WebSocket {
 			return await this.endpoint.sendMessageAndWait<T>(info);
 		}
 
-		public async CreateMany(body: { list: [] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
+		public async CreateMany(body: { list: T[] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
 			const info: SocketSendMessageOptions = {
 				channel: `/${this.StorableName()}s`,
 				body: body,
 				...options,
 			};
-			return await this.endpoint.sendMessageAndWait<[]>(info);
+			return await this.endpoint.sendMessageAndWait<T[]>(info);
 		}
 
 		public async GetById(id: number, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T, Aventus.GenericError<number>>> {
@@ -75,13 +75,13 @@ namespace WebSocket {
 			return await this.endpoint.sendMessageAndWait<T>(info);
 		}
 
-		public async UpdateMany(body: { list: [] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
+		public async UpdateMany(body: { list: T[] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
 			const info: SocketSendMessageOptions = {
 				channel: `/${this.StorableName()}s`,
 				body: body,
 				...options,
 			};
-			return await this.endpoint.sendMessageAndWait<[]>(info);
+			return await this.endpoint.sendMessageAndWait<T[]>(info);
 		}
 
 		public async Delete(id: number, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T, Aventus.GenericError<number>>> {
@@ -92,19 +92,19 @@ namespace WebSocket {
 			return await this.endpoint.sendMessageAndWait<T>(info);
 		}
 
-		public async DeleteMany(body: { ids: [] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<[], Aventus.GenericError<number>>> {
+		public async DeleteMany(body: { ids: number[] } | FormData, options: WsRouteSendOptions = {}): Promise<Aventus.ResultWithError<T[], Aventus.GenericError<number>>> {
 			const info: SocketSendMessageOptions = {
 				channel: `/${this.StorableName()}s`,
 				body: body,
 				...options,
 			};
-			return await this.endpoint.sendMessageAndWait<[]>(info);
+			return await this.endpoint.sendMessageAndWait<T[]>(info);
 		}
 
 		public abstract StorableName(): string;
 	}
 	 
-	export class StorableWsRoute_GetAll<T> extends Event<[]> {
+	export class StorableWsRoute_GetAll<T> extends Event<T[]> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, StorableName: () => string) {
@@ -136,7 +136,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_CreateMany<T> extends Event<[]> {
+	export class StorableWsRoute_CreateMany<T> extends Event<T[]> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, StorableName: () => string) {
@@ -184,7 +184,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_UpdateMany<T> extends Event<[]> {
+	export class StorableWsRoute_UpdateMany<T> extends Event<T[]> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, StorableName: () => string) {
@@ -216,7 +216,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_DeleteMany<T> extends Event<[]> {
+	export class StorableWsRoute_DeleteMany<T> extends Event<T[]> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, StorableName: () => string) {

@@ -213,11 +213,17 @@ namespace CSharpToTypescript.Container
             }
             return name;
         }
-        protected string DetermineGenericType(INamedTypeSymbol type, string name, int depth, bool genericExtendsConstraint)
+        protected string DetermineGenericType(INamedTypeSymbol type, string? name, int depth, bool genericExtendsConstraint)
         {
+            // if empty name => mabye its a full replacement by the user
             if(name == "")
             {
                 return name;
+            }
+            // it's an internal case for list and dico
+            if(name == null)
+            {
+                name = "";
             }
             int i = 0;
             if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IStorable>(p)) != null)
@@ -309,7 +315,7 @@ namespace CSharpToTypescript.Container
             else if (fullName == typeof(List<>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedType)
             {
                 isFull = true;
-                result = DetermineGenericType(namedType, "", depth, genericExtendsConstraint);
+                result = DetermineGenericType(namedType, null, depth, genericExtendsConstraint);
 
                 if (result.StartsWith("<"))
                 {
@@ -320,7 +326,7 @@ namespace CSharpToTypescript.Container
             else if (fullName == typeof(Dictionary<,>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedTypeDico)
             {
                 isFull = true;
-                result = DetermineGenericType(namedTypeDico, "", depth, genericExtendsConstraint);
+                result = DetermineGenericType(namedTypeDico, null, depth, genericExtendsConstraint);
                 result = "Map" + result;
             }
             if (isNullable)

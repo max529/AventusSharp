@@ -344,7 +344,6 @@ namespace CSharpToTypescript.Container
                 this.name = ((TypescriptName)attr).name;
             }
 
-
             Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
             foreach (KeyValuePair<string, ParameterInfo> pair in @params)
             {

@@ -32,14 +32,14 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 
                 foreach (KeyValuePair<TableMemberInfoSql, DatabaseBuilderInfoMember> member in baseInfo.Members)
                 {
-                    if(member.Key is ITableMemberInfoSqlLink)
+                    if (member.Key is ITableMemberInfoSqlLink)
                     {
                         if (member.Key.IsAutoCreate || member.Key.IsAutoUpdate || member.Key.IsAutoDelete)
                         {
                             result.ToCheckBefore.Add(member.Key);
                         }
                     }
-                    if(member.Key is ITableMemberInfoSqlWritable writable)
+                    if (member.Key is ITableMemberInfoSqlWritable writable)
                     {
                         string alias = member.Value.Alias;
                         string name = alias + "." + member.Key.SqlName;
@@ -52,7 +52,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         });
                         fields.Add(name + " = @" + name);
                     }
-                    
+
                 }
                 foreach (KeyValuePair<TableInfo, string> parentLink in baseInfo.Parents)
                 {
@@ -99,12 +99,12 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
         {
             foreach (TableMemberInfoSql member in tableInfo.Members)
             {
-                if(!member.IsUpdatable)
+                if (!member.IsUpdatable)
                 {
                     return;
                 }
 
-                if(member is ITableMemberInfoSqlWritable memberLink)
+                if (member is ITableMemberInfoSqlWritable memberLink)
                 {
                     string name = alias + "." + member.SqlName;
                     updateParamsInfo.Add(name, new ParamsInfo()
