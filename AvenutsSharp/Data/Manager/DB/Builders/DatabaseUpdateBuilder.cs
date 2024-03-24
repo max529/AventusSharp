@@ -126,43 +126,44 @@ namespace AventusSharp.Data.Manager.DB.Builders
         {
             AllFieldsUpdate = false;
             string fieldPath = FieldGeneric(fct);
-            string[] splitted = fieldPath.Split(".");
-            string current = "";
-            List<TableMemberInfoSql> access = new();
-            string lastAlias = "";
-            foreach (string s in splitted)
-            {
-                if (InfoByPath[current] != null)
-                {
-                    KeyValuePair<TableMemberInfoSql?, string> infoTemp = InfoByPath[current].GetTableMemberInfoAndAlias(s);
-                    if (infoTemp.Key == null)
-                    {
-                        throw new Exception("Can't find the field " + s + " on the path " + current);
-                    }
-                    access.Add(infoTemp.Key);
-                    lastAlias = infoTemp.Value;
-                    if (current != "")
-                    {
-                        current += "." + s;
-                    }
-                    else
-                    {
-                        current += s;
-                    }
-                }
-            }
+            // string[] splitted = fieldPath.Split(".");
+            // string current = "";
+            // List<TableMemberInfoSql> access = new();
+            // string lastAlias = "";
+            // foreach (string s in splitted)
+            // {
+            //     if (InfoByPath[current] != null)
+            //     {
+            //         KeyValuePair<TableMemberInfoSql?, string> infoTemp = InfoByPath[current].GetTableMemberInfoAndAlias(s);
+            //         if (infoTemp.Key == null)
+            //         {
+            //             throw new Exception("Can't find the field " + s + " on the path " + current);
+            //         }
+            //         access.Add(infoTemp.Key);
+            //         lastAlias = infoTemp.Value;
+            //         if (current != "")
+            //         {
+            //             current += "." + s;
+            //         }
+            //         else
+            //         {
+            //             current += s;
+            //         }
+            //     }
+            // }
 
-            TableMemberInfoSql lastMemberInfo = access.Last();
-            if (lastMemberInfo is ITableMemberInfoSqlWritable writable)
-            {
-                string name = lastAlias + "." + lastMemberInfo.SqlName;
-                UpdateParamsInfo.Add(name, new ParamsInfo()
-                {
-                    DbType = writable.SqlType,
-                    Name = name,
-                    MembersList = access,
-                });
-            }
+            // TableMemberInfoSql lastMemberInfo = access.Last();
+            // if (lastMemberInfo is ITableMemberInfoSqlWritable writable)
+            // {
+            //     string name = lastAlias + "." + lastMemberInfo.SqlName;
+                
+            //     UpdateParamsInfo[name] = new ParamsInfo()
+            //     {
+            //         DbType = writable.SqlType,
+            //         Name = name,
+            //         MembersList = access,
+            //     };
+            // }
             return this;
         }
 
