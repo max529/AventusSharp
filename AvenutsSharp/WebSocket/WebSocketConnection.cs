@@ -52,7 +52,6 @@ namespace AventusSharp.WebSocket
         /// <param name="context">context of request HTTP</param>
         /// <param name="webSocket">websocket create</param>
         /// <param name="instance">Instance of WebsocketInstance (parent)</param>
-        /// <param name="ownerId">Owner id</param>
         public WebSocketConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket, WsEndPoint instance)
         {
             this.context = context;
@@ -126,7 +125,8 @@ namespace AventusSharp.WebSocket
                     }
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), tokenSource.Token);
                 }
-                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
+                WebSocketCloseStatus status = result.CloseStatus != null ? result.CloseStatus.Value : WebSocketCloseStatus.Empty;
+                await webSocket.CloseAsync(status, result.CloseStatusDescription, CancellationToken.None);
             }
             catch (Exception e)
             {

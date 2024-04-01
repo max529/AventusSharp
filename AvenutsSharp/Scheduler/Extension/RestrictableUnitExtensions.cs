@@ -28,9 +28,11 @@ namespace AventusSharp.Scheduler.Extension
 
             TimeOfDayRunnableCalculator timeOfDayRunnableCalculator = new TimeOfDayRunnableCalculator(startHour, startMinute, endHour, endMinute);
 
-            Func<DateTime, DateTime> unboundCalculateNextRun = unit.Schedule.CalculateNextRun;
+            Func<DateTime, DateTime>? unboundCalculateNextRun = unit.Schedule.CalculateNextRun;
             unit.Schedule.CalculateNextRun = x =>
             {
+                if(unboundCalculateNextRun == null) return DateTime.MaxValue;
+
                 DateTime nextRun = unboundCalculateNextRun(x);
 
                 if (timeOfDayRunnableCalculator.Calculate(nextRun) == TimeOfDayRunnable.TooEarly)
@@ -60,9 +62,11 @@ namespace AventusSharp.Scheduler.Extension
                 throw new ArgumentNullException("unit");
             }
 
-            Func<DateTime, DateTime> unboundCalculateNextRun = unit.Schedule.CalculateNextRun;
+            Func<DateTime, DateTime>? unboundCalculateNextRun = unit.Schedule.CalculateNextRun;
             unit.Schedule.CalculateNextRun = x =>
             {
+                if(unboundCalculateNextRun == null) return DateTime.MaxValue;
+
                 DateTime nextRun = unboundCalculateNextRun(x);
 
                 while (!nextRun.IsWeekday())

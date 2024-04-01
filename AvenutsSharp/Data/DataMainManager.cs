@@ -169,18 +169,11 @@ namespace AventusSharp.Data
             private readonly Dictionary<Type, DataInformation> dataInformations = new();
             private List<DataInformation> orderedData = new();
             private List<ManagerInformation> orderedManager = new();
-            private readonly List<DataMemberInfo> storableMembersInfo = new();
 
 
             public DataInit()
             {
-                // load fields
-                Type storableType = typeof(Storable<>);
-                PropertyInfo[] properties = storableType.GetProperties(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic);
-                foreach (PropertyInfo property in properties)
-                {
-                    storableMembersInfo.Add(new DataMemberInfo(property));
-                }
+                
             }
 
 
@@ -829,7 +822,7 @@ namespace AventusSharp.Data
                 List<IGenericDM> genericDMs = new();
                 foreach (ManagerInformation managerInformation in orderedManager)
                 {
-                    if (!managerInformation.CanBeInit(true))
+                    if (!managerInformation.CanBeInit(false))
                     {
                         continue;
                     }
@@ -1270,7 +1263,7 @@ namespace AventusSharp.Data
                 }
                 if (printError)
                 {
-                    if (!dataInformations.ContainsKey(typeof(IStorable)) || dataInformations.Count != 2)
+                    if (!dataInformations.ContainsKey(typeof(IStorable)) || !dataInformations.ContainsKey(typeof(IStorableTimestamp)) || dataInformations.Count != 2)
                     {
                         string msgError = "Can't init " + Manager.Name + " because only contains ForceInehrit elements";
                         new DataError(DataErrorCode.DMOnlyForceInherit, msgError).Print();

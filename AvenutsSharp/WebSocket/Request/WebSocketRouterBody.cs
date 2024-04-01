@@ -27,7 +27,7 @@ namespace AventusSharp.WebSocket.Request
         /// <summary>
         /// Transform data into object T. Add path to tell where to find data to cast
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <param name="type">Type needed</param>
         /// <param name="propPath">Path where to find data</param>
         /// <returns></returns>
         public ResultWithWsError<object> GetData(Type type, string propPath)

@@ -611,13 +611,13 @@ namespace AventusSharp.Data.Storage.Default
                     foreach (TableMemberInfoSql memberInfo in membersToAdd.ToList())
                     {
                         memberInfo.ChangeTableInfo(classInfo);
-                        if (memberInfo.Name == TypeTools.GetMemberName((Storable<IStorable> s) => s.CreatedDate))
+                        if (memberInfo.Name == TypeTools.GetMemberName((StorableTimestamp<IStorableTimestamp> s) => s.CreatedDate))
                         {
                             membersToAdd.Remove(memberInfo);
                             memberInfo.IsUpdatable = false;
                             createdDate = memberInfo;
                         }
-                        else if (memberInfo.Name == TypeTools.GetMemberName((Storable<IStorable> s) => s.UpdatedDate))
+                        else if (memberInfo.Name == TypeTools.GetMemberName((StorableTimestamp<IStorableTimestamp> s) => s.UpdatedDate))
                         {
                             membersToAdd.Remove(memberInfo);
                             updatedDate = memberInfo;

@@ -1,8 +1,7 @@
 namespace Data {
     export abstract class Storable extends Aventus.Data implements Aventus.IData {
         public Id: number = 0;
-        public CreatedDate: Date = new Date();
-        public UpdatedDate: Date = new Date();
+        
 
         /**
          * @inerhit
@@ -29,6 +28,11 @@ namespace Data {
                 }
             });
         }
+    }
+
+    export abstract class StorableTimestamp extends Storable implements Aventus.IData {
+        public CreatedDate: Date = new Date();
+        public UpdatedDate: Date = new Date();
     }
 
 }

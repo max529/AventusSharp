@@ -19,7 +19,7 @@ namespace AventusSharp.Routes
 
         [HttpGet]
         [Route("api/[controller]/{id}")]
-        public T GetById(int id)
+        public T? GetById(int id)
         {
             return Storable<T>.GetById(id);
         }
@@ -45,7 +45,7 @@ namespace AventusSharp.Routes
         [Route("api/[controller]/{id}")]
         public T? Delete(int id)
         {
-            T item = Storable<T>.GetById(id);
+            T? item = Storable<T>.GetById(id);
             if (item != null)
             {
                 Storable<T>.Delete(item);

@@ -61,11 +61,12 @@ namespace AventusSharp.Routes.Request
                 {
                     string name = Regex.Replace(parameter.Name, @"\[(.*?)\]", ".$1");
                     string[] splitted = name.Split(".");
-                    JToken container = data;
+                    JToken? container = data;
                     for (int i = 0; i < splitted.Length; i++)
                     {
+                        if(container == null) return;
                         Action<JToken> set = (obj) => container[splitted[i]] = obj;
-                        Func<JToken> get = () => { return container[splitted[i]]; };
+                        Func<JToken?> get = () => { return container[splitted[i]]; };
 
                         if (container is JArray array)
                         {
@@ -279,7 +280,7 @@ namespace AventusSharp.Routes.Request
         /// <summary>
         /// Transform data into object T. Add path to tell where to find data to cast
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <param name="type">Type needed</param>
         /// <param name="propPath">Path where to find data</param>
         /// <returns></returns>
         public ResultWithRouteError<object> GetData(Type type, string propPath)

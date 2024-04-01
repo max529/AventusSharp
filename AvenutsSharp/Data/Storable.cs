@@ -32,16 +32,27 @@ namespace AventusSharp.Data
         public List<GenericError> DeleteWithError();
     }
 
+    public interface IStorableTimestamp : IStorable
+    {
+        DateTime CreatedDate { get; set; }
+        DateTime UpdatedDate { get; set; }
+    }
+
+    [ForceInherit]
+    [NoTypescript]
+    public abstract class StorableTimestamp<T> : Storable<T> where T : IStorableTimestamp
+    {
+        public DateTime CreatedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
+    }
+
     [ForceInherit]
     [NoTypescript]
     public abstract class Storable<T> : IStorable where T : IStorable
     {
-        protected Storable() { }
 
         [Primary, AutoIncrement]
         public int Id { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public DateTime UpdatedDate { get; set; }
 
         public static List<T> GetAll()
         {
@@ -306,14 +317,14 @@ namespace AventusSharp.Data
         /// Delete inside the DM a bunch of elements and return them
         /// If something went wrong an empty list will be returned
         /// </summary>
-        /// <param name="values"></param>
+        /// <param name="ids"></param>
         /// <returns></returns>
         public static List<T> Delete(List<int> ids)
         {
             if (ids != null && ids.Count > 0)
             {
                 ResultWithError<List<T>> resultTemp = DeleteWithError(ids);
-                if(resultTemp.Result != null)
+                if (resultTemp.Result != null)
                 {
                     return resultTemp.Result;
                 }
@@ -340,7 +351,7 @@ namespace AventusSharp.Data
         /// <summary>
         /// Delete inside the DM a bunch of elements and return them
         /// </summary>
-        /// <param name="values"></param>
+        /// <param name="ids"></param>
         /// <returns></returns>
         public static ResultWithError<List<T>> DeleteWithError(List<int> ids)
         {
