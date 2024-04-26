@@ -1,11 +1,8 @@
-﻿using AventusSharp.Tools.Attributes;
+﻿using AventusSharp.Data.Attributes;
+using AventusSharp.Tools.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Reflection;
 
 namespace CSharpToTypescript.Container
 {
@@ -19,8 +16,8 @@ namespace CSharpToTypescript.Container
         protected BaseClassContainer(INamedTypeSymbol type) : base(type)
         {
             isInterface = type.TypeKind == TypeKind.Interface;
-            
-           
+
+
 
             LoadGenericsType();
             if (CanBeAdded)
@@ -37,14 +34,13 @@ namespace CSharpToTypescript.Container
         private void LoadGenericsType()
         {
             Type[] types = ProjectManager.Config.compiledAssembly?.GetTypes() ?? [];
-            matchingTypes = new();
+            matchingTypes = new() { realType };
             string fullNameBase = Tools.GetFullName(type);
             foreach (Type t in types)
             {
-                if (t.FullName != null && (t.FullName.StartsWith(fullNameBase + "`") || t.FullName == fullNameBase))
+                if (t.FullName != null && (t.FullName.StartsWith(fullNameBase + "`") || t.FullName == fullNameBase) && !t.Name.StartsWith("<"))
                 {
                     matchingTypes.Add(t);
-
                 }
             }
             matchingTypes.Sort((a, b) =>
@@ -55,7 +51,11 @@ namespace CSharpToTypescript.Container
                 return nbB - nbA;
             });
 
-            INamedTypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(matchingTypes[0].FullName ?? "");
+            INamedTypeSymbol? typeSymbol = null;
+            if (matchingTypes.Count > 0)
+            {
+                typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(matchingTypes[0].FullName ?? "");
+            }
             if (typeSymbol != null)
             {
                 type = typeSymbol;
@@ -136,11 +136,11 @@ namespace CSharpToTypescript.Container
             {
                 AddTxt("@Convertible()", result);
             }
-            if(IsInternal)
+            if (IsInternal)
             {
                 AddTxt("@Internal()", result);
             }
-            
+
             AddTxtOpen(GetAccessibilityExport(type) + GetAbstract() + GetKind() + GetTypeName(type, 0, true) + " " + GetExtension() + "{", result);
             result.Add(GetContent());
             AddTxtClose("}", result);
@@ -319,17 +319,20 @@ namespace CSharpToTypescript.Container
                             }
                             string defaultValue = GetDefaultValue(propertySymbol, typeTxt);
                             bool isUndefined = false;
-                            if(defaultValue == "undefined" && !memberName.EndsWith("?"))
+                            if (defaultValue == "undefined" && !memberName.EndsWith("?"))
                             {
                                 isUndefined = true;
-                                memberName += "!";
+                                if (!realType.IsInterface)
+                                {
+                                    memberName += "!";
+                                }
                             }
                             string txt = "";
                             if (isInterface)
                             {
                                 txt = memberName + ": " + typeTxt + ";";
                             }
-                            else if(isUndefined)
+                            else if (isUndefined)
                             {
                                 txt = GetAccessibility(member) + memberName + ": " + typeTxt + ";";
                             }
@@ -338,6 +341,7 @@ namespace CSharpToTypescript.Container
                                 txt = GetAccessibility(member) + memberName + ": " + typeTxt + " = " + defaultValue + ";";
                             }
                             AddTxt(txt, result);
+                            AdditionalContentProperty(propertySymbol, result);
                         }
                         else if (member is IFieldSymbol fieldSymbol && IsValidField(fieldSymbol))
                         {
@@ -362,7 +366,7 @@ namespace CSharpToTypescript.Container
                             }
 
                             string memberName = member.Name;
-                           
+
                             string typeTxt = GetTypeName(fieldSymbol.Type);
                             if (typeTxt.EndsWith("?"))
                             {
@@ -374,7 +378,10 @@ namespace CSharpToTypescript.Container
                             if (defaultValue == "undefined" && !memberName.EndsWith("?"))
                             {
                                 isUndefined = true;
-                                memberName += "!";
+                                if (!realType.IsInterface)
+                                {
+                                    memberName += "!";
+                                }
                             }
 
                             string txt = "";
@@ -382,7 +389,7 @@ namespace CSharpToTypescript.Container
                             {
                                 txt = memberName + ": " + typeTxt + ";";
                             }
-                            else if(isUndefined)
+                            else if (isUndefined)
                             {
                                 txt = GetAccessibility(member) + memberName + ": " + typeTxt + ";";
                             }
@@ -398,6 +405,47 @@ namespace CSharpToTypescript.Container
             GetContentAfter(result);
             return string.Join("\r\n", result);
         }
+
+        protected void AdditionalContentProperty(IPropertySymbol property, List<string> result)
+        {
+            if (HasAttribute<TsObject>(property))
+            {
+                PropertyInfo propertyInfo = Tools.GetPropertyInfo(property, realType);
+                TsObject? tsObject = propertyInfo.GetCustomAttribute<TsObject>(false);
+                ForeignKey? foreignKey = propertyInfo.GetCustomAttribute<ForeignKey>(false);
+                if (tsObject == null || foreignKey == null) return;
+
+                string name = tsObject.Name ?? property.Name.Replace("Id", "").Replace("Key", "");
+                string type = GetTypeName(foreignKey.Type);
+                if (type.EndsWith("?"))
+                {
+                    type = type.Substring(0, type.Length - 1);
+                }
+                string txt = GetAccessibility(property) + name + "?: " + type + " = undefined;";
+                AddTxt(txt, result);
+            }
+        }
+
+        protected void AdditionalContentField(IFieldSymbol field, List<string> result)
+        {
+            if (HasAttribute<TsObject>(field))
+            {
+                FieldInfo propertyInfo = Tools.GetFieldInfo(field, realType);
+                TsObject? tsObject = propertyInfo.GetCustomAttribute<TsObject>(false);
+                ForeignKey? foreignKey = propertyInfo.GetCustomAttribute<ForeignKey>(false);
+                if (tsObject == null || foreignKey == null) return;
+
+                string name = tsObject.Name ?? field.Name.Replace("Id", "").Replace("Key", "");
+                string type = GetTypeName(foreignKey.Type);
+                if (type.EndsWith("?"))
+                {
+                    type = type.Substring(0, type.Length - 1);
+                }
+                string txt = GetAccessibility(field) + name + "?: " + type + " = undefined;";
+                AddTxt(txt, result);
+            }
+        }
+
         protected virtual void DefineFullname(List<string> result)
         {
             if (IsConvertible)
@@ -433,7 +481,7 @@ namespace CSharpToTypescript.Container
             {
                 return "[]";
             }
-            if(type.StartsWith("Map<"))
+            if (type.StartsWith("Map<"))
             {
                 return "new " + type + "()";
             }

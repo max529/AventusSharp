@@ -1,18 +1,16 @@
-﻿using AventusSharp.WebSocket.Attributes;
+﻿using AventusSharp.WebSocket;
+using AventusSharp.WebSocket.Attributes;
 using AventusSharp.WebSocket.Event;
 using Microsoft.CodeAnalysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using Path = AventusSharp.WebSocket.Attributes.Path;
 
 namespace CSharpToTypescript.Container
 {
     internal class WsEventContainer : BaseContainer
     {
+        public static Dictionary<INamedTypeSymbol, WsEventContainer> CreatedEvents = [];
         public static bool Is(INamedTypeSymbol type, string fileName, out BaseContainer? result)
         {
             result = null;
@@ -20,7 +18,14 @@ namespace CSharpToTypescript.Container
             {
                 if (Tools.ExportToTypesript(type, ProjectManager.Config.exportWsEventByDefault))
                 {
-                    result = new WsEventContainer(type, fileName);
+                    if (!CreatedEvents.ContainsKey(type))
+                    {
+                        result = new WsEventContainer(type, fileName);
+                    }
+                    else
+                    {
+                        result = CreatedEvents[type];
+                    }
                 }
                 return true;
             }
@@ -33,16 +38,19 @@ namespace CSharpToTypescript.Container
         public string eventPath = "";
         public string fileName = "";
         private bool? listenOnBoot = null;
+        public Dictionary<string, Func<string>> functionNeeded = new();
+        public List<string> fctsConstructor = new();
 
-        public WsEventContainer(INamedTypeSymbol type, string fileName) : base(type)
+        public WsEventContainer(INamedTypeSymbol type, string? fileName) : base(type)
         {
-            this.fileName = fileName;
+            CreatedEvents.Add(type, this);
+            this.fileName = fileName ?? FileToWrite.GetFileName(type) ?? throw new Exception("Impossible: no filename");
             string fullName = type.ContainingNamespace.ToString() + "." + type.Name;
             if (type.IsGenericType)
             {
                 fullName += "`" + type.TypeParameters.Length;
             }
-            Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
+            Type? realType = Tools.GetTypeFromFullName(fullName);
             if (realType == null)
             {
                 throw new Exception("something went wrong");
@@ -55,16 +63,16 @@ namespace CSharpToTypescript.Container
         private void LoadBody()
         {
             Type type = realType;
-            while(type.BaseType != null)
+            while (type.BaseType != null)
             {
                 Type newType = type.BaseType;
-                if(newType.IsGenericType && newType.GetGenericTypeDefinition() == typeof(WsEvent<>))
+                if (newType.IsGenericType && newType.GetGenericTypeDefinition() == typeof(WsEvent<>))
                 {
                     Type body = newType.GetGenericArguments()[0];
-                    if(body.IsNested)
+                    if (body.IsNested)
                     {
                         ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(body.FullName ?? "");
-                        if(typeSymbol is INamedTypeSymbol namedType)
+                        if (typeSymbol is INamedTypeSymbol namedType)
                         {
                             FileToWrite.AddBaseContainer(new NormalClassContainer(namedType), fileName);
                         }
@@ -79,11 +87,11 @@ namespace CSharpToTypescript.Container
         {
             IEnumerable<Attribute> attrs = realType.GetCustomAttributes();
             bool oneEndPoint = false;
-            foreach(Attribute attr in attrs)
+            foreach (Attribute attr in attrs)
             {
-                if(attr is EndPoint endPointAttr)
+                if (attr is EndPoint endPointAttr)
                 {
-                    if(!WsEndPointContainer._events.ContainsKey(endPointAttr.endpoint))
+                    if (!WsEndPointContainer._events.ContainsKey(endPointAttr.endpoint))
                     {
                         WsEndPointContainer._events[endPointAttr.endpoint] = new();
                     }
@@ -91,23 +99,83 @@ namespace CSharpToTypescript.Container
                     WsEndPointContainer._events[endPointAttr.endpoint].Add(new WsEndPointContainerInfo(type, endPointAttr.typescriptPath));
                     oneEndPoint = true;
                 }
-                else if(attr is Path pathAttr)
+                else if (attr is Path pathAttr)
                 {
                     this.eventPath = pathAttr.pattern;
                 }
-                else if(attr is ListenOnBoot listenOnBootAttr)
+                else if (attr is ListenOnBoot listenOnBootAttr)
                 {
                     listenOnBoot = listenOnBootAttr.listen;
                 }
             }
-            if(this.eventPath == "")
+            if (this.eventPath == "")
             {
                 this.eventPath = realType.FullName ?? "";
             }
-            if(!oneEndPoint)
+            List<string> fcts = new List<string>();
+            eventPath = ParseFunctions(eventPath);
+            string prefix = ProjectManager.Config.wsEndpoint.prefix;
+            if (prefix != "")
+            {
+                eventPath = prefix + eventPath;
+            }
+            if (!oneEndPoint)
             {
                 WsEndPointContainer._defaultEvents.Add(new WsEndPointContainerInfo(type));
             }
+        }
+
+        private string ParseFunctions(string urlPattern)
+        {
+            MatchCollection matchingFct = new Regex("\\[.*?\\]").Matches(urlPattern);
+            if (matchingFct.Count > 0)
+            {
+                foreach (Match match in matchingFct)
+                {
+                    string value = match.Value.Replace("[", "").Replace("]", "");
+                    MethodInfo? methodTemp = realType.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (methodTemp == null || realType.IsGenericTypeDefinition)
+                    {
+                        // inject the method though constructor
+                        if (!fctsConstructor.Contains(value))
+                        {
+                            fctsConstructor.Add(value);
+                        }
+                    }
+                    else if (!functionNeeded.ContainsKey(methodTemp.Name))
+                    {
+                        if (realType.IsAbstract)
+                        {
+                            Func<string> getTxt = () =>
+                            {
+                                return GetIndentedText("public abstract " + methodTemp.Name + "(): string;");
+                            };
+                            functionNeeded.Add(methodTemp.Name, getTxt);
+                        }
+                        else
+                        {
+                            IWebSocketEvent? routerTemp = (IWebSocketEvent?)Activator.CreateInstance(realType);
+                            object? o = methodTemp.Invoke(routerTemp, Array.Empty<object>());
+                            if (o != null)
+                            {
+                                Func<string> getTxt = () =>
+                                {
+                                    List<string> resultTemp = new();
+                                    AddTxtOpen("public " + methodTemp.Name + "() {", resultTemp);
+                                    AddTxt("return \"" + o.ToString() + "\";", resultTemp);
+                                    AddTxtClose("}", resultTemp);
+                                    return string.Join("\r\n", resultTemp);
+                                };
+
+                                functionNeeded.Add(methodTemp.Name, getTxt);
+                            }
+                        }
+                    }
+                    
+                    urlPattern = urlPattern.Replace(match.Value, "${this." + value + "()}");
+                }
+            }
+            return urlPattern;
         }
 
 
@@ -168,8 +236,28 @@ namespace CSharpToTypescript.Container
             AddTxt(" * @inheritdoc", result);
             AddTxt(" */", result);
             AddTxtOpen("protected override path(): string {", result);
-            AddTxt("return `" + eventPath+"`;", result);
+            AddTxt("return `${this.getPrefix()}" + eventPath + "`;", result);
             AddTxtClose("}", result);
+
+            if (fctsConstructor.Count > 0)
+            {
+                string endpointName = GetTypeName(typeof(WsEndPoint));
+                string constructorTxt = "public constructor(endpoint: " + endpointName + ", getPrefix: () => string";
+                foreach (string fctToInject in fctsConstructor)
+                {
+                    constructorTxt += ", " + fctToInject + ": () => string";
+                    AddTxt("public " + fctToInject + ": () => string;", result);
+                }
+
+                constructorTxt += ") {";
+                AddTxtOpen(constructorTxt, result);
+                AddTxt("super(endpoint, getPrefix);", result);
+                foreach (string fctToInject in fctsConstructor)
+                {
+                    AddTxt("this." + fctToInject + " = "+fctToInject, result);
+                }
+                AddTxtClose("}", result);
+            }
 
             if (listenOnBoot != null)
             {
@@ -181,6 +269,11 @@ namespace CSharpToTypescript.Container
                 AddTxtOpen("protected override listenOnBoot(): boolean {", result);
                 AddTxt("return " + trueTxt + ";", result);
                 AddTxtClose("}", result);
+            }
+
+            foreach (KeyValuePair<string, Func<string>> fct in functionNeeded)
+            {
+                result.Add(fct.Value());
             }
 
             return string.Join("\r\n", result);

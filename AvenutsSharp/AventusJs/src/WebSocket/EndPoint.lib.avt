@@ -5,32 +5,41 @@ import { Connection } from "./Connection.lib.avt";
 import type { ConnectionOptions } from "./ISocket.lib.avt";
 
 namespace WebSocket {
+
+    export type EndPointType<T extends {
+        routes: readonly { type: WsRouteType, path: string; }[],
+        events: readonly { type: WsEventType, path: string; }[];
+    }, U extends typeof EndPoint = typeof EndPoint> = Aventus.MixProto<
+        Aventus.MixProto<
+            U,
+            MergeWsRoutesType<T['routes']>,
+            "routes"
+        >,
+        MergeWsEventsType<T['events']>,
+        "events"
+    >;
+
+    export type RouteType<T extends WsRouteType, U extends string> = { type: T, path: U; };
+    export type EventType<T extends WsEventType, U extends string> = { type: T, path: U; };
+
+
     export abstract class EndPoint extends Connection {
 
 
-        public static With<const T extends { routes: readonly { type: WsRouteType, path: string; }[], events: readonly { type: WsEventType, path: string; }[]; }>(options: T) {
-            abstract class EndPointWith extends EndPoint {
+        public static WithRoute<const T extends { routes: readonly { type: WsRouteType, path: string; }[], events: readonly { type: WsEventType, path: string; }[]; }, U extends typeof EndPoint = typeof EndPoint>(options: T, from?: U): EndPointType<T, U> {
+            const c = from ?? EndPoint;
+            abstract class EndPointWith extends c {
                 constructor() {
                     super();
                     for(let route of options.routes) {
-                        if(typeof route == "function") {
-                            this._routes.add(route);
-                        }
-                        else {
-                            this._routes.add(route.type, route.path);
-                        }
+                        this.registerRoute(route);
                     }
                     for(let _event of options.events) {
-                        if(typeof _event == "function") {
-                            this._events.add(_event);
-                        }
-                        else {
-                            this._events.add(_event.type, _event.path);
-                        }
+                        this.registerEvent(_event);
                     }
                 }
             }
-            return EndPointWith as Aventus.MixProto<Aventus.MixProto<typeof EndPoint, MergeWsRoutesType<T['routes']>, "routes">, MergeWsEventsType<T['events']>, "events">;
+            return EndPointWith as EndPointType<T, U>;
         }
 
 
@@ -46,8 +55,30 @@ namespace WebSocket {
                 get: () => { return this._events; }
             });
             this.createProxy();
+            this.register();
         }
 
+        protected register(): void {
+
+        }
+
+        public registerRoute(route: { type: WsRouteType, path: string; }) {
+            if(typeof route == "function") {
+                this._routes.add(route);
+            }
+            else {
+                this._routes.add(route.type, route.path);
+            }
+        }
+
+        public registerEvent(ev: { type: WsEventType, path: string; }) {
+            if(typeof ev == "function") {
+                this._events.add(ev);
+            }
+            else {
+                this._events.add(ev.type, ev.path);
+            }
+        }
 
         private createProxy() {
             if(!this._routes) {
@@ -63,7 +94,7 @@ namespace WebSocket {
          */
         protected override configure(options: ConnectionOptions): ConnectionOptions {
             options.socketName = this.path;
-
+            
             return options;
         }
 

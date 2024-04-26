@@ -124,7 +124,8 @@ namespace AventusSharp.WebSocket
         }
         private static void RegisterRoutes(IEnumerable<Type> typesRoute)
         {
-            Func<string, Dictionary<string, WebSocketRouterParameterInfo>, Type, Regex> transformPattern = config.transformPattern ?? PrepareUrl;
+            Func<string, Dictionary<string, WebSocketRouterParameterInfo>, object, bool, string> transformPattern = config.transformPattern ?? PrepareUrl;
+            Func<string, bool, Regex> transformPatternIntoRegex = config.transformPatternIntoRegex ?? PrepareRegex;
 
             foreach (Type t in typesRoute)
             {
@@ -187,6 +188,8 @@ namespace AventusSharp.WebSocket
                     List<Attribute> methodsAttribute = method.GetCustomAttributes().ToList();
                     WebSocketAttributeAnalyze infoMethod = PrepareAttributes(methodsAttribute);
                     
+                    if (!infoMethod.canUse) continue;
+                    
                     if (infoMethod.endPoints.Count == 0)
                     {
                         if (endpointsClass.Count == 0)
@@ -199,11 +202,18 @@ namespace AventusSharp.WebSocket
                         }
                     }
 
+                    if(infoMethod.pathes.Count == 0)
+                    {
+                        infoMethod.pathes.Add(Tools.GetDefaultMethodUrl(method));
+                    }
+
+                    Console.WriteLine("method " + method.Name + " => "+infoMethod.pathes.Count);
                     foreach (string route in infoMethod.pathes)
                     {
                         Dictionary<string, WebSocketRouterParameterInfo> @params = fctParams.ToDictionary(p => p.name, p => p);
                         string urlPattern = route;
-                        Regex regex = transformPattern(urlPattern, @params, t);
+                        string url = transformPattern(urlPattern, @params, routeInstances[t], false);
+                        Regex regex = transformPatternIntoRegex(url, false);
 
                         foreach (IWsEndPoint endpointType in infoMethod.endPoints)
                         {
@@ -214,6 +224,7 @@ namespace AventusSharp.WebSocket
                             {
                                 if (!_class.routesInfo.ContainsKey(info.UniqueKey))
                                 {
+                                    info.router.AddEndPoint(_class);
                                     info.endpoint = _class;
                                     _class.routesInfo.Add(info.UniqueKey, info);
                                     if (config.PrintRoute)
@@ -283,6 +294,10 @@ namespace AventusSharp.WebSocket
                 }
                 info.CustomFct = responseType.CustomFct;
             }
+            else if(attr is NotRoute)
+            {
+                info.canUse = false;
+            }
         }
 
         private static VoidWithWsError LoadConfig()
@@ -302,31 +317,32 @@ namespace AventusSharp.WebSocket
             return result;
         }
 
-        public static Regex PrepareUrl(string urlPattern, Dictionary<string, WebSocketRouterParameterInfo> @params, Type t)
+        public static string PrepareUrl(string urlPattern, Dictionary<string, WebSocketRouterParameterInfo> @params, object o, bool isEvent)
         {
             urlPattern = ReplaceParams(urlPattern, @params);
-            urlPattern = ReplaceFunction(urlPattern, t);
-            Regex regex = PrepareRegex(urlPattern);
-            return regex;
+            urlPattern = ReplaceFunction(urlPattern, o);
+            return urlPattern;
         }
-        public static string ReplaceFunction(string urlPattern, Type t)
+        public static string ReplaceFunction(string urlPattern, object o)
         {
             MatchCollection matchingFct = new Regex("\\[[a-zA-Z0-9_]*?\\]").Matches(urlPattern);
+
             if (matchingFct.Count > 0)
             {
                 foreach (Match match in matchingFct)
                 {
                     string value = match.Value.Replace("[", "").Replace("]", "");
-                    MethodInfo? method = t.GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    MethodInfo? method = o.GetType().GetMethod(value, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     if (method == null)
                     {
-                        Console.WriteLine("Can't find method " + value + " on " + t.FullName);
+                        Console.WriteLine("Can't find method " + value + " on " + o.GetType().FullName);
                         continue;
                     }
-                    object? o = method.Invoke(routeInstances[t], Array.Empty<object>());
-                    if (o != null)
+                    //object? res = method.Invoke(routeInstances[t], Array.Empty<object>());
+                    object? res = method.Invoke(o, Array.Empty<object>());
+                    if (res != null)
                     {
-                        urlPattern = urlPattern.Replace(match.Value, o.ToString());
+                        urlPattern = urlPattern.Replace(match.Value, res.ToString());
                     }
                 }
             }
@@ -360,7 +376,7 @@ namespace AventusSharp.WebSocket
             return urlPattern;
         }
 
-        public static Regex PrepareRegex(string urlPattern)
+        public static Regex PrepareRegex(string urlPattern, bool isEvent)
         {
             if (!urlPattern.StartsWith("^"))
             {
@@ -389,7 +405,7 @@ namespace AventusSharp.WebSocket
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
-                string newPath = context.Request.Path.ToString().ToLower();
+                string newPath = context.Request.Path.ToString();
                 if (endPointInstances.ContainsKey(newPath))
                 {
                     System.Net.WebSockets.WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();

@@ -99,7 +99,6 @@ namespace AventusSharp.Tools
         }
     }
 
-    [NoTypescript]
     public class ResultWithError<T> : ResultWithError<T, GenericError>
     {
 

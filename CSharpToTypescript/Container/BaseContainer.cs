@@ -5,11 +5,13 @@ using AventusSharp.Tools;
 using AventusSharp.Tools.Attributes;
 using AventusSharp.WebSocket;
 using AventusSharp.WebSocket.Event;
+using Microsoft.Build.Framework;
 using Microsoft.CodeAnalysis;
 using MySqlX.XDevAPI.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -61,7 +63,7 @@ namespace CSharpToTypescript.Container
             {
                 fullName += "`" + type.TypeParameters.Length;
             }
-            Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
+            Type? realType = Tools.GetTypeFromFullName(fullName);
             if (realType == null)
             {
                 throw new Exception("something went wrong");
@@ -182,7 +184,7 @@ namespace CSharpToTypescript.Container
                 if (general != current)
                 {
                     // need to load file
-                    if (!unresolved.Contains(type))
+                    if (!unresolved.Contains(type) && Tools.GetFullName(type) != typeof(IStorable).FullName)
                     {
                         unresolved.Add(type);
                     }
@@ -216,12 +218,12 @@ namespace CSharpToTypescript.Container
         protected string DetermineGenericType(INamedTypeSymbol type, string? name, int depth, bool genericExtendsConstraint)
         {
             // if empty name => mabye its a full replacement by the user
-            if(name == "")
+            if (name == "")
             {
                 return name;
             }
             // it's an internal case for list and dico
-            if(name == null)
+            if (name == null)
             {
                 name = "";
             }
@@ -284,6 +286,7 @@ namespace CSharpToTypescript.Container
             return type.GetAttributes().ToList()
                 .Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(X).FullName) != null;
         }
+
 
         public string GetVariantTypeName(ISymbol type, int depth, bool genericExtendsConstraint, string name, out bool isFull)
         {

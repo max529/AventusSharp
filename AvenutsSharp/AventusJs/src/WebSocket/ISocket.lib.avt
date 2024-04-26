@@ -31,6 +31,10 @@ namespace WebSocket {
          * If true, when the socket is opened, all messages in buffered will be sent
          */
         allowSendBeforeOpen?: boolean;
+        /**
+         * Define the websocket connection must be open during creation
+         */
+        autoStart?: boolean;
     }
 
     export interface SocketSendMessageOptions {

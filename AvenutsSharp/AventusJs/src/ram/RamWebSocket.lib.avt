@@ -1,4 +1,4 @@
-import type { StorableWsRoute } from "../generated/WebSocket/StorableWsRoute.lib.avt";
+import { StorableWsRoute_CreateMany, type StorableWsRoute } from "../generated/WebSocket/StorableWsRoute.lib.avt";
 import { Storable } from "../Storable.data.avt";
 
 namespace RAM {
@@ -34,9 +34,9 @@ namespace RAM {
         }
 
         protected addEventsBindings() {
-            const autoListen = this.listenOnStart();
+            const autoListen = this.listenOnStart(); 
 
-            this.routes.events.GetAll.onTrigger.add(this.otherGetAll);
+            this.routes.events.GetAll.onTrigger.add(this.otherGetAll, this);
             if(autoListen.GetAll) {
                 this.routes.events.GetAll.listen();
             }
@@ -44,7 +44,7 @@ namespace RAM {
                 this.routes.events.GetAll.stop();
             }
 
-            this.routes.events.GetById.onTrigger.add(this.otherGetById);
+            this.routes.events.GetById.onTrigger.add(this.otherGetById, this);
             if(autoListen.GetById) {
                 this.routes.events.GetById.listen();
             }
@@ -52,7 +52,7 @@ namespace RAM {
                 this.routes.events.GetById.stop();
             }
 
-            this.routes.events.Create.onTrigger.add(this.otherCreateItem);
+            this.routes.events.Create.onTrigger.add(this.otherCreateItem, this);
             if(autoListen.Create) {
                 this.routes.events.Create.listen();
             }
@@ -60,7 +60,7 @@ namespace RAM {
                 this.routes.events.Create.stop();
             }
 
-            this.routes.events.CreateMany.onTrigger.add(this.otherCreateList);
+            this.routes.events.CreateMany.onTrigger.add(this.otherCreateList, this);
             if(autoListen.CreateMany) {
                 this.routes.events.CreateMany.listen();
             }
@@ -68,7 +68,7 @@ namespace RAM {
                 this.routes.events.CreateMany.stop();
             }
 
-            this.routes.events.Update.onTrigger.add(this.otherCreateItem);
+            this.routes.events.Update.onTrigger.add(this.otherUpdateItem, this);
             if(autoListen.Update) {
                 this.routes.events.Update.listen();
             }
@@ -76,7 +76,7 @@ namespace RAM {
                 this.routes.events.Update.stop();
             }
 
-            this.routes.events.UpdateMany.onTrigger.add(this.otherCreateList);
+            this.routes.events.UpdateMany.onTrigger.add(this.otherUpdateList, this);
             if(autoListen.UpdateMany) {
                 this.routes.events.UpdateMany.listen();
             }
@@ -84,7 +84,7 @@ namespace RAM {
                 this.routes.events.UpdateMany.stop();
             }
 
-            this.routes.events.Delete.onTrigger.add(this.otherCreateItem);
+            this.routes.events.Delete.onTrigger.add(this.otherDeleteItem, this);
             if(autoListen.Delete) {
                 this.routes.events.Delete.listen();
             }
@@ -92,7 +92,7 @@ namespace RAM {
                 this.routes.events.Delete.stop();
             }
 
-            this.routes.events.DeleteMany.onTrigger.add(this.otherCreateList);
+            this.routes.events.DeleteMany.onTrigger.add(this.otherDeleteList, this);
             if(autoListen.DeleteMany) {
                 this.routes.events.DeleteMany.listen();
             }
@@ -115,7 +115,7 @@ namespace RAM {
         }
 
         @BindThis()
-        protected otherGetAll(items: T[], params: Aventus.UriParams, uid?: string) {
+        protected otherGetAll(items: Aventus.ExtractFromError<T[]>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherGetAllLocked[uid]) return;
 
             for(let item of items) {
@@ -148,7 +148,7 @@ namespace RAM {
         }
 
         @BindThis()
-        protected otherGetById(item: T, params: Aventus.UriParams, uid?: string) {
+        protected otherGetById(item: Aventus.ExtractFromError<T>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherGetByIdLocked[uid]) return;
 
             let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
@@ -198,7 +198,7 @@ namespace RAM {
 
         //#region create
         @BindThis()
-        protected otherCreateItem(item: T, params: Aventus.UriParams, uid?: string) {
+        protected otherCreateItem(item: Aventus.ExtractFromError<T>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherCreateItemLocked[uid]) return;
 
             let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
@@ -225,7 +225,7 @@ namespace RAM {
         }
 
         @BindThis()
-        protected otherCreateList(items: T[], params: Aventus.UriParams, uid?: string) {
+        protected otherCreateList(items: Aventus.ExtractFromError<T[]>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherCreateListLocked[uid]) return;
 
             for(let item of items) {
@@ -256,7 +256,7 @@ namespace RAM {
 
         //#region update
         @BindThis()
-        protected otherUpdateItem(item: T, params: Aventus.UriParams, uid?: string) {
+        protected otherUpdateItem(item: Aventus.ExtractFromError<T>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherUpdateItemLocked[uid]) return;
 
             let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
@@ -315,7 +315,7 @@ namespace RAM {
 
         //#region delete
         @BindThis()
-        protected otherDeleteItem(item: T, params: Aventus.UriParams, uid?: string) {
+        protected otherDeleteItem(item: Aventus.ExtractFromError<T>, params: Aventus.UriParams, uid?: string) {
             if(uid && this.otherDeleteItemLocked[uid]) return;
 
             let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();

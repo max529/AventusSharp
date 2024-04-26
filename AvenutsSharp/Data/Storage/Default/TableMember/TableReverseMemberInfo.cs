@@ -35,6 +35,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         public Func<int, ResultWithDataError<List<IStorable>>>? reverseQueryBuilder;
         public TableMemberInfoSql? reverseMember;
         public Type? ReverseLinkType;
+        public bool isSingle = false;
         private ReverseLink? ReverseLinkAttr;
         public TableInfo? TableLinked;
         public VoidWithDataError Prepare()
@@ -49,10 +50,10 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                     if (type == null)
                     {
                         type = MemberType;
+                        isSingle = true;
                     }
                 }
                 ReverseLinkType = type;
-
             }
             else
             {
@@ -98,7 +99,12 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 }
                 if (reversInfo.Count > 1)
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.TooMuchMemberFound, "Too much matching type " + TableInfo.Type + " on type " + tableInfo.Name));
+                    result.Errors.Add(
+                        new DataError(
+                            DataErrorCode.TooMuchMemberFound,
+                            "Too much matching type " + TableInfo.Type + " on type " + tableInfo.Name + ". Please define a name (" + string.Join(", ", reversInfo.Select(s => s.Name)) + ")"
+                        )
+                    );
                 }
                 else if (reversInfo.Count == 0)
                 {
@@ -114,37 +120,53 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         public VoidWithDataError ReverseLoadAndSet(IStorable o)
         {
             VoidWithDataError result = new();
-            if(TableLinked == null)
+            if (TableLinked == null)
             {
                 result.Errors.Add(new DataError(DataErrorCode.LinkNotSet, "The table linked isn't set => internal error : contact an admin"));
                 return result;
             }
             object? iresultTemp = GetType().GetMethod("_ReverseQuery", BindingFlags.NonPublic | BindingFlags.Instance)?.MakeGenericMethod(TableLinked.Type).Invoke(this, new object[] { o.Id });
-            if(iresultTemp is IResultWithError resultTemp)
+            if (iresultTemp is IResultWithError resultTemp)
             {
                 if (resultTemp.Errors.Count > 0)
                 {
-                    foreach(var errorTemp in resultTemp.Errors)
+                    foreach (var errorTemp in resultTemp.Errors)
                     {
-                        if(errorTemp is DataError dataError)
+                        if (errorTemp is DataError dataError)
                         {
                             result.Errors.Add(dataError);
                         }
                     }
                     return result;
                 }
-                SetValue(o, resultTemp.Result);
+
+
+                if (isSingle)
+                {
+                    if (resultTemp.Result is IList list && list.Count > 0)
+                    {
+                        SetValue(o, list[0]);
+                    }
+                    else
+                    {
+                        SetValue(o, null);
+                    }
+                }
+                else
+                {
+                    SetValue(o, resultTemp.Result);
+                }
             }
             return result;
         }
-        public ResultWithDataError<List<IStorable>> ReverseQuery(int id)
+        public ResultWithDataError<List<IStorable>> ReverseQuery(int Id)
         {
             ResultWithDataError<List<IStorable>> result = new();
             if (reverseQueryBuilder == null)
             {
                 if (ReverseLinkType == null || reverseMember == null)
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.ReverseLinkNotExist, "Reverse link seems to not be init"));
+                    result.Errors.Add(new DataError(DataErrorCode.ReverseLinkNotExist, "Reverse link seems to not be init : " + Name));
                     return result;
                 }
 
@@ -162,7 +184,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                     Expression temp = Expression.PropertyOrField(argParam, reverseMember.SqlName);
                     nameProperty = Expression.PropertyOrField(temp, Storable.Id);
                 }
-                Expression<Func<int>> idLambda = () => id;
+                Expression<Func<int>> idLambda = () => Id;
                 var var1 = Expression.Variable(varType, Storable.Id);
 
                 Type? typeIfNullable = System.Nullable.GetUnderlyingType(nameProperty.Type);
@@ -231,7 +253,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                     return result;
                 };
             }
-            result = reverseQueryBuilder(id);
+            result = reverseQueryBuilder(Id);
             return result;
         }
 
@@ -240,19 +262,19 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             // TODO change the list to be the main code used by single id
             ResultWithDataError<List<IStorable>> result = new();
             Dictionary<int, IStorable> elements = new Dictionary<int, IStorable>();
-            foreach(int id in ids)
+            foreach (int id in ids)
             {
                 ResultWithDataError<List<IStorable>> resultTemp = ReverseQuery(id);
-                if(!resultTemp.Success)
+                if (!resultTemp.Success)
                 {
                     result.Errors.AddRange(resultTemp.Errors);
                     return result;
                 }
-                if(resultTemp.Result == null)
+                if (resultTemp.Result == null)
                 {
                     continue;
                 }
-                foreach(IStorable storable in resultTemp.Result)
+                foreach (IStorable storable in resultTemp.Result)
                 {
                     elements[storable.Id] = storable;
                 }
@@ -266,15 +288,15 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             ResultWithDataError<List<X>> result = new ResultWithDataError<List<X>>();
             ResultWithDataError<List<IStorable>> resultTemp = ReverseQuery(id);
             result.Result = new List<X>();
-            if(!resultTemp.Success || resultTemp.Result == null)
+            if (!resultTemp.Success || resultTemp.Result == null)
             {
                 result.Errors.AddRange(resultTemp.Errors);
                 return result;
             }
 
-            foreach(IStorable storable in resultTemp.Result)
+            foreach (IStorable storable in resultTemp.Result)
             {
-                if(storable is X converted)
+                if (storable is X converted)
                 {
                     result.Result.Add(converted);
                 }

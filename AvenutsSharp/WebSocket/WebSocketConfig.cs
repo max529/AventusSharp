@@ -12,12 +12,14 @@ namespace AventusSharp.WebSocket
 
         public string FileUploadTempDir { get; set; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
 
-        public Func<string, Dictionary<string, WebSocketRouterParameterInfo>, Type, Regex>? transformPattern;
+        public Func<string, Dictionary<string, WebSocketRouterParameterInfo>, object, bool, string>? transformPattern;
+        public Func<string, bool, Regex>? transformPatternIntoRegex;
 
         public JsonSerializerSettings? CustomJSONSettings { get; set; }
         public JsonConverter CustomJSONConverter { get; set; } = new AventusJsonConverter();
 
         public bool PrintRoute { get; set; } = false;
         public bool PrintTrigger { get; set; } = false;
+        public bool PrintQuery { get; set; } = false;
     }
 }

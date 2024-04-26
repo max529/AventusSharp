@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using AventusSharp.WebSocket;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,6 +39,7 @@ namespace CSharpToTypescript
 
         public ProjectConfigReplacer replacer = new ProjectConfigReplacer();
         public ProjectConfigHttpRouter httpRouter = new ProjectConfigHttpRouter();
+        public ProjectConfigWsEndpoint wsEndpoint = new ProjectConfigWsEndpoint();
 
         public ProjectConfig()
         {
@@ -85,6 +87,11 @@ namespace CSharpToTypescript
         public string parent = "Aventus.HttpRouter";
         [JsonProperty("namespace")]
         public string? _namespace;
+    }
+
+    public class ProjectConfigWsEndpoint
+    {
+        public string prefix = "";
     }
     #endregion
 

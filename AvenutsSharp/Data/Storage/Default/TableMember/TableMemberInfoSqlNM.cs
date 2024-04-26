@@ -33,7 +33,11 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         {
             get
             {
-                return TableInfo.Primary == null ? null : TableInfo.SqlTableName + "_" + TableInfo.Primary.SqlName;
+                string? result = TableInfo.Primary == null ? null : TableInfo.SqlTableName + "_" + TableInfo.Primary.SqlName;
+                if(result != null) {
+                    result = result.Replace(".", "_");
+                }
+                return result;
             }
         }
 
@@ -47,9 +51,9 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 }
                 if (TableLinked == null || TableLinked.Primary == null)
                 {
-                    return TableInfo.GetSQLTableName(TableLinkedType) + "_Id";
+                    return TableInfo.GetSQLTableName(TableLinkedType) + "_Id".Replace(".", "_");
                 }
-                return TableLinked.SqlTableName + "_" + TableLinked.Primary.SqlName;
+                return (TableLinked.SqlTableName + "_" + TableLinked.Primary.SqlName).Replace(".", "_");
             }
         }
 
@@ -161,7 +165,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
 
         public override object? GetSqlValue(object obj)
         {
-            throw new System.NotImplementedException();
+            return GetValue(obj);
         }
 
         protected override void SetSqlValue(object obj, string value)

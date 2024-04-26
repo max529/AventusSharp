@@ -215,7 +215,12 @@ namespace AventusSharp.Data.Storage.Default
                             if (Debug)
                             {
                                 Console.WriteLine();
-                                Console.WriteLine(command.CommandText);
+                                string queryWithParam = command.CommandText;
+                                foreach (KeyValuePair<string, object?> parameter in parameters)
+                                {
+                                    queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
+                                }
+                                Console.WriteLine(queryWithParam);
                                 Console.WriteLine();
                             }
                             command.ExecuteNonQuery();
@@ -397,7 +402,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 catch (Exception e)
                 {
-                    DataError error = new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo);
+                    DataError error = new DataError(DataErrorCode.UnknowError, e.Message + "\nSQL: " + command.CommandText, callerPath, callerNo);
                     error.Details.Add(command.CommandText);
                     result.Errors.Add(error);
                     if (isNewTransaction)
@@ -409,7 +414,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message+ "\nSQL: " + command.CommandText, callerPath, callerNo));
             }
             if (!keepConnectionOpen)
             {
@@ -568,6 +573,10 @@ namespace AventusSharp.Data.Storage.Default
                         {
                             result.Errors.Add(new DataError(DataErrorCode.TypeNotFound, "Can't find the type " + reversMember.ReverseLinkType + " to create revserse link with " + reversMember.Name + " on " + reversMember.TableInfo.Name));
                         }
+                    }
+                    if (!result.Success)
+                    {
+                        return result;
                     }
                 }
             }
@@ -963,6 +972,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
             }
 
+            // TODO : change it to make only one DB request based on the list
             foreach (TableReverseMemberInfo reverse in info.ReverseLinks)
             {
                 if (o is IStorable storable)
@@ -1906,11 +1916,13 @@ namespace AventusSharp.Data.Storage.Default
         }
 
 
-        public ResultWithError<bool> Commit() {
+        public ResultWithError<bool> Commit()
+        {
             return _Commit(transaction);
         }
 
-        public ResultWithError<bool> Rollback() {
+        public ResultWithError<bool> Rollback()
+        {
             return _Rollback(transaction);
         }
     }

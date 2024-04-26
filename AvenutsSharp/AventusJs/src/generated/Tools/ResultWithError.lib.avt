@@ -5,7 +5,7 @@ namespace Tools {
 	}
 
 	@Convertible()
-	export class VoidWithError<T extends Aventus.GenericError = Aventus.GenericError> extends Aventus.VoidWithError<T> implements IWithError {
+	export class VoidWithError<T extends Aventus.GenericError = Aventus.GenericError> extends Aventus.VoidWithError<T> implements IWithError, IWithError {
 		public static get Fullname(): string { return "AventusSharp.Tools.VoidWithError, AventusSharp"; }
 	}
 
@@ -14,7 +14,7 @@ namespace Tools {
 	}
 
 	@Convertible()
-	export class ResultWithError<T, U extends Aventus.GenericError> extends Aventus.ResultWithError<T, U> implements IResultWithError {
+	export class ResultWithError<T, U extends Aventus.GenericError = Aventus.GenericError> extends Aventus.ResultWithError<T, U> implements IResultWithError, IResultWithError {
 		public static get Fullname(): string { return "AventusSharp.Tools.ResultWithError, AventusSharp"; }
 	}
 

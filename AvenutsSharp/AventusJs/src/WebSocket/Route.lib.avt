@@ -1,3 +1,4 @@
+import type { Event } from "./Event.lib.avt";
 import { EndPoint } from "./EndPoint.lib.avt";
 
 namespace WebSocket {
@@ -12,5 +13,13 @@ namespace WebSocket {
         public constructor(endpoint: EndPoint) {
             this.endpoint = endpoint;
         }
+
+        public getPrefix(): string {
+            return "";
+        }
     }
 }
+
+export type ExtractResponse<T extends Event<U>, U = any> = T extends Event<infer U> ? 
+Aventus.ResultWithError<Aventus.ExtractFromError<U>> 
+: never;

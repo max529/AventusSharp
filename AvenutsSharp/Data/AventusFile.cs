@@ -46,7 +46,7 @@ namespace AventusSharp.Data
                 object? newFile = Activator.CreateInstance(dataMemberInfo.Type);
                 if (newFile is AventusFile file)
                 {
-                    file.Uri = value;
+                    file.SetUriFromStorage(value);
                     SetValue(obj, file);
                 }
             }
@@ -77,6 +77,9 @@ namespace AventusSharp.Data
         /// </summary>
         public HttpFile? Upload { get; set; }
 
+        public virtual void SetUriFromStorage(string uri) {
+            Uri = uri;
+        }
 
         public ResultWithError<bool> SaveToFolderOnUpload(string folderPath)
         {

@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace AventusSharp.WebSocket.Event
 {
@@ -14,12 +16,14 @@ namespace AventusSharp.WebSocket.Event
 
         public WsEndPoint endPoint;
         public string path;
+        public string basePath;
         public ResponseTypeEnum eventType;
 
-        public WsEventConfig(WsEndPoint endPoint, string path, ResponseTypeEnum eventType)
+        public WsEventConfig(WsEndPoint endPoint, string basePath, string path, ResponseTypeEnum eventType)
         {
             this.endPoint = endPoint;
             this.path = path;
+            this.basePath = basePath;
             this.eventType = eventType;
         }
     }
@@ -30,7 +34,7 @@ namespace AventusSharp.WebSocket.Event
         public WsEvent()
         {
             WsEventConfig config = GetConfig();
-            this.path = config.path;
+            this.basePath = config.path;
             this.endPoint = config.endPoint;
             this.eventType = config.eventType;
 
@@ -43,6 +47,7 @@ namespace AventusSharp.WebSocket.Event
             {
                 WsEndPoint endPoint;
                 string path;
+                string basePath;
                 WebSocketAttributeAnalyze infoMethod = WebSocketMiddleware.PrepareAttributes(GetType().GetCustomAttributes());
                 if (infoMethod.endPoints.Count == 0)
                 {
@@ -61,7 +66,13 @@ namespace AventusSharp.WebSocket.Event
                 {
                     path = infoMethod.pathes[0];
                 }
-                WsEventConfig.configs[type] = new WsEventConfig(endPoint, path, infoMethod.eventType);
+                basePath = path;
+                if (!path.Contains("[") && !path.Contains("]"))
+                {
+                    // nothing to transform
+                    path = basePath;
+                }
+                WsEventConfig.configs[type] = new WsEventConfig(endPoint, basePath, path, infoMethod.eventType);
             }
 
             return WsEventConfig.configs[type];
@@ -71,6 +82,11 @@ namespace AventusSharp.WebSocket.Event
         public override async Task Emit()
         {
             T o = await Prepare();
+            if (path == null)
+            {
+                Func<string, Dictionary<string, WebSocketRouterParameterInfo>, object, bool, string> transformPattern = WebSocketMiddleware.config.transformPattern ?? WebSocketMiddleware.PrepareUrl;
+                path = transformPattern(basePath, new(), this, true);
+            }
             await DefaultEmit(o);
         }
 

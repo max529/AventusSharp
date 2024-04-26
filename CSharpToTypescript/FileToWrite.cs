@@ -1,5 +1,6 @@
 ﻿using CSharpToTypescript.Container;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,8 +13,11 @@ namespace CSharpToTypescript
     {
 
         private static Dictionary<string, FileToWrite> allFiles = new();
+        private static Dictionary<ISymbol, string> customFileNames = [];
         public static string? GetFileName(ISymbol symbol)
         {
+            if(customFileNames.ContainsKey(symbol)) return customFileNames[symbol];
+
             string? fileName = symbol.Locations[0].SourceTree?.FilePath;
             if (fileName == null)
             {
@@ -98,6 +102,7 @@ namespace CSharpToTypescript
 
         public static void WriteAll()
         {
+            AddOthersFilesBeforeWrite();
             foreach (KeyValuePair<string, FileToWrite> file in allFiles)
             {
                 foreach (BaseContainer container in file.Value.types)
@@ -347,6 +352,35 @@ namespace CSharpToTypescript
                 File.WriteAllText(path, importTxt + fileWriter.GetContent());
             }
 
+        }
+
+        private static void AddOthersFilesBeforeWrite()
+        {
+            AddMissingWsEndPoint();
+        }
+
+        private static void AddMissingWsEndPoint()
+        {
+            foreach(Type key in WsEndPointContainer._events.Keys)
+            {
+                if(!WsEndPointContainer.wroteTypes.Contains(key))
+                {
+                    string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
+                    WsEndPointContainer endPoint = new WsEndPointContainer(key);
+                    customFileNames[endPoint.type] = fileName;
+                    AddBaseContainer(endPoint, fileName);
+                }
+            }
+            foreach (Type key in WsEndPointContainer._routers.Keys)
+            {
+                if (!WsEndPointContainer.wroteTypes.Contains(key))
+                {
+                    string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
+                    WsEndPointContainer endPoint = new WsEndPointContainer(key);
+                    customFileNames[endPoint.type] = fileName;
+                    AddBaseContainer(endPoint, fileName);
+                }
+            }
         }
     }
 }

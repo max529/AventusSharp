@@ -15,7 +15,9 @@ namespace AventusSharp.WebSocket
         ConfigError,
         MultipleMainEndpoint,
         CantGetValueFromBody,
-        NoConnection
+        NoConnection,
+        NoEndPoint,
+        NoPath,
     }
     public class WsError : GenericError<WsErrorCode>
     {

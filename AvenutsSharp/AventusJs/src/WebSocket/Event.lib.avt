@@ -2,21 +2,29 @@ import type { SocketRoute } from "./ISocket.lib.avt";
 import { EndPoint } from "./EndPoint.lib.avt";
 
 namespace WebSocket {
+
+    export type ExtractResultFrom<T extends Event, U = any> = T extends Event<infer U> ? U : never;
     export abstract class Event<T extends any = any> {
         protected endpoint: EndPoint;
 
-        public onTrigger: Aventus.Callback<(item: T, params: Aventus.UriParamsValue) => void> = new Aventus.Callback();
+        public onTrigger: Aventus.Callback<(item: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue) => void> = new Aventus.Callback();
 
-        protected routeInfo: SocketRoute<T>;
+        protected routeInfo!: SocketRoute<Aventus.ExtractFromError<T>>;
 
         protected _listening: boolean = false;
         public get listening(): boolean {
             return this._listening;
         }
 
-        public constructor(endpoint: EndPoint) {
+        public getPrefix: () => string;
+
+        public constructor(endpoint: EndPoint, getPrefix?: () => string) {
             this.endpoint = endpoint;
+            this.getPrefix = getPrefix ?? (() => "");
             this.onEvent = this.onEvent.bind(this);
+        }
+
+        public init() {
             this.routeInfo = {
                 channel: this.path(),
                 callback: this.onEvent
@@ -60,7 +68,7 @@ namespace WebSocket {
             }
         }
 
-        protected onEvent(data: T, params: Aventus.UriParamsValue) {
+        protected onEvent(data: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue) {
             this.onTrigger.trigger([data, params]);
         }
 

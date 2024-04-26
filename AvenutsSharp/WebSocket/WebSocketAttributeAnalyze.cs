@@ -10,5 +10,6 @@ namespace AventusSharp.WebSocket
         public List<WsEndPoint> endPoints = new List<WsEndPoint>();
         public ResponseTypeEnum eventType = ResponseTypeEnum.Single;
         public Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? CustomFct;
+        public bool canUse = true;
     }
 }

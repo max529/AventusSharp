@@ -31,10 +31,10 @@ DataMainManager.Configure(config =>
     config.log.printErrorInConsole = true;
 });
 
-Task<VoidWithDataError> registeringProcess = DataMainManager.Init();
+Task<VoidWithError> registeringProcess = DataMainManager.Init();
 
 registeringProcess.Wait();
-VoidWithDataError appResult = registeringProcess.Result;
+VoidWithError appResult = registeringProcess.Result;
 
 if (!appResult.Success)
 {
@@ -44,6 +44,7 @@ if (!appResult.Success)
     }
     return;
 }
+
 
 PersonHuman p = new PersonHuman()
 {
@@ -55,10 +56,11 @@ PersonHuman p = new PersonHuman()
     }
 };
 
-p.Create();
+PersonHuman.CreateWithError(p);
+//p.CreateWithError();
 
 
-PersonHuman p1 = PersonHuman.GetById(1);
+//PersonHuman p1 = PersonHuman.GetById(1);
 Console.WriteLine();
 
 //if (false)

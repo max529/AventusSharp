@@ -23,7 +23,7 @@ namespace AventusSharp.WebSocket
         public static bool DisplayMsg { get; set; }
         private readonly HttpContext context;
         private readonly System.Net.WebSockets.WebSocket webSocket;
-        private readonly WsEndPoint instance;
+        public readonly WsEndPoint instance;
         private WebSocketReceiveResult? result;
 
         private bool IsStopped = false;

@@ -125,7 +125,7 @@ namespace CSharpToTypescript
                 {
                     fullName += "`" + type.TypeParameters.Length;
                 }
-                Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
+                Type? realType = GetTypeFromFullName(fullName);
                 if (realType != null && realType.Assembly == typeof(IStorable).Assembly)
                 {
                     return false;
@@ -233,6 +233,15 @@ namespace CSharpToTypescript
             }
             return typeSymbol;
         }
+        public static INamedTypeSymbol GetNameTypeSymbol(Type type)
+        {
+            ITypeSymbol result = GetTypeSymbol(type);
+            if (result is INamedTypeSymbol named)
+            {
+                return named;
+            }
+            throw new Exception("impossbile");
+        }
 
         public static MethodInfo? GetMethodInfo(IMethodSymbol methodSymbol, Type @class)
         {
@@ -264,6 +273,31 @@ namespace CSharpToTypescript
             throw new Exception("impossible to load the method " + methodSymbol.Name + " from " + @class.Name);
         }
 
+        public static PropertyInfo GetPropertyInfo(IPropertySymbol memberSymbol, Type @class)
+        {
+            List<PropertyInfo> members = @class.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).ToList();
+            foreach (PropertyInfo member in members)
+            {
+                if (member.Name == memberSymbol.Name)
+                {
+                    return member;
+                }
+            }
+            throw new Exception("impossible to load the property " + memberSymbol.Name + " from " + @class.Name);
+        }
+        public static FieldInfo GetFieldInfo(IFieldSymbol memberSymbol, Type @class)
+        {
+            List<FieldInfo> members = @class.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).ToList();
+            foreach (FieldInfo member in members)
+            {
+                if (member.Name == memberSymbol.Name)
+                {
+                    return member;
+                }
+            }
+            throw new Exception("impossible to load the field " + memberSymbol.Name + " from " + @class.Name);
+        }
+
         public static bool IsSubclass(Type parent, Type child)
         {
             Type? casted;
@@ -285,6 +319,24 @@ namespace CSharpToTypescript
                 typeLoop = typeLoop.BaseType;
             }
             return false;
+        }
+
+        public static Type? GetTypeFromFullName(string fullName)
+        {
+            Type? realType = ProjectManager.Config.compiledAssembly?.GetType(fullName);
+            if (realType == null)
+            {
+                foreach (Assembly ass in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    realType = ass.GetType(fullName);
+                    if (realType != null)
+                    {
+                        return realType;
+                    }
+                }
+                throw new Exception("something went wrong");
+            }
+            return realType;
         }
 
 

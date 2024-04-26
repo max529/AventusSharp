@@ -10,6 +10,7 @@ namespace AventusSharp.WebSocket.Event
     {
         public override async Task Emit()
         {
+            path = basePath;
             await DefaultEmit(null);
         }
     }

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager.DB
@@ -180,7 +181,9 @@ namespace AventusSharp.Data.Manager.DB
             VoidWithError result = new VoidWithError();
             if (storage != null)
             {
-                storage.CreateLinks();
+                result = storage.CreateLinks();
+                if(!result.Success) return Task.FromResult(result);
+                
                 result = storage.CreateTable(PyramidInfo);
                 return Task.FromResult(result);
             }
@@ -262,6 +265,7 @@ namespace AventusSharp.Data.Manager.DB
 
 
         private readonly Dictionary<Type, object> savedGetByIdQuery = new();
+        private readonly Mutex savedGetByIdQueryMutex = new();
         protected override ResultWithError<X> GetByIdLogic<X>(int id)
         {
             if (NeedLocalCache)
@@ -293,13 +297,14 @@ namespace AventusSharp.Data.Manager.DB
             ResultWithError<X> result = new();
 
             Type x = typeof(X);
+            savedGetByIdQueryMutex.WaitOne();
             if (!savedGetByIdQuery.ContainsKey(x))
             {
                 DatabaseQueryBuilder<X> queryBuilderTemp = new(Storage, this);
                 queryBuilderTemp.WhereWithParameters(i => i.Id == id);
                 savedGetByIdQuery[x] = queryBuilderTemp;
             }
-
+            savedGetByIdQueryMutex.ReleaseMutex();
             DatabaseQueryBuilder<X> queryBuilder = (DatabaseQueryBuilder<X>)savedGetByIdQuery[x];
             queryBuilder.SetVariable("id", id);
             ResultWithError<List<X>> resultTemp = queryBuilder.RunWithError();

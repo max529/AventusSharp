@@ -453,22 +453,29 @@ namespace AventusSharp.Data.Manager
         public ResultWithError<X> GetByIdWithError<X>(int id) where X : U
         {
             ResultWithError<X> result = new ResultWithError<X>();
-            List<GenericError> errors = CanGetById(id);
-            if (errors.Count > 0)
+            try
             {
-                result.Errors = errors;
-                PrintErrors(result);
-                return result;
+                List<GenericError> errors = CanGetById(id);
+                if (errors.Count > 0)
+                {
+                    result.Errors = errors;
+                    PrintErrors(result);
+                    return result;
+                }
+                WrapperBeforeGetById(id, errors);
+                if (errors.Count > 0)
+                {
+                    result.Errors = errors;
+                    PrintErrors(result);
+                    return result;
+                }
+                result = GetByIdLogic<X>(id);
+                WrapperAfterGetById(id, result);
             }
-            WrapperBeforeGetById(id, errors);
-            if (errors.Count > 0)
+            catch (Exception ex)
             {
-                result.Errors = errors;
-                PrintErrors(result);
-                return result;
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, ex));
             }
-            result = GetByIdLogic<X>(id);
-            WrapperAfterGetById(id, result);
             PrintErrors(result);
             return result;
         }
@@ -813,6 +820,8 @@ namespace AventusSharp.Data.Manager
 
         #region Create
 
+        public event OnCreatedHandler<U> OnCreated;
+
         #region List
         protected abstract ResultWithError<List<X>> CreateLogic<X>(List<X> values) where X : U;
         protected virtual List<GenericError> CanCreate<X>(List<X> values) where X : U
@@ -880,6 +889,7 @@ namespace AventusSharp.Data.Manager
             }
             result = CreateLogic(values);
             WrapperAfterCreate(values, result);
+            OnCreated?.Invoke(TransformResult<X, U>(result));
             return result;
         }
         /// <summary>
@@ -890,7 +900,7 @@ namespace AventusSharp.Data.Manager
             ResultWithError<List<X>> result = new();
 
             List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(new object[] { valuesTemp });
+            ResultWithError<List<U>>? resultTemp = CreateWithError(valuesTemp);
             if (resultTemp != null)
             {
                 if (resultTemp.Result is List<U> castedList)
@@ -1021,6 +1031,8 @@ namespace AventusSharp.Data.Manager
 
         #region Update
 
+        public event OnUpdatedHandler<U> OnUpdated;
+
         #region List
         protected abstract ResultWithError<List<X>> UpdateLogic<X>(List<X> values) where X : U;
         protected virtual List<GenericError> CanUpdate<X>(List<X> values) where X : U
@@ -1087,6 +1099,7 @@ namespace AventusSharp.Data.Manager
             }
             result = UpdateLogic(values);
             WrapperAfterUpdate(values, result);
+            OnUpdated?.Invoke(TransformResult<X, U>(result));
             return result;
         }
         /// <summary>
@@ -1222,6 +1235,8 @@ namespace AventusSharp.Data.Manager
 
         #region Delete
 
+        public event OnDeletedHandler<U> OnDeleted;
+
         #region List
         protected abstract ResultWithError<List<X>> DeleteLogic<X>(List<X> values) where X : U;
         protected virtual List<GenericError> CanDelete<X>(List<X> values) where X : U
@@ -1287,6 +1302,7 @@ namespace AventusSharp.Data.Manager
             }
             result = DeleteLogic(values);
             WrapperAfterDelete(values, result);
+            OnDeleted?.Invoke(TransformResult<X, U>(result));
             return result;
         }
         /// <summary>
@@ -1433,6 +1449,17 @@ namespace AventusSharp.Data.Manager
             }
             return result;
         }
+        protected ResultWithError<List<Y>> TransformResult<X, Y>(ResultWithError<List<X>> result)
+        {
+            ResultWithError<List<Y>> transformed = new ResultWithError<List<Y>>();
+            transformed.Errors = result.Errors.ToList();
+            if (result.Result != null)
+            {
+                transformed.Result = TransformList<X, Y>(result.Result);
+            }
+            return transformed;
+        }
+
         protected X? InvokeMethod<X, Y>(object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
         {
             parameters ??= Array.Empty<object>();

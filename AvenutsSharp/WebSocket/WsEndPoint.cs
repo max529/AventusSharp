@@ -1,4 +1,5 @@
-﻿using AventusSharp.Tools.Attributes;
+﻿using AventusSharp.Routes;
+using AventusSharp.Tools.Attributes;
 using AventusSharp.WebSocket.Event;
 using AventusSharp.WebSocket.Request;
 using Microsoft.AspNetCore.Http;
@@ -162,6 +163,8 @@ namespace AventusSharp.WebSocket
         /// <returns></returns>
         public async Task Route(WebSocketConnection connection, string path, WebSocketRouterBody body, string uid = "")
         {
+            if (WebSocketMiddleware.config.PrintQuery)
+                Console.WriteLine("query " + path);
             foreach (Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>> middleware in middlewares)
             {
                 if (!await middleware(connection, path, body, uid))
@@ -172,7 +175,8 @@ namespace AventusSharp.WebSocket
             foreach (KeyValuePair<string, WebSocketRouteInfo> infoTemp in routesInfo)
             {
                 WebSocketRouteInfo routeInfo = infoTemp.Value;
-                Match match = routeInfo.pattern.Match(path);
+                string url = path.ToLower();
+                Match match = routeInfo.pattern.Match(url);
                 if (match.Success)
                 {
                     if (WebSocketMiddleware.config.PrintTrigger)

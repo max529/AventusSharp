@@ -1,18 +1,30 @@
 import { SocketError, SocketErrorCode } from "./SocketError.lib.avt";
 import { VoidWithError } from "../generated/Tools/ResultWithError.lib.avt";
 import type { ConnectionOptions, SocketMessage, SocketRoute, InternalSocketRoute, SocketSendMessageOptions } from './ISocket.lib.avt';
+import { Socket } from "./Socket.lib.avt";
 
 namespace WebSocket {
 
     export abstract class Connection {
+
+        public static Debug: boolean = false;
         private options: Required<ConnectionOptions>;
         private waitingList: { [uuid: string]: (channel: string, data: any) => void; } = {};
-        private timeoutError: number = 0;
         private memoryBeforeOpen: SocketSendMessageOptions[] = [];
-        private socket?: WebSocket;
+        private socket?: Socket;
+        private actionGuard: Aventus.ActionGuard = new Aventus.ActionGuard();
+
 
         protected constructor() {
             this.options = this._configure(this.configure({}));
+            this._onOpen = this._onOpen.bind(this);
+            this._onClose = this._onClose.bind(this);
+            this._onError = this._onError.bind(this);
+            this.onMessage = this.onMessage.bind(this);
+
+            if(this.options.autoStart) {
+                this.open();
+            }
         }
 
         /**
@@ -45,7 +57,11 @@ namespace WebSocket {
                 options.socketName = "";
             }
             if(options.log === undefined) {
-                options.log = false;
+                options.log = Connection.Debug;
+            }
+
+            if(options.autoStart === undefined) {
+                options.autoStart = true;
             }
 
             return options as Required<ConnectionOptions>;
@@ -98,30 +114,33 @@ namespace WebSocket {
          * Try to open the websocket
          */
         public open(): Promise<boolean> {
-            return new Promise<boolean>((resolve) => {
-                try {
-                    if(this.socket) {
-                        this.socket.close();
+            return this.actionGuard.run(["open"], () => {
+                return new Promise<boolean>((resolve) => {
+                    try {
+                        let protocol = "ws";
+                        if(this.options.useHttps) {
+                            protocol = "wss";
+                        }
+                        let url = protocol + "://" + this.options.host + ":" + this.options.port + this.options.socketName;
+                        this.log(url);
+                        this.openCallback = (isOpen) => {
+                            resolve(isOpen);
+                        };
+                        this.socket = Socket.getInstance(url, this);
+                        this.socket.onOpen.add(this._onOpen);
+                        this.socket.onClose.add(this._onClose);
+                        this.socket.onError.add(this._onError);
+                        this.socket.onMessage.add(this.onMessage);
+                        if(this.socket.isReady()) {
+                            this._onOpen();
+                        }
+                    } catch(e) {
+                        console.log(e);
+                        resolve(false);
                     }
-                    let protocol = "ws";
-                    if(this.options.useHttps) {
-                        protocol = "wss";
-                    }
-                    let url = protocol + "://" + this.options.host + ":" + this.options.port + this.options.socketName;
-                    this.log(url);
-                    this.openCallback = (isOpen) => {
-                        resolve(isOpen);
-                    };
-                    this.socket = new window.WebSocket(url);
-                    this.socket.onopen = this._onOpen.bind(this);
-                    this.socket.onclose = this._onClose.bind(this);
-                    this.socket.onerror = this._onError.bind(this);
-                    this.socket.onmessage = this.onMessage.bind(this);
-                } catch(e) {
-                    console.log(e);
-                    resolve(false);
-                }
+                });
             });
+
         }
 
         private jsonReplacer(key: string, value: any) {
@@ -137,8 +156,19 @@ namespace WebSocket {
          * @param data The data to send
          * @param options the options to add to the message (typically the uid)
          */
-        public sendMessage<T>(options: SocketSendMessageOptions): Aventus.VoidWithError {
+        public async sendMessage<T>(options: SocketSendMessageOptions): Promise<Aventus.VoidWithError> {
             let result = new VoidWithError();
+            if(!this.socket || this.socket.readyState != 1) {
+                let isOpen = await this.open();
+                if(!isOpen) {
+                    result.errors.push(new SocketError(SocketErrorCode.socketClosed, "Socket not ready ! Please ensure that it is open and ready to send message"));
+                    this.log('Socket not ready ! Please ensure that it is open and ready to send message');
+                    if(this.options.allowSendBeforeOpen) {
+                        this.memoryBeforeOpen.push(options);
+                    }
+                    return result;
+                }
+            }
             if(this.socket && this.socket.readyState == 1) {
                 try {
                     let message: SocketMessage = {
@@ -180,9 +210,9 @@ namespace WebSocket {
          * @param body The data to send
          * @param timeout The timeout before the request failed
          */
-        public sendMessageAndWait<T>(options: SocketSendMessageOptions): Promise<Aventus.ResultWithError<T>> {
-            return new Promise<Aventus.ResultWithError<T>>((resolve) => {
-                let result = new Aventus.ResultWithError<T>();
+        public sendMessageAndWait<T>(options: SocketSendMessageOptions): Promise<Aventus.ResultWithError<Aventus.ExtractFromError<T>>> {
+            return new Promise<Aventus.ResultWithError<Aventus.ExtractFromError<T>>>(async (resolve) => {
+                let result = new Aventus.ResultWithError<Aventus.ExtractFromError<T>>();
                 try {
                     let _uid = options.uid ? options.uid : Aventus.uuidv4();
                     options.uid = _uid;
@@ -218,7 +248,7 @@ namespace WebSocket {
                         }, options.timeout);
                     }
 
-                    let sendMessageResult = this.sendMessage(options);
+                    let sendMessageResult = await this.sendMessage(options);
 
                     if(!sendMessageResult.success) {
                         for(let error of sendMessageResult.errors) {
@@ -238,7 +268,7 @@ namespace WebSocket {
          * Check if socket is ready
          */
         public isReady(): boolean {
-            if(this.socket && this.socket.readyState == 1) {
+            if(this.socket && this.socket.isReady()) {
                 return true;
             }
             return false;
@@ -251,13 +281,12 @@ namespace WebSocket {
 
         }
         private _onOpen() {
-            if(this.socket && this.socket.readyState == 1) {
+            if(this.socket?.isReady()) {
                 if(this.openCallback) {
                     this.openCallback(true);
                     this.openCallback = undefined;
                 }
                 this.log('Connection successfully established !' + this.options.host + ":" + this.options.port);
-                window.clearTimeout(this.timeoutError);
                 this.onOpen();
 
                 for(let i = 0; i < this.memoryBeforeOpen.length; i++) {
@@ -293,15 +322,9 @@ namespace WebSocket {
 
         /**
          * Callback called when the connection closed without calling the close function
-         * By default the socket will try to reconnect each 5000ms
          */
         public onClose(event: Event) {
-            let reopenInterval = setInterval(async () => {
-                console.warn("try reopen socket ");
-                if(await this.open()) {
-                    clearInterval(reopenInterval);
-                }
-            }, 5000);
+
         }
         private _onClose(event: Event) {
             if(this.errorOccur) {
@@ -317,11 +340,11 @@ namespace WebSocket {
          */
         public close() {
             if(this.socket) {
-                this.socket.onclose = null;
-                this.socket.onerror = null;
-                this.socket.onmessage = null;
-                this.socket.onopen = null;
-                this.socket.close();
+                this.socket.onOpen.remove(this._onOpen);
+                this.socket.onClose.remove(this._onClose);
+                this.socket.onError.remove(this._onError);
+                this.socket.onMessage.remove(this.onMessage);
+                this.socket.close(this);
                 delete this.socket;
             }
         }
@@ -345,7 +368,14 @@ namespace WebSocket {
                 for(let info of current) {
                     let params = Aventus.Uri.getParams(info, response.channel);
                     if(params) {
-                        info.callback(data, params, response.uid);
+                        let valueCb = data;
+                        if(data instanceof Aventus.ResultWithError) {
+                            valueCb = data.result;
+                        }
+                        else if(data instanceof Aventus.VoidWithError) {
+                            valueCb = undefined;
+                        }
+                        info.callback(valueCb, params, response.uid);
                     }
                 }
             }

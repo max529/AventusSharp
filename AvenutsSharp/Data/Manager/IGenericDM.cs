@@ -8,6 +8,10 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data.Manager
 {
+    public delegate void OnCreatedHandler<U>(ResultWithError<List<U>> result);
+    public delegate void OnUpdatedHandler<U>(ResultWithError<List<U>> result);
+    public delegate void OnDeletedHandler<U>(ResultWithError<List<U>> result);
+
     public interface IGenericDM
     {
         Type GetMainType();
@@ -89,6 +93,8 @@ namespace AventusSharp.Data.Manager
         new ResultWithError<List<X>> CreateWithError<X>(List<X> values) where X : U;
         new X? Create<X>(X value) where X : U;
         new ResultWithError<X> CreateWithError<X>(X value) where X : U;
+
+        event OnCreatedHandler<U> OnCreated;
         #endregion
 
         #region Update
@@ -96,6 +102,8 @@ namespace AventusSharp.Data.Manager
         new ResultWithError<List<X>> UpdateWithError<X>(List<X> values) where X : U;
         new X? Update<X>(X value) where X : U;
         new ResultWithError<X> UpdateWithError<X>(X value) where X : U;
+
+        event OnUpdatedHandler<U> OnUpdated;
         #endregion
 
         #region Delete
@@ -103,6 +111,8 @@ namespace AventusSharp.Data.Manager
         new ResultWithError<List<X>> DeleteWithError<X>(List<X> values) where X : U;
         new X? Delete<X>(X value) where X : U;
         new ResultWithError<X> DeleteWithError<X>(X value) where X : U;
+
+        event OnDeletedHandler<U> OnDeleted;
         #endregion
     }
 }

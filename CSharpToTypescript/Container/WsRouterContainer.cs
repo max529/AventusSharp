@@ -12,6 +12,7 @@ using System.Linq;
 using AventusSharp.Routes.Attributes;
 using AventusSharp.Data;
 using System.Xml.Linq;
+using MySqlX.XDevAPI.Common;
 
 namespace CSharpToTypescript.Container
 {
@@ -164,6 +165,21 @@ namespace CSharpToTypescript.Container
                     additionalFcts.Add(getFct);
                 }
             }
+
+            string prefix = ProjectManager.Config.wsEndpoint.prefix;
+            if (prefix != "")
+            {
+                Func<string> getFct = () =>
+                {
+                    List<string> resultTemp = new();
+                    AddTxt("", resultTemp);
+                    AddTxtOpen("public override getPrefix(): string {", resultTemp);
+                    AddTxt("return \"" + prefix + "\";", resultTemp);
+                    AddTxtClose("}", resultTemp);
+                    return string.Join("\r\n", resultTemp);
+                };
+                additionalFcts.Add(getFct);
+            }
         }
         private void ParseFunctions(string urlPattern, List<string> fcts)
         {
@@ -246,7 +262,7 @@ namespace CSharpToTypescript.Container
                 AddTxtOpen("public events: {", eventList);
                 foreach (LocalEventInfo routeEvent in routeEvents)
                 {
-                    AddTxt(routeEvent.fctName + ": " + routeEvent.name + ",", eventList);
+                    AddTxt(routeEvent.name + ": " + routeEvent.fctName + ",", eventList);
                 }
                 AddTxtClose("}", eventList);
 
@@ -259,15 +275,19 @@ namespace CSharpToTypescript.Container
                 {
                     if (routeEvent.functionNeeded.Count == 0)
                     {
-                        AddTxt(routeEvent.fctName + ": new " + routeEvent.name + "(endpoint),", eventList);
+                        AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(endpoint, this.getPrefix),", eventList);
                     }
                     else
                     {
                         string txt = string.Join(", ", routeEvent.functionNeeded.Select(p => "this." + p.Key));
-                        AddTxt(routeEvent.fctName + ": new " + routeEvent.name + "(endpoint, " + txt + "),", eventList);
+                        AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(endpoint, this.getPrefix, " + txt + "),", eventList);
                     }
                 }
                 AddTxtClose("};", eventList);
+                AddTxt("", eventList);
+                AddTxtOpen("for(let key in this.events) {", eventList);
+                AddTxt("this.events[key].init();", eventList);
+                AddTxtClose("}", eventList);
                 AddTxtClose("}", eventList);
 
                 result.Add(string.Join("\r\n", eventList));
@@ -296,6 +316,9 @@ namespace CSharpToTypescript.Container
             {
                 result.Add(fct());
             }
+
+
+
             return string.Join("\r\n\r\n", result);
         }
 
@@ -306,8 +329,10 @@ namespace CSharpToTypescript.Container
             string parentName = GetTypeName(typeof(WsEvent<>)).Split("<")[0];
             foreach (LocalEventInfo routeEvent in routeEvents)
             {
+                if (routeEvent.isExisting) continue;
+
                 AddTxt(" ", eventContent);
-                AddTxtOpen("export class " + routeEvent.name + " extends " + parentName + "<" + routeEvent.type + "> {", eventContent);
+                AddTxtOpen("export class " + routeEvent.fctName + " extends " + parentName + "<" + routeEvent.type + "> {", eventContent);
                 if (routeEvent.functionNeeded.Count > 0)
                 {
                     AddTxt("", eventContent);
@@ -318,8 +343,8 @@ namespace CSharpToTypescript.Container
                         cstParams.Add(fct.Key + ": () => string");
                     }
 
-                    AddTxtOpen("public constructor(endpoint: " + GetTypeName(typeof(WsEndPoint)) + ", " + string.Join(", ", cstParams) + ") {", eventContent);
-                    AddTxt("super(endpoint);", eventContent);
+                    AddTxtOpen("public constructor(endpoint: " + GetTypeName(typeof(WsEndPoint)) + ", getPrefix: () => string, " + string.Join(", ", cstParams) + ") {", eventContent);
+                    AddTxt("super(endpoint, getPrefix);", eventContent);
                     foreach (KeyValuePair<string, Func<string>> fct in routeEvent.functionNeeded)
                     {
                         AddTxt("this." + fct.Key + " = " + fct.Key + ";", eventContent);
@@ -331,7 +356,7 @@ namespace CSharpToTypescript.Container
                 AddTxt(" * @inheritdoc", eventContent);
                 AddTxt(" */", eventContent);
                 AddTxtOpen("protected override path(): string {", eventContent);
-                AddTxt("return `" + routeEvent.path + "`;", eventContent);
+                AddTxt("return `${this.getPrefix()}" + routeEvent.path + "`;", eventContent);
                 AddTxtClose("}", eventContent);
                 if (routeEvent.listenOnBoot != null)
                 {
@@ -449,6 +474,10 @@ namespace CSharpToTypescript.Container
                 {
                     listenOnBoot = attrListenOnBoot.listen;
                 }
+                else if(attr is NotRoute)
+                {
+                    canBeAdded = false;
+                }
             }
 
             if (route == "")
@@ -491,28 +520,50 @@ namespace CSharpToTypescript.Container
 
             if (typeTemp != typeof(void))
             {
+                bool isExisting = false;
+                Dictionary<string, Func<string>> fcts = functionNeeded;
+                string fctName;
                 if (typeTemp.GetInterfaces().Contains(typeof(IWebSocketEvent)))
                 {
                     // just return the content
                     LoadEventBody(typeTemp);
+                    isExisting = true;
+                    INamedTypeSymbol symbol = Tools.GetNameTypeSymbol(typeTemp);
+                    if (!WsEventContainer.CreatedEvents.ContainsKey(symbol))
+                    {
+                        WsEventContainer eventContainer = new WsEventContainer(symbol, null);
+                        fcts = new Dictionary<string, Func<string>>();
+                        foreach (string fctNameTemp in eventContainer.fctsConstructor)
+                        {
+                            if (!functionNeeded.ContainsKey(fctNameTemp))
+                            {
+                                functionNeeded.Add(fctNameTemp, () => parent.GetIndentedText("public abstract " + fctNameTemp + "(): string;"));
+                            }
+                            fcts.Add(fctNameTemp, () => "");
+                        }
+                    }
+                    fctName = parent.GetTypeName(typeTemp);
                 }
                 else
                 {
                     returnType = parent.GetTypeName(typeTemp);
                     // create the event associated
-
                     string parentName = parent.GetTypeName(parent.type);
                     string[] splitted = parentName.Split("<");
                     splitted[0] += "_" + this.name;
-                    this.parent.routeEvents.Add(new LocalEventInfo(
-                        name: string.Join("<", splitted),
-                        fctName: name,
-                        type: returnType,
-                        path: routeEvent,
-                        listenOnBoot: listenOnBoot,
-                        functionNeeded: functionNeeded
-                    ));
+                    fctName = string.Join("<", splitted);
+
                 }
+
+                this.parent.routeEvents.Add(new LocalEventInfo(
+                    name: name,
+                    fctName: fctName,
+                    type: returnType,
+                    path: routeEvent,
+                    listenOnBoot: listenOnBoot,
+                    functionNeeded: fcts,
+                    isExisting: isExisting
+                ));
             }
         }
 
@@ -663,41 +714,57 @@ namespace CSharpToTypescript.Container
             }
             string optionsKey = GetUniqueParamName("options");
             string infoType = "";
+            string extractType = "";
             if (ProjectManager.CompilingAventusSharp)
             {
                 parametersUrlAndType[optionsKey] = "WsRouteSendOptions = {}";
                 infoType = "SocketSendMessageOptions";
                 this.parent.addImport(".\\AventusJs\\src\\WebSocket\\ISocket.lib.avt", "type SocketSendMessageOptions");
                 this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Route.lib.avt", "type WsRouteSendOptions");
+                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Route.lib.avt", "type ExtractResponse");
+                extractType = "ExtractResponse";
             }
             else
             {
                 parametersUrlAndType[optionsKey] = "AventusSharp.WebSocket.WsRouteSendOptions = {}";
                 infoType = "AventusSharp.WebSocket.SocketSendMessageOptions";
+                extractType = "AventusSharp.ExtractResponse";
+
             }
             string @params = string.Join(", ", parametersUrlAndType.Select(p => p.Key + ": " + p.Value));
 
             string resultType = "any";
             string fctTxt = "";
-            string asyncTxt = "";
-            if (returnType != "")
+
+            LocalEventInfo? _event = parent.routeEvents.Find(p => p.name == name);
+            if (_event != null)
             {
-                fctTxt = "return await this.endpoint.sendMessageAndWait<" + returnType + ">(info);";
-                resultType = "Promise<Aventus.ResultWithError<"+ returnType + ", Aventus.GenericError<number>>>";
-                asyncTxt = "async ";
+                resultType = "Promise<" + extractType + "<" + _event.fctName + ">>";
+                fctTxt = "return await this.endpoint.sendMessageAndWait<" + extractType + "<" + _event.fctName + ">>(info);";
             }
             else
             {
-                fctTxt = "return this.endpoint.sendMessage(info);";
-                resultType = "Aventus.VoidWithError<Aventus.GenericError<number>>";
+                fctTxt = "return await this.endpoint.sendMessage(info);";
+                resultType = "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>";
+            }
+            if (returnType != "")
+            {
+                //fctTxt = "return await this.endpoint.sendMessageAndWait<" + returnType + ">(info);";
+                //resultType = "Promise<Aventus.ResultWithError<" + returnType + ", Aventus.GenericError<number>>>";
+            }
+            else
+            {
+                //fctTxt = "return await this.endpoint.sendMessage(info);";
+                //resultType = "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>";
+
             }
 
-            string fctDesc = BaseContainer.GetAccessibility(methodSymbol) + asyncTxt + name + "(" + @params + "): "+ resultType + " {";
+            string fctDesc = BaseContainer.GetAccessibility(methodSymbol) + "async " + name + "(" + @params + "): " + resultType + " {";
 
             parent.AddTxtOpen(fctDesc, result);
 
             parent.AddTxtOpen("const info: " + infoType + " = {", result);
-            parent.AddTxt("channel: `" + route + "`,", result);
+            parent.AddTxt("channel: `${this.getPrefix()}" + route + "`,", result);
             if (parametersBodyAndType.Count > 0)
             {
                 parent.AddTxt("body: " + bodyKey + ",", result);
@@ -705,7 +772,7 @@ namespace CSharpToTypescript.Container
             parent.AddTxt("..." + optionsKey + ",", result);
             parent.AddTxtClose("};", result);
 
-            
+
 
             parent.AddTxt(fctTxt, result);
             parent.AddTxtClose("}", result);
@@ -722,8 +789,9 @@ namespace CSharpToTypescript.Container
         public string fctName;
         public bool? listenOnBoot;
         public Dictionary<string, Func<string>> functionNeeded = new Dictionary<string, Func<string>>();
+        public bool isExisting;
 
-        public LocalEventInfo(string name, string type, string path, string fctName, bool? listenOnBoot, Dictionary<string, Func<string>> functionNeeded)
+        public LocalEventInfo(string name, string type, string path, string fctName, bool? listenOnBoot, Dictionary<string, Func<string>> functionNeeded, bool isExisting)
         {
             this.name = name;
             this.type = type;
@@ -731,6 +799,7 @@ namespace CSharpToTypescript.Container
             this.fctName = fctName;
             this.listenOnBoot = listenOnBoot;
             this.functionNeeded = functionNeeded;
+            this.isExisting = isExisting;
         }
     }
 }

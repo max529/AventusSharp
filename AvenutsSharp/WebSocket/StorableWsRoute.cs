@@ -1,13 +1,61 @@
 ﻿using AventusSharp.Data;
+using AventusSharp.Data.Manager;
 using AventusSharp.Tools;
 using AventusSharp.WebSocket.Attributes;
+using AventusSharp.WebSocket.Event;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket
 {
     public abstract class StorableWsRoute<T> : WsRoute where T : IStorable
     {
+
+        protected IGenericDM<T>? DM;
+        protected bool PreventEmitCreated { get; set; } = false;
+        protected bool PreventEmitUpdated { get; set; } = false;
+        protected bool PreventEmitDeleted { get; set; } = false;
+        public StorableWsRoute()
+        {
+            this.DM = GetDM();
+            BindEvents();
+        }
+
+        protected void BindEvents()
+        {
+            if (DM != null)
+            {
+                DM.OnCreated += DM_OnCreated;
+                DM.OnUpdated += DM_OnUpdated;
+                DM.OnDeleted += DM_OnDeleted;
+            }
+        }
+
+        private void DM_OnCreated(ResultWithError<List<T>> result)
+        {
+            if (!PreventEmitCreated)
+            {
+                StorableWsRoute_CreateMany<T> @event = new StorableWsRoute_CreateMany<T>(result, StorableName);
+                TriggerEvent(@event);
+            }
+        }
+        private void DM_OnUpdated(ResultWithError<List<T>> result)
+        {
+            if (!PreventEmitUpdated)
+            {
+                StorableWsRoute_UpdateMany<T> @event = new StorableWsRoute_UpdateMany<T>(result, StorableName);
+                TriggerEvent(@event);
+            }
+        }
+        private void DM_OnDeleted(ResultWithError<List<T>> result)
+        {
+            if (!PreventEmitDeleted)
+            {
+                StorableWsRoute_DeleteMany<T> @event = new StorableWsRoute_DeleteMany<T>(result, StorableName);
+                TriggerEvent(@event);
+            }
+        }
 
         protected virtual string StorableName()
         {
@@ -23,6 +71,8 @@ namespace AventusSharp.WebSocket
             return name;
         }
 
+
+        protected abstract IGenericDM<T>? GetDM();
 
         [Path("/[StorableName]")]
         public virtual ResultWithError<List<T>> GetAll()
@@ -44,15 +94,17 @@ namespace AventusSharp.WebSocket
             return Storable<T>.GetAllWithError().ToGeneric();
         }
 
-        [Path("/[StorableName]"), Broadcast]
+        [Path("/[StorableName]/Create"), Broadcast]
         public virtual ResultWithError<T> Create(T item)
         {
+            PreventEmitCreated = true;
             item = OnReceive(item);
             ResultWithError<T> result = DM_Create(item);
             if (result.Result != null)
             {
                 result.Result = OnSend(item);
             }
+            PreventEmitCreated = false;
             return result;
         }
         protected virtual ResultWithError<T> DM_Create(T item)
@@ -60,9 +112,10 @@ namespace AventusSharp.WebSocket
             return Storable<T>.CreateWithError(item).ToGeneric();
         }
 
-        [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithError<List<T>> CreateMany(List<T> list)
+        [Path("/[StorableName]/CreateMany"), Broadcast]
+        public virtual StorableWsRoute_CreateMany<T> CreateMany(List<T> list)
         {
+            PreventEmitCreated = true;
             List<T> _list = new();
             foreach (T item in list)
             {
@@ -78,8 +131,8 @@ namespace AventusSharp.WebSocket
                 }
                 result.Result = listTemp;
             }
-
-            return result;
+            PreventEmitCreated = false;
+            return new StorableWsRoute_CreateMany<T>(result, StorableName);
         }
         protected virtual ResultWithError<List<T>> DM_CreateMany(List<T> list)
         {
@@ -101,9 +154,10 @@ namespace AventusSharp.WebSocket
             return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
-        [Path("/[StorableName]/{id}"), Broadcast]
+        [Path("/[StorableName]/{id}/Update"), Broadcast]
         public virtual ResultWithError<T> Update(int id, T item)
         {
+            PreventEmitUpdated = true;
             item.Id = id;
             item = OnReceive(item);
             ResultWithError<T> result = DM_Update(item);
@@ -111,6 +165,7 @@ namespace AventusSharp.WebSocket
             {
                 result.Result = OnSend(item);
             }
+            PreventEmitUpdated = false;
             return result;
         }
         protected virtual ResultWithError<T> DM_Update(T item)
@@ -118,9 +173,10 @@ namespace AventusSharp.WebSocket
             return Storable<T>.UpdateWithError(item).ToGeneric();
         }
 
-        [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithError<List<T>> UpdateMany(List<T> list)
+        [Path("/[StorableName]/UpdateMany"), Broadcast]
+        public virtual StorableWsRoute_UpdateMany<T> UpdateMany(List<T> list)
         {
+            PreventEmitUpdated = true;
             List<T> _list = new();
             foreach (T item in list)
             {
@@ -136,8 +192,8 @@ namespace AventusSharp.WebSocket
                 }
                 result.Result = listTemp;
             }
-
-            return result;
+            PreventEmitUpdated = false;
+            return new StorableWsRoute_UpdateMany<T>(result, StorableName);
         }
 
         protected virtual ResultWithError<List<T>> DM_UpdateMany(List<T> list)
@@ -145,14 +201,16 @@ namespace AventusSharp.WebSocket
             return Storable<T>.UpdateWithError(list).ToGeneric();
         }
 
-        [Path("/[StorableName]/{id}"), Broadcast]
+        [Path("/[StorableName]/{id}/Delete"), Broadcast]
         public virtual ResultWithError<T> Delete(int id)
         {
+            PreventEmitDeleted = true;
             ResultWithError<T> result = DM_Delete(id);
             if (result.Result != null)
             {
                 result.Result = OnSend(result.Result);
             }
+            PreventEmitDeleted = false;
             return result;
         }
         protected virtual ResultWithError<T> DM_Delete(int id)
@@ -160,9 +218,10 @@ namespace AventusSharp.WebSocket
             return Storable<T>.DeleteWithError(id).ToGeneric();
         }
 
-        [Path("/[StorableName]s"), Broadcast]
-        public virtual ResultWithError<List<T>> DeleteMany(List<int> ids)
+        [Path("/[StorableName]/DeleteMany"), Broadcast]
+        public virtual StorableWsRoute_DeleteMany<T> DeleteMany(List<int> ids)
         {
+            PreventEmitDeleted = true;
             ResultWithError<List<T>> result = DM_DeleteMany(ids);
             if (result.Result != null)
             {
@@ -173,8 +232,8 @@ namespace AventusSharp.WebSocket
                 }
                 result.Result = listTemp;
             }
-
-            return result;
+            PreventEmitDeleted = false;
+            return new StorableWsRoute_DeleteMany<T>(result, StorableName);
         }
 
         protected virtual ResultWithError<List<T>> DM_DeleteMany(List<int> ids)
@@ -192,4 +251,74 @@ namespace AventusSharp.WebSocket
             return item;
         }
     }
+
+    [Path("/[StorableName]/CreateMany")]
+    public class StorableWsRoute_CreateMany<T> : WsEvent<ResultWithError<List<T>>> where T : IStorable
+    {
+        private ResultWithError<List<T>> result;
+        private Func<string> _StorableName;
+        public StorableWsRoute_CreateMany(ResultWithError<List<T>> result, Func<string> storableName)
+        {
+            this.result = result;
+            _StorableName = storableName;
+        }
+
+        protected override Task<ResultWithError<List<T>>> Prepare()
+        {
+            return Task.FromResult(result);
+        }
+
+        protected virtual string StorableName()
+        {
+            return _StorableName();
+        }
+
+    }
+
+    [Path("/[StorableName]/UpdateMany")]
+    public class StorableWsRoute_UpdateMany<T> : WsEvent<ResultWithError<List<T>>> where T : IStorable
+    {
+        private ResultWithError<List<T>> result;
+        private Func<string> _StorableName;
+        public StorableWsRoute_UpdateMany(ResultWithError<List<T>> result, Func<string> storableName)
+        {
+            this.result = result;
+            _StorableName = storableName;
+        }
+
+        protected override Task<ResultWithError<List<T>>> Prepare()
+        {
+            return Task.FromResult(result);
+        }
+
+        protected virtual string StorableName()
+        {
+            return _StorableName();
+        }
+
+    }
+
+    [Path("/[StorableName]/DeleteMany")]
+    public class StorableWsRoute_DeleteMany<T> : WsEvent<ResultWithError<List<T>>> where T : IStorable
+    {
+        private ResultWithError<List<T>> result;
+        private Func<string> _StorableName;
+        public StorableWsRoute_DeleteMany(ResultWithError<List<T>> result, Func<string> storableName)
+        {
+            this.result = result;
+            _StorableName = storableName;
+        }
+
+        protected override Task<ResultWithError<List<T>>> Prepare()
+        {
+            return Task.FromResult(result);
+        }
+
+        protected virtual string StorableName()
+        {
+            return _StorableName();
+        }
+
+    }
+
 }
