@@ -7,7 +7,7 @@ namespace WebSocket {
     export abstract class Event<T extends any = any> {
         protected endpoint: EndPoint;
 
-        public onTrigger: Aventus.Callback<(item: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue) => void> = new Aventus.Callback();
+        public onTrigger: Aventus.Callback<(item: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue, uid?: string) => void> = new Aventus.Callback();
 
         protected routeInfo!: SocketRoute<Aventus.ExtractFromError<T>>;
 
@@ -68,8 +68,8 @@ namespace WebSocket {
             }
         }
 
-        protected onEvent(data: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue) {
-            this.onTrigger.trigger([data, params]);
+        protected onEvent(data: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue, uid?: string) {
+            this.onTrigger.trigger([data, params, uid]);
         }
 
     }

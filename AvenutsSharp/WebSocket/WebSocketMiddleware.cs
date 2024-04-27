@@ -207,7 +207,6 @@ namespace AventusSharp.WebSocket
                         infoMethod.pathes.Add(Tools.GetDefaultMethodUrl(method));
                     }
 
-                    Console.WriteLine("method " + method.Name + " => "+infoMethod.pathes.Count);
                     foreach (string route in infoMethod.pathes)
                     {
                         Dictionary<string, WebSocketRouterParameterInfo> @params = fctParams.ToDictionary(p => p.name, p => p);
