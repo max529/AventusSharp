@@ -7,18 +7,11 @@ namespace AventusSharp.WebSocket.Attributes
     {
         public Type endpoint { get; private set; }
 
-        public string typescriptPath { get; protected set; } = "";
-
         public EndPoint(Type type)
         {
             endpoint = type;
         }
 
-        public EndPoint(Type type, string typescriptPath)
-        {
-            endpoint = type;
-            this.typescriptPath = typescriptPath;
-        }
     }
 
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -26,10 +19,6 @@ namespace AventusSharp.WebSocket.Attributes
     {
         
         public EndPoint() : base(typeof(T))
-        {
-        }
-
-        public EndPoint(string typescriptPath) : base(typeof(T), typescriptPath)
         {
         }
     }

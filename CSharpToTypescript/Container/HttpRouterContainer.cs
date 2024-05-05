@@ -14,6 +14,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Path = System.IO.Path;
 
 namespace CSharpToTypescript.Container
 {
@@ -35,7 +36,6 @@ namespace CSharpToTypescript.Container
 
         private List<HttpRouteContainer> routes = new List<HttpRouteContainer>();
         private Dictionary<string, Func<string>> additionalFcts = new();
-        public string routePath = "";
         public string? prefix;
         public HttpRouterContainer(INamedTypeSymbol type) : base(type)
         {
@@ -44,29 +44,21 @@ namespace CSharpToTypescript.Container
 
                 if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor && !methodSymbol.IsExtern && !methodSymbol.IsStatic)
                 {
-                    routes.Add(new HttpRouteContainer(methodSymbol, realType, this));
-                }
-            }
-
-            ParentCheck();
-
-            Attribute? pathAttr = realType.GetCustomAttributes().FirstOrDefault(p => p is TypescriptPath);
-            if (pathAttr is TypescriptPath tpath)
-            {
-                routePath = tpath.path;
-            }
-            else if (ProjectManager.Config.httpRouter.autobindRoute != ProjectConfigHttpRouterRouteBind.none)
-            {
-                routePath = type.Name;
-                if (ProjectManager.Config.httpRouter.autobindRoute == ProjectConfigHttpRouterRouteBind.auto)
-                {
-                    routePath = routePath.Replace("Router", "").Replace("Route", "");
-                    if (routePath.ToLower() == "index" || routePath.ToLower() == "main")
+                    HttpRouteContainer container = new HttpRouteContainer(methodSymbol, realType, this);
+                    if (container.canBeAdded)
                     {
-                        routePath = "";
+                        routes.Add(container);
                     }
                 }
             }
+
+            if (routes.Count == 0 && realType.BaseType == typeof(Route))
+            {
+                CanBeAdded = false;
+                return;
+            }
+
+            ParentCheck();
 
             Attribute? prefixAttr = realType.GetCustomAttributes().FirstOrDefault(p => p is Prefix);
             if (prefixAttr is Prefix prefix)
@@ -94,6 +86,18 @@ namespace CSharpToTypescript.Container
             {
                 AddTxt("public override getPrefix(): string { return \"" + prefix + "\"; }", result);
             }
+
+            ProjectConfigHttpRouter routerConfig = ProjectManager.Config.httpRouter;
+            if (routerConfig.createRouter)
+            {
+                AddTxtOpen("public constructor(router?: Aventus.HttpRouter) {", result);
+                AddTxt("super(router ?? new " + routerConfig.routerName + "());", result);
+                AddTxtClose("}", result);
+                string outputPath = Path.Combine(ProjectManager.Config.outputPath, routerConfig.routerName + ".lib.avt");
+                string file = ProjectManager.Config.AbsoluteUrl(outputPath);
+                this.addImport(file, routerConfig.routerName);
+            }
+
             result.Add(GetContent());
             AddTxtClose("}", result);
             if (ProjectManager.Config.useNamespace && Namespace.Length > 0)
@@ -113,16 +117,13 @@ namespace CSharpToTypescript.Container
 
             foreach (HttpRouteContainer route in routes)
             {
-                if (route.canBeAdded)
-                {
-                    result.Add(route.Write());
+                result.Add(route.Write());
 
-                    foreach (KeyValuePair<string, Func<string>> fct in route.functionNeeded)
+                foreach (KeyValuePair<string, Func<string>> fct in route.functionNeeded)
+                {
+                    if (!functionNeeded.ContainsKey(fct.Key))
                     {
-                        if (!functionNeeded.ContainsKey(fct.Key))
-                        {
-                            functionNeeded.Add(fct.Key, fct.Value());
-                        }
+                        functionNeeded.Add(fct.Key, fct.Value());
                     }
                 }
             }
@@ -782,8 +783,11 @@ namespace CSharpToTypescript.Container
                 fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<string, Aventus.GenericError<number>>>");
                 returnTxt = "return await request.queryTxt(this.router);";
             }
-
-            fctDesc = fctDesc.Replace("$resultType", "any");
+            else
+            {
+                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<string, Aventus.GenericError<number>>>");
+                returnTxt = "return await request.queryTxt(this.router);";
+            }
 
 
 

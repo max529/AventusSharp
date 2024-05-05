@@ -40,6 +40,7 @@ namespace CSharpToTypescript.Container
         private bool? listenOnBoot = null;
         public Dictionary<string, Func<string>> functionNeeded = new();
         public List<string> fctsConstructor = new();
+        public Type? endPoint;
 
         public WsEventContainer(INamedTypeSymbol type, string? fileName) : base(type)
         {
@@ -86,18 +87,11 @@ namespace CSharpToTypescript.Container
         private void ParseAttributes()
         {
             IEnumerable<Attribute> attrs = realType.GetCustomAttributes();
-            bool oneEndPoint = false;
             foreach (Attribute attr in attrs)
             {
                 if (attr is EndPoint endPointAttr)
                 {
-                    if (!WsEndPointContainer._events.ContainsKey(endPointAttr.endpoint))
-                    {
-                        WsEndPointContainer._events[endPointAttr.endpoint] = new();
-                    }
-
-                    WsEndPointContainer._events[endPointAttr.endpoint].Add(new WsEndPointContainerInfo(type, endPointAttr.typescriptPath));
-                    oneEndPoint = true;
+                    endPoint = endPointAttr.endpoint;
                 }
                 else if (attr is Path pathAttr)
                 {
@@ -118,10 +112,6 @@ namespace CSharpToTypescript.Container
             if (prefix != "")
             {
                 eventPath = prefix + eventPath;
-            }
-            if (!oneEndPoint)
-            {
-                WsEndPointContainer._defaultEvents.Add(new WsEndPointContainerInfo(type));
             }
         }
 
@@ -239,7 +229,7 @@ namespace CSharpToTypescript.Container
             AddTxt("return `${this.getPrefix()}" + eventPath + "`;", result);
             AddTxtClose("}", result);
 
-            if (fctsConstructor.Count > 0)
+            if (fctsConstructor.Count > 0 || endPoint != null)
             {
                 string endpointName = GetTypeName(typeof(WsEndPoint));
                 string constructorTxt = "public constructor(endpoint: " + endpointName + ", getPrefix: () => string";
@@ -251,7 +241,15 @@ namespace CSharpToTypescript.Container
 
                 constructorTxt += ") {";
                 AddTxtOpen(constructorTxt, result);
-                AddTxt("super(endpoint, getPrefix);", result);
+                if (endPoint != null)
+                {
+                    string endPointType = GetTypeName(endPoint);
+                    AddTxt("super(endpoint ?? " + endPointType + ".getInstance(), getPrefix);", result);
+                }
+                else
+                {
+                    AddTxt("super(endpoint, getPrefix);", result);
+                }
                 foreach (string fctToInject in fctsConstructor)
                 {
                     AddTxt("this." + fctToInject + " = "+fctToInject, result);

@@ -10,8 +10,8 @@ namespace WebSocket {
 
     export class Route {
         public readonly endpoint: EndPoint;
-        public constructor(endpoint: EndPoint) {
-            this.endpoint = endpoint;
+        public constructor(endpoint?: EndPoint) {
+            this.endpoint = endpoint ?? EndPoint.getInstance();
         }
 
         public getPrefix(): string {

@@ -19,17 +19,17 @@ namespace WebSocket {
 			DeleteMany: StorableWsRoute_DeleteMany<T>,
 		}
 		
-		public constructor(endpoint: EndPoint) {
+		public constructor(endpoint?: EndPoint) {
 			super(endpoint);
 			this.events = {
-				GetAll: new StorableWsRoute_GetAll<T>(endpoint, this.getPrefix, this.StorableName),
-				Create: new StorableWsRoute_Create<T>(endpoint, this.getPrefix, this.StorableName),
-				CreateMany: new StorableWsRoute_CreateMany<T>(endpoint, this.getPrefix, this.StorableName),
-				GetById: new StorableWsRoute_GetById<T>(endpoint, this.getPrefix, this.StorableName),
-				Update: new StorableWsRoute_Update<T>(endpoint, this.getPrefix, this.StorableName),
-				UpdateMany: new StorableWsRoute_UpdateMany<T>(endpoint, this.getPrefix, this.StorableName),
-				Delete: new StorableWsRoute_Delete<T>(endpoint, this.getPrefix, this.StorableName),
-				DeleteMany: new StorableWsRoute_DeleteMany<T>(endpoint, this.getPrefix, this.StorableName),
+				GetAll: new StorableWsRoute_GetAll<T>(this.endpoint, this.getPrefix, this.StorableName),
+				Create: new StorableWsRoute_Create<T>(this.endpoint, this.getPrefix, this.StorableName),
+				CreateMany: new StorableWsRoute_CreateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
+				GetById: new StorableWsRoute_GetById<T>(this.endpoint, this.getPrefix, this.StorableName),
+				Update: new StorableWsRoute_Update<T>(this.endpoint, this.getPrefix, this.StorableName),
+				UpdateMany: new StorableWsRoute_UpdateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
+				Delete: new StorableWsRoute_Delete<T>(this.endpoint, this.getPrefix, this.StorableName),
+				DeleteMany: new StorableWsRoute_DeleteMany<T>(this.endpoint, this.getPrefix, this.StorableName),
 			};
 			
 			for(let key in this.events) {
@@ -173,22 +173,6 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_UpdateMany<T> extends Event<T[]> {
-		
-		public StorableName: () => string;
-		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
-			super(endpoint, getPrefix);
-			this.StorableName = StorableName;
-		}
-		
-		/**
-		 * @inheritdoc
-		 */
-		protected override path(): string {
-			return `${this.getPrefix()}/${this.StorableName()}/UpdateMany`;
-		}
-	}
-	 
 	export class StorableWsRoute_Delete<T> extends Event<T> {
 		
 		public StorableName: () => string;
@@ -204,22 +188,6 @@ namespace WebSocket {
 			return `${this.getPrefix()}/${this.StorableName()}/{id:number}/Delete`;
 		}
 	}
-	 
-	export class StorableWsRoute_DeleteMany<T> extends Event<T[]> {
-		
-		public StorableName: () => string;
-		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
-			super(endpoint, getPrefix);
-			this.StorableName = StorableName;
-		}
-		
-		/**
-		 * @inheritdoc
-		 */
-		protected override path(): string {
-			return `${this.getPrefix()}/${this.StorableName()}/DeleteMany`;
-		}
-	}
 
 	export class StorableWsRoute_CreateMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
 		/**
@@ -227,6 +195,34 @@ namespace WebSocket {
 		 */
 		protected override path(): string {
 			return `${this.getPrefix()}/${this.StorableName()}/CreateMany`;
+		}
+		public StorableName: () => string;
+		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+			super(endpoint, getPrefix);
+			this.StorableName = StorableName
+		}
+	}
+
+	export class StorableWsRoute_UpdateMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override path(): string {
+			return `${this.getPrefix()}/${this.StorableName()}/UpdateMany`;
+		}
+		public StorableName: () => string;
+		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+			super(endpoint, getPrefix);
+			this.StorableName = StorableName
+		}
+	}
+
+	export class StorableWsRoute_DeleteMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
+		/**
+		 * @inheritdoc
+		 */
+		protected override path(): string {
+			return `${this.getPrefix()}/${this.StorableName()}/DeleteMany`;
 		}
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {

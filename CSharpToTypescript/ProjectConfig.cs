@@ -69,22 +69,15 @@ namespace CSharpToTypescript
     }
 
     #region http
-    public enum ProjectConfigHttpRouterRouteBind
-    {
-        none,
-        auto,
-        full,
-    }
 
     public class ProjectConfigHttpRouter
     {
-        public bool createRouter = true;
-        public ProjectConfigHttpRouterRouteBind autobindRoute = ProjectConfigHttpRouterRouteBind.auto;
+        public bool createRouter = false;
         public string routerName = "GeneratedRouter";
-        public string variableRoutesName = "generatedHttpRoutes";
         public string uri = "";
         public string? host;
         public string parent = "Aventus.HttpRouter";
+        public string? parentFile;
         [JsonProperty("namespace")]
         public string? _namespace;
     }
@@ -92,6 +85,12 @@ namespace CSharpToTypescript
     public class ProjectConfigWsEndpoint
     {
         public string prefix = "";
+        public string? host;
+        public int? port;
+        public bool? useHttps;
+        public string parent = "AventusSharp.WebSocket.EndPoint";
+        public string? parentFile;
+
     }
     #endregion
 

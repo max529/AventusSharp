@@ -13,6 +13,8 @@ using AventusSharp.Routes.Attributes;
 using AventusSharp.Data;
 using System.Xml.Linq;
 using MySqlX.XDevAPI.Common;
+using System.Net;
+using EndPoint = AventusSharp.WebSocket.Attributes.EndPoint;
 
 namespace CSharpToTypescript.Container
 {
@@ -39,6 +41,8 @@ namespace CSharpToTypescript.Container
         private List<Func<string>> additionalFcts = new();
         public List<LocalEventInfo> routeEvents = new();
 
+        public Type? endPoint;
+
         public WsRouterContainer(INamedTypeSymbol type, string fileName) : base(type)
         {
             this.fileName = fileName;
@@ -59,25 +63,14 @@ namespace CSharpToTypescript.Container
         private void ParseAttributes()
         {
             IEnumerable<Attribute> attrs = realType.GetCustomAttributes();
-            bool oneEndPoint = false;
             foreach (Attribute attr in attrs)
             {
                 if (attr is EndPoint endPointAttr)
                 {
-                    if (!WsEndPointContainer._routers.ContainsKey(endPointAttr.endpoint))
-                    {
-                        WsEndPointContainer._routers[endPointAttr.endpoint] = new();
-                    }
-
-                    WsEndPointContainer._routers[endPointAttr.endpoint].Add(new WsEndPointContainerInfo(type, endPointAttr.typescriptPath));
-                    oneEndPoint = true;
+                    endPoint = endPointAttr.endpoint;
                 }
             }
 
-            if (!oneEndPoint)
-            {
-                WsEndPointContainer._defaultRouters.Add(new WsEndPointContainerInfo(type));
-            }
         }
 
         protected override string ParseGenericType(ITypeSymbol type, int depth, bool genericExtendsConstraint)
@@ -255,39 +248,53 @@ namespace CSharpToTypescript.Container
             List<string> result = new();
             Dictionary<string, string> functionNeeded = new Dictionary<string, string>();
 
-            if (routeEvents.Count > 0)
+            if (routeEvents.Count > 0 || endPoint != null)
             {
                 List<string> eventList = new List<string>();
-                AddTxt("", eventList);
-                AddTxtOpen("public events: {", eventList);
-                foreach (LocalEventInfo routeEvent in routeEvents)
+                if (routeEvents.Count > 0)
                 {
-                    AddTxt(routeEvent.name + ": " + routeEvent.fctName + ",", eventList);
+                    AddTxt("", eventList);
+                    AddTxtOpen("public events: {", eventList);
+                    foreach (LocalEventInfo routeEvent in routeEvents)
+                    {
+                        AddTxt(routeEvent.name + ": " + routeEvent.fctName + ",", eventList);
+                    }
+                    AddTxtClose("}", eventList);
                 }
-                AddTxtClose("}", eventList);
 
                 AddTxt("", eventList);
-                string endPointType = GetTypeName(typeof(WsEndPoint));
-                AddTxtOpen("public constructor(endpoint: " + endPointType + ") {", eventList);
-                AddTxt("super(endpoint);", eventList);
-                AddTxtOpen("this.events = {", eventList);
-                foreach (LocalEventInfo routeEvent in routeEvents)
+                AddTxtOpen("public constructor(endpoint?: " + GetTypeName(typeof(WsEndPoint)) + ") {", eventList);
+                if (endPoint != null)
                 {
-                    if (routeEvent.functionNeeded.Count == 0)
-                    {
-                        AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(endpoint, this.getPrefix),", eventList);
-                    }
-                    else
-                    {
-                        string txt = string.Join(", ", routeEvent.functionNeeded.Select(p => "this." + p.Key));
-                        AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(endpoint, this.getPrefix, " + txt + "),", eventList);
-                    }
+                    string endPointType = GetTypeName(endPoint);
+                    AddTxt("super(endpoint ?? " + endPointType + ".getInstance());", eventList);
                 }
-                AddTxtClose("};", eventList);
-                AddTxt("", eventList);
-                AddTxtOpen("for(let key in this.events) {", eventList);
-                AddTxt("this.events[key].init();", eventList);
-                AddTxtClose("}", eventList);
+                else
+                {
+                    AddTxt("super(endpoint);", eventList);
+                }
+                if (routeEvents.Count > 0)
+                {
+                    AddTxtOpen("this.events = {", eventList);
+                    foreach (LocalEventInfo routeEvent in routeEvents)
+                    {
+                        if (routeEvent.functionNeeded.Count == 0)
+                        {
+                            AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(this.endpoint, this.getPrefix),", eventList);
+                        }
+                        else
+                        {
+                            string txt = string.Join(", ", routeEvent.functionNeeded.Select(p => "this." + p.Key));
+                            AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(this.endpoint, this.getPrefix, " + txt + "),", eventList);
+                        }
+                    }
+                    AddTxtClose("};", eventList);
+                    AddTxt("", eventList);
+                    AddTxtOpen("for(let key in this.events) {", eventList);
+                    AddTxt("this.events[key].init();", eventList);
+                    AddTxtClose("}", eventList);
+                }
+                
                 AddTxtClose("}", eventList);
 
                 result.Add(string.Join("\r\n", eventList));
@@ -474,7 +481,7 @@ namespace CSharpToTypescript.Container
                 {
                     listenOnBoot = attrListenOnBoot.listen;
                 }
-                else if(attr is NotRoute)
+                else if (attr is NotRoute)
                 {
                     canBeAdded = false;
                 }

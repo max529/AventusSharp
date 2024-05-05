@@ -18,8 +18,8 @@ namespace WebSocket {
 
         public getPrefix: () => string;
 
-        public constructor(endpoint: EndPoint, getPrefix?: () => string) {
-            this.endpoint = endpoint;
+        public constructor(endpoint?: EndPoint, getPrefix?: () => string) {
+            this.endpoint = endpoint ?? EndPoint.getInstance();
             this.getPrefix = getPrefix ?? (() => "");
             this.onEvent = this.onEvent.bind(this);
         }

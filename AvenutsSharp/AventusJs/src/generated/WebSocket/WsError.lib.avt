@@ -8,7 +8,9 @@ namespace WebSocket {
 		ConfigError,
 		MultipleMainEndpoint,
 		CantGetValueFromBody,
-		NoConnection
+		NoConnection,
+		NoEndPoint,
+		NoPath
 	}
 
 	@Convertible()

@@ -11,39 +11,4 @@ namespace WebSocket {
     export type WsRouteType = abstract new (...args: any[]) => Route;
     export type WsEventType = abstract new (...args: any[]) => Event;
     export type WsEndPointType = (abstract new (...args: any[]) => EndPoint);
-
-
-    export type MergeWsRoutesType<T> = T extends readonly ({ type: WsRouteType, path?: string; } | WsRouteType)[] ?
-        T extends readonly [infer T extends ({ type: WsRouteType, path?: string; } | WsRouteType), ...infer R extends readonly ({ type: WsRouteType, path?: string; } | WsRouteType)[]] ?
-        T extends WsRouteType ? Aventus.MixProto<MergeWsRoutesType<R>, T, ''> : T extends { type: WsRouteType, path?: string; } ? T['path'] extends string ? Aventus.MixProto<MergeWsRoutesType<R>, T['type'], T['path']> : Aventus.MixProto<MergeWsRoutesType<R>, T['type'], ''> : never : {}
-        : never;
-
-    type ExtendWsRouteType<T, U extends string, V extends string | undefined> =
-        T extends WsRouteType ?
-        U extends "" ? { type: T, path: V; } : V | undefined extends "" ? { type: T, path: ""; } : { type: T, path: Aventus.Join<[U, V], ".">; } :
-        never;
-
-    export type ExtendWsRoutesType<T, U extends string> = T extends readonly ({ type: WsRouteType, path?: string; } | WsRouteType)[] ?
-        T extends readonly [infer T extends ({ type: WsRouteType, path?: string; } | WsRouteType), ...infer R extends readonly ({ type: WsRouteType, path?: string; } | WsRouteType)[]] ?
-        T extends WsRouteType ? [ExtendWsRouteType<T, U, ''>, ...ExtendWsRoutesType<R, U>] : T extends { type: WsRouteType, path?: string; } ? [ExtendWsRouteType<T['type'], U, T['path']>, ...ExtendWsRoutesType<R, U>] : never
-        : []
-        : never;
-
-
-    export type MergeWsEventsType<T> = T extends readonly ({ type: WsEventType, path?: string; } | WsEventType)[] ?
-        T extends readonly [infer T extends ({ type: WsEventType, path?: string; } | WsEventType), ...infer R extends readonly ({ type: WsEventType, path?: string; } | WsEventType)[]] ?
-        T extends WsEventType ? Aventus.MixProto<MergeWsEventsType<R>, T, ''> : T extends { type: WsEventType, path?: string; } ? T['path'] extends string ? Aventus.MixProto<MergeWsEventsType<R>, T['type'], T['path']> : Aventus.MixProto<MergeWsEventsType<R>, T['type'], ''> : never : {}
-        : never;
-
-    type ExtendWsEventType<T, U extends string, V extends string | undefined> =
-        T extends WsEventType ?
-        U extends "" ? { type: T, path: V; } : V | undefined extends "" ? { type: T, path: ""; } : { type: T, path: Aventus.Join<[U, V], ".">; } :
-        never;
-
-    export type ExtendWsEventsType<T, U extends string> = T extends readonly ({ type: WsEventType, path?: string; } | WsEventType)[] ?
-        T extends readonly [infer T extends ({ type: WsEventType, path?: string; } | WsEventType), ...infer R extends readonly ({ type: WsEventType, path?: string; } | WsEventType)[]] ?
-        T extends WsEventType ? [ExtendWsEventType<T, U, ''>, ...ExtendWsEventsType<R, U>] : T extends { type: WsEventType, path?: string; } ? [ExtendWsEventType<T['type'], U, T['path']>, ...ExtendWsEventsType<R, U>] : never
-        : []
-        : never;
-
 }

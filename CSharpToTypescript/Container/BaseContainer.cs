@@ -44,6 +44,7 @@ namespace CSharpToTypescript.Container
 
         public bool IsInternal { get; set; } = false;
 
+
         public BaseContainer(INamedTypeSymbol type)
         {
             this.type = type;

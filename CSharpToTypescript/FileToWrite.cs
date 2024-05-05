@@ -1,11 +1,17 @@
-﻿using CSharpToTypescript.Container;
+﻿using AventusSharp.Routes;
+using CSharpToTypescript.Container;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.Hosting;
+using MySqlX.XDevAPI.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Net.WebRequestMethods;
+using File = System.IO.File;
 
 namespace CSharpToTypescript
 {
@@ -16,7 +22,7 @@ namespace CSharpToTypescript
         private static Dictionary<ISymbol, string> customFileNames = [];
         public static string? GetFileName(ISymbol symbol)
         {
-            if(customFileNames.ContainsKey(symbol)) return customFileNames[symbol];
+            if (customFileNames.ContainsKey(symbol)) return customFileNames[symbol];
 
             string? fileName = symbol.Locations[0].SourceTree?.FilePath;
             if (fileName == null)
@@ -253,16 +259,24 @@ namespace CSharpToTypescript
             }
             foreach (KeyValuePair<string, List<BaseContainer>> @namespace in namespaces)
             {
-                txt.Add("namespace " + @namespace.Key + " {");
+                if (!string.IsNullOrWhiteSpace(@namespace.Key))
+                {
+                    txt.Add("namespace " + @namespace.Key + " {");
+                }
                 foreach (BaseContainer container in @namespace.Value)
                 {
                     txt.Add("");
                     txt.Add(container.Content);
                 }
                 txt.Add("");
-                txt.Add("}");
+                if (!string.IsNullOrWhiteSpace(@namespace.Key))
+                {
+                    txt.Add("}");
+                }
 
             }
+
+            if (txt.Count == 0) return;
 
             string? dirName = Path.GetDirectoryName(path);
             if (dirName != null)
@@ -275,9 +289,39 @@ namespace CSharpToTypescript
 
         public static void AddOthersFiles()
         {
+        }
+
+
+        private static void AddOthersFilesBeforeWrite()
+        {
+            AddMissingWsEndPoint();
             AddRouterFile();
         }
 
+        private static void AddMissingWsEndPoint()
+        {
+            //foreach (Type key in WsEndPointContainer._events.Keys)
+            //{
+            //    if (!WsEndPointContainer.wroteTypes.Contains(key))
+            //    {
+            //        string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
+            //        WsEndPointContainer endPoint = new WsEndPointContainer(key);
+            //        customFileNames[endPoint.type] = fileName;
+            //        AddBaseContainer(endPoint, fileName);
+            //    }
+            //}
+            //foreach (Type key in WsEndPointContainer._routers.Keys)
+            //{
+            //    if (!WsEndPointContainer.wroteTypes.Contains(key))
+            //    {
+            //        string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
+            //        WsEndPointContainer endPoint = new WsEndPointContainer(key);
+            //        customFileNames[endPoint.type] = fileName;
+            //        AddBaseContainer(endPoint, fileName);
+            //    }
+            //}
+        }
+    
         private static void AddRouterFile()
         {
             FileWriter fileWriter = new FileWriter();
@@ -287,50 +331,29 @@ namespace CSharpToTypescript
             {
                 return;
             }
-            Dictionary<string, List<string>> imports = new();
-            string path = Path.Combine(ProjectManager.Config.outputPath, routerConfig.routerName + ".lib.avt");
+
+            string outputPath = Path.Combine(ProjectManager.Config.outputPath, routerConfig.routerName + ".lib.avt");
+            
+            if (!string.IsNullOrEmpty(routerConfig.parentFile) && !string.IsNullOrEmpty(routerConfig.parent))
+            {
+                string file = ProjectManager.Config.AbsoluteUrl(routerConfig.parentFile);
+
+                string relativePath = Tools.GetRelativePath(outputPath, file);
+                string importFile = relativePath + ".lib.avt";
+                fileWriter.AddTxt($"import {{ {routerConfig.parent} }} from \"{importFile}\" ");
+
+            }
+
             if (!string.IsNullOrWhiteSpace(routerConfig._namespace))
             {
                 fileWriter.AddTxtOpen("namespace " + routerConfig._namespace + " {");
             }
-            fileWriter.AddTxtOpen("export const " + routerConfig.variableRoutesName + " : [");
-            List<string> routes = new List<string>();
-            int nbRoute = 0;
-            foreach (KeyValuePair<string, FileToWrite> file in allFiles)
-            {
-                foreach (BaseContainer container in file.Value.types)
-                {
-                    if (container is HttpRouterContainer http)
-                    {
-                        if (!http.realType.IsAbstract)
-                        {
-                            nbRoute++;
-                            routes.Add("{ type: " + http.type.Name + ", path: \"" + http.routePath + "\" },");
-                            fileWriter.AddTxt($"Aventus.HttpRouteType<typeof {http.type.Name}, \"{http.routePath}\">,");
-                            string importFileName = GetFileName(http.type) ?? "";
-                            string relativePath = Tools.GetRelativePath(path, importFileName);
-                            string importFile = relativePath + allFiles[importFileName].Extension;
-                            if (!imports.ContainsKey(importFile))
-                            {
-                                imports.Add(importFile, new List<string>());
-                            }
-                            imports[importFile].Add(http.type.Name);
-                        }
-                    }
-                }
-            }
-            fileWriter.AddTxt("] = [");
-            foreach(string route in routes)
-            {
-                fileWriter.AddTxt(route);
-            }
-            fileWriter.AddTxtClose("] as const;");
+
 
             string host = routerConfig.host ?? "location.protocol + \"//\" + location.host";
             host += " + \"" + routerConfig.uri + "\"";
-            fileWriter.AddTxt("");
-            fileWriter.AddTxt($"export const {routerConfig.routerName}Type: Aventus.HttpRouterType<typeof {routerConfig.variableRoutesName}> = Aventus.HttpRouter.WithRoute({routerConfig.variableRoutesName})");
-            fileWriter.AddTxtOpen($"export class {routerConfig.routerName} extends {routerConfig.routerName}Type {{");
+
+            fileWriter.AddTxtOpen($"export class {routerConfig.routerName} extends {routerConfig.parent} {{");
             fileWriter.AddTxtOpen("protected override defineOptions(options: Aventus.HttpRouterOptions): Aventus.HttpRouterOptions {");
             fileWriter.AddTxt($"options.url = {host};");
             fileWriter.AddTxt("return options;");
@@ -341,46 +364,14 @@ namespace CSharpToTypescript
             {
                 fileWriter.AddTxtClose("}");
             }
-            string importTxt = "";
-            foreach (var pair in imports)
-            {
-                importTxt += "import { " + string.Join(", ", pair.Value) + " } from \"" + pair.Key + "\";\r\n";
-            }
-            importTxt += "\r\n";
-            if (nbRoute > 0)
-            {
-                File.WriteAllText(path, importTxt + fileWriter.GetContent());
-            }
 
-        }
 
-        private static void AddOthersFilesBeforeWrite()
-        {
-            AddMissingWsEndPoint();
-        }
-
-        private static void AddMissingWsEndPoint()
-        {
-            foreach(Type key in WsEndPointContainer._events.Keys)
+            string? dirName = Path.GetDirectoryName(outputPath);
+            if (dirName != null)
             {
-                if(!WsEndPointContainer.wroteTypes.Contains(key))
-                {
-                    string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
-                    WsEndPointContainer endPoint = new WsEndPointContainer(key);
-                    customFileNames[endPoint.type] = fileName;
-                    AddBaseContainer(endPoint, fileName);
-                }
+                Directory.CreateDirectory(dirName);
             }
-            foreach (Type key in WsEndPointContainer._routers.Keys)
-            {
-                if (!WsEndPointContainer.wroteTypes.Contains(key))
-                {
-                    string fileName = Path.Combine(ProjectManager.Config.outputPath, "Websocket", key.Name);
-                    WsEndPointContainer endPoint = new WsEndPointContainer(key);
-                    customFileNames[endPoint.type] = fileName;
-                    AddBaseContainer(endPoint, fileName);
-                }
-            }
+            File.WriteAllText(outputPath, fileWriter.GetContent());
         }
     }
 }
