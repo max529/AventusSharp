@@ -45,7 +45,7 @@ namespace AventusSharp.Data.Attributes
                     if (casted.Length > Max || casted.Length < Min)
                     {
                         string msg = Msg == "" ? $"The size of the field {context.FieldName} must be between {Min} and {Max} chars." : Msg;
-                        return new ValidationResult(msg);
+                        return new ValidationResult(msg, context.FieldName);
                     }
                 }
                 else
@@ -53,7 +53,7 @@ namespace AventusSharp.Data.Attributes
                     if (casted.Length < Min)
                     {
                         string msg = Msg == "" ? $"The size of the field {context.FieldName} must be greater than {Min} chars." : Msg;
-                        return new ValidationResult(msg);
+                        return new ValidationResult(msg, context.FieldName);
                     }
                 }
             }

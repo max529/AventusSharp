@@ -42,7 +42,24 @@ namespace AventusSharp.Data.Manager.DB.Builders
             var result = Storage.QueryFromBuilder(this);
             DM.PrintErrors(result);
             return result;
-            
+
+        }
+
+        public T? Single()
+        {
+            return SingleWithError().Result;
+        }
+        public ResultWithError<T> SingleWithError()
+        {
+            ResultWithError<T> result = new ResultWithError<T>();
+            ResultWithError<List<T>> runResult = RunWithError();
+            result.Errors = runResult.Errors;
+            if (runResult.Result != null && runResult.Result.Count > 0)
+            {
+                result.Result = runResult.Result[0];
+            }
+            return result;
+
         }
 
         public IQueryBuilder<T> Where(Expression<Func<T, bool>> expression)

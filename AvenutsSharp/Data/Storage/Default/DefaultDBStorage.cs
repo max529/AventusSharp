@@ -289,10 +289,12 @@ namespace AventusSharp.Data.Storage.Default
             StorageQueryResult result = new();
             if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
             {
-                if (!Connect())
+                VoidWithError connectionResult = ConnectWithError();
+                if (!connectionResult.Success)
                 {
                     mutex.ReleaseMutex();
                     result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
+                    result.Errors.AddRange(connectionResult.Errors);
                     return result;
                 }
             }
@@ -699,7 +701,7 @@ namespace AventusSharp.Data.Storage.Default
         protected abstract object? TransformValueForFct(ParamsInfo paramsInfo);
         protected StorageQueryResult QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
         {
-            List<DataError> errors = new();
+            List<GenericError> errors = new();
 
             if (item != null)
             {

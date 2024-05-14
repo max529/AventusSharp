@@ -10,7 +10,7 @@ namespace TestConsole.cs.Data
 
         public string lastname { get; set; }
 
-        public AventusFile picture { get; set; }
+        //public AventusFile picture { get; set; }
 
         //[Nullable]
         //public Location location { get; set; }

@@ -38,6 +38,16 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
+        public T? Single()
+        {
+            throw new NotImplementedException();
+        }
+
+        public ResultWithError<T> SingleWithError()
+        {
+            throw new NotImplementedException();
+        }
+
         public IQueryBuilder<T> Where(Expression<Func<T, bool>> func)
         {
             throw new NotImplementedException();

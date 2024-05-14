@@ -13,6 +13,8 @@ namespace AventusSharp.Data.Manager
     {
         public List<T> Run();
         public ResultWithError<List<T>> RunWithError();
+        public T? Single();
+        public ResultWithError<T> SingleWithError();
 
         public IQueryBuilder<T> Prepare(params object[] objects);
         public IQueryBuilder<T> SetVariable(string name, object value);

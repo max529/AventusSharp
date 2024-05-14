@@ -64,7 +64,7 @@ namespace AventusSharp.Routes.Request
                     JToken? container = data;
                     for (int i = 0; i < splitted.Length; i++)
                     {
-                        if(container == null) return;
+                        if (container == null) return;
                         Action<JToken> set = (obj) => container[splitted[i]] = obj;
                         Func<JToken?> get = () => { return container[splitted[i]]; };
 
@@ -172,7 +172,8 @@ namespace AventusSharp.Routes.Request
         }
         public List<HttpFile> GetFiles(string propPath)
         {
-            return files.Values.Where(f => f.FormName == propPath).ToList();
+            Regex regex = new Regex(propPath + "\\[[0-9]+\\]");
+            return files.Values.Where(f => regex.IsMatch(f.FormName)).ToList();
         }
 
         /// <summary>

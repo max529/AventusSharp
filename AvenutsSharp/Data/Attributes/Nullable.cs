@@ -30,7 +30,7 @@ namespace AventusSharp.Data.Attributes
             if(value == null)
             {
                 string msg = this.Msg == "" ? $"The field {context.FieldName} is required." : this.Msg;
-                return new ValidationResult(msg);
+                return new ValidationResult(msg, context.FieldName);
             }
             return ValidationResult.Success;
         }

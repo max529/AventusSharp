@@ -36,7 +36,7 @@ namespace AventusSharp.Tools
         }
         public GenericError(int code, Exception exception, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0) : this(code, "", callerPath, callerNo)
         {
-            Message = exception.Message;
+            Message = exception.ToString();
         }
 
         protected virtual string GetMessageException(bool showDetails)

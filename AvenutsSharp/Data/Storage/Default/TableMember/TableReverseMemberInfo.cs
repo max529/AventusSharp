@@ -185,7 +185,6 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                     nameProperty = Expression.PropertyOrField(temp, Storable.Id);
                 }
                 Expression<Func<int>> idLambda = () => Id;
-                var var1 = Expression.Variable(varType, Storable.Id);
 
                 Type? typeIfNullable = System.Nullable.GetUnderlyingType(nameProperty.Type);
                 if (typeIfNullable != null)

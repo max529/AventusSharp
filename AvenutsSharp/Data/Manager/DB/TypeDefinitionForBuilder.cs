@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.TableMember;
+using AventusSharp.Tools;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -213,7 +214,7 @@ namespace AventusSharp.Data.Manager.DB
             }
         }
 
-        public List<DataError> IsValueValid()
+        public List<GenericError> IsValueValid()
         {
             TableMemberInfo memberInfo = MembersList[^1];
             return memberInfo.IsValid(Value);

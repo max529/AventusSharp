@@ -66,19 +66,14 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         }
 
        
-        public List<DataError> IsValid(object? o)
+        public List<GenericError> IsValid(object? o)
         {
-            List<DataError> errors = new();
-            ValidationContext context = new(Name, MemberType);
+            List<GenericError> errors = new();
+            ValidationContext context = new(Name, MemberType, ReflectedType, TableInfo);
             foreach (var validationAttribute in ValidationAttributes)
             {
                 ValidationResult result = validationAttribute.IsValid(o, context);
-                if (!string.IsNullOrEmpty(result.Msg))
-                {
-                    DataError error = new DataError(DataErrorCode.ValidationError, result.Msg);
-                    error.Details.Add(new FieldErrorInfo(Name));
-                    errors.Add(error);
-                }
+                errors.AddRange(result.Errors);
             }
 
             return errors;

@@ -14,6 +14,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using TestConsole.cs;
 using TestConsole.cs.Data;
+using AventusSharp.Data.Manager;
 
 
 
@@ -45,22 +46,11 @@ if (!appResult.Success)
     return;
 }
 
+List<int> ids = new List<int> { 1, 2 };
+IQueryBuilder<Location> query = Location.StartQuery().WhereWithParameters(l => ids.Contains(l.Human.Id));
+query.SetVariable("ids", new List<int> () { 3, 4 });
+query.Run();
 
-PersonHuman p = new PersonHuman()
-{
-    firstname = "Maxime",
-    lastname = "Bétrisey",
-    picture = new AventusFile()
-    {
-        Uri = "/monuri"
-    }
-};
-
-PersonHuman.CreateWithError(p);
-//p.CreateWithError();
-
-
-//PersonHuman p1 = PersonHuman.GetById(1);
 Console.WriteLine();
 
 //if (false)

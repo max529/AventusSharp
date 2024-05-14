@@ -783,6 +783,36 @@ namespace AventusSharp.Data.Manager
         }
         #endregion
 
+        #region single
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public ResultWithError<X> SingleWithError<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            ResultWithError<X> result = new ResultWithError<X>();
+            ResultWithError<List<X>> where = WhereWithError<X>(func);
+
+            result.Errors = where.Errors;
+            if(where.Result != null && where.Result.Count > 0)
+            {
+                result.Result = where.Result[0];
+            }
+            return result;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public X? Single<X>(Expression<Func<X, bool>> func) where X : U
+        {
+            List<X> where = Where(func);
+            if (where.Count > 0)
+            {
+                return where[0];
+            }
+            return default;
+        }
+        #endregion
+
         #endregion
 
         #region Exist
