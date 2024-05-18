@@ -787,6 +787,13 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        public ResultWithError<U> SingleWithError(Expression<Func<U, bool>> func)
+        {
+            return SingleWithError<U>(func);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public ResultWithError<X> SingleWithError<X>(Expression<Func<X, bool>> func) where X : U
         {
             ResultWithError<X> result = new ResultWithError<X>();
@@ -802,6 +809,26 @@ namespace AventusSharp.Data.Manager
         /// <summary>
         /// <inheritdoc />
         /// </summary>
+        ResultWithError<X> IGenericDM.SingleWithError<X>(Expression<Func<X, bool>> func)
+        {
+            ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(new object[] { func });
+            if (result == null)
+            {
+                result = new ResultWithError<X>();
+                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method SingleWithError"));
+            }
+            return result;
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        public U? Single(Expression<Func<U, bool>> func)
+        {
+            return Single<U>(func);
+        }
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
         public X? Single<X>(Expression<Func<X, bool>> func) where X : U
         {
             List<X> where = Where(func);
@@ -811,6 +838,22 @@ namespace AventusSharp.Data.Manager
             }
             return default;
         }
+
+        /// <summary>
+        /// <inheritdoc />
+        /// </summary>
+        X IGenericDM.Single<X>(Expression<Func<X, bool>> func)
+        {
+            X? result = InvokeMethod<X?, X>(new object[] { func }, false);
+            if (result == null)
+            {
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
+            return result;
+        }
+
         #endregion
 
         #endregion

@@ -1859,7 +1859,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <param name="defaultValue"></param>
         /// <param name="action"></param>
         /// <returns></returns>
-        public ResultWithError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithError<Y>> action)
+        public ResultWithError<Y> RunInsideTransaction<Y>(Y? defaultValue, Func<ResultWithError<Y>> action)
         {
             ResultWithError<BeginTransactionResult> transactionResult = BeginTransaction().ToGeneric();
             if (!transactionResult.Success || transactionResult.Result == null)
@@ -1884,6 +1884,46 @@ namespace AventusSharp.Data.Storage.Default
             }
             return resultTemp;
         }
+        /// <summary>
+        /// Run a function inside a transaction that ll be commit if no error otherwise rollback
+        /// </summary>
+        /// <typeparam name="Y"></typeparam>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        public ResultWithError<Y> RunInsideTransaction<Y>(Func<ResultWithError<Y>> action)
+        {
+            return RunInsideTransaction<Y>(default, action);
+        }
+        /// <summary>
+        /// Run a function inside a transaction that ll be commit if no error otherwise rollback
+        /// </summary>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        public VoidWithError RunInsideTransaction(Func<VoidWithError> action)
+        {
+            ResultWithError<BeginTransactionResult> transactionResult = BeginTransaction().ToGeneric();
+            if (!transactionResult.Success || transactionResult.Result == null)
+            {
+                VoidWithError resultError = new()
+                {
+                    Errors = transactionResult.Errors
+                };
+                return resultError;
+            }
+            VoidWithError resultTemp = action();
+            if (resultTemp.Success && transactionResult.Result.isNew)
+            {
+                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result.transaction).ToGeneric();
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            else if (transactionResult.Result.isNew)
+            {
+                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result.transaction);
+                resultTemp.Errors.AddRange(commitResult.Errors);
+            }
+            return resultTemp;
+        }
+        
 
         public abstract string GetSqlColumnType(DbType dbType, TableMemberInfoSql tableMember);
         #endregion

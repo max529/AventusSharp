@@ -1,7 +1,9 @@
-﻿using AventusSharp.Tools.Attributes;
+﻿using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using AventusSharp.WebSocket.Attributes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket.Event
@@ -48,7 +50,7 @@ namespace AventusSharp.WebSocket.Event
 
         public Task EmitTo(WebSocketConnection connection, string uid = "")
         {
-            this.uid = uid ;
+            this.uid = uid;
             this.eventType = ResponseTypeEnum.Single;
             this.connection = connection;
             return Emit();
@@ -61,15 +63,30 @@ namespace AventusSharp.WebSocket.Event
             return Emit();
         }
 
+        public async Task<VoidWithError> EmitTo<T>(string uid = "") where T : WsEndPoint
+        {
+            VoidWithError result = new VoidWithError();
+            WsEndPoint? endPoint = WebSocketMiddleware.endPointInstances.Values.FirstOrDefault(p => p.GetType() == typeof(T));
+            if (endPoint == null)
+            {
+                result.Errors.Add(new WsError(WsErrorCode.NoEndPoint, "No endpoint of type " + typeof(T).Name + " found. Did you register the WebSocketMiddleware?"));
+                return result;
+            }
+            this.uid = uid;
+            eventType = ResponseTypeEnum.Broadcast;
+            this.endPoint = endPoint;
+            await Emit();
+            return result;
+        }
 
 
         public abstract Task Emit();
 
         protected async Task DefaultEmit(object? o)
         {
-            if(path == null)
+            if (path == null)
             {
-                throw new WsError(WsErrorCode.NoPath, "The path isn't transformed from basePath "+basePath).GetException();
+                throw new WsError(WsErrorCode.NoPath, "The path isn't transformed from basePath " + basePath).GetException();
             }
             if (eventType == ResponseTypeEnum.Single)
             {

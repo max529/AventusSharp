@@ -109,6 +109,15 @@ namespace AventusSharp.Data
             return GenericDM.Get<T>().WhereWithError(func);
         }
 
+        public static T? Single(Expression<Func<T, bool>> func)
+        {
+            return GenericDM.Get<T>().Single(func);
+        }
+        public static ResultWithError<T> SingleWithError(Expression<Func<T, bool>> func)
+        {
+            return GenericDM.Get<T>().SingleWithError(func);
+        }
+
         public static bool Exist(Expression<Func<T, bool>> func)
         {
             return GenericDM.Get<T>().Exist(func);

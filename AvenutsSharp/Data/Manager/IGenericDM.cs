@@ -43,6 +43,9 @@ namespace AventusSharp.Data.Manager
         bool Exist<X>(Expression<Func<X, bool>> func) where X : notnull;
         ResultWithError<bool> ExistWithError<X>(Expression<Func<X, bool>> func) where X : notnull;
 
+
+        X? Single<X>(Expression<Func<X, bool>> func) where X : notnull;
+        ResultWithError<X> SingleWithError<X>(Expression<Func<X, bool>> func) where X : notnull;
         #endregion
 
         #region Create
@@ -86,6 +89,8 @@ namespace AventusSharp.Data.Manager
         new List<X> Where<X>(Expression<Func<X, bool>> func) where X : U;
         new ResultWithError<List<X>> WhereWithError<X>(Expression<Func<X, bool>> func) where X : U;
 
+        new X? Single<X>(Expression<Func<X, bool>> func) where X : U;
+        new ResultWithError<X> SingleWithError<X>(Expression<Func<X, bool>> func) where X : U;
         #endregion
 
         #region Create

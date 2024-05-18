@@ -791,6 +791,7 @@ namespace CSharpToTypescript.Container
 
 
 
+            parent.AddTxt("@BindThis()", result);
             parent.AddTxtOpen(fctDesc, result);
             parent.AddTxt(request, result);
             if (!string.IsNullOrEmpty(body))

@@ -232,7 +232,8 @@ namespace CSharpToTypescript.Container
             if (fctsConstructor.Count > 0 || endPoint != null)
             {
                 string endpointName = GetTypeName(typeof(WsEndPoint));
-                string constructorTxt = "public constructor(endpoint: " + endpointName + ", getPrefix: () => string";
+                string mark = endPoint != null ? "?" : "";
+                string constructorTxt = "public constructor(endpoint"+ mark + ": " + endpointName + ", getPrefix?: () => string";
                 foreach (string fctToInject in fctsConstructor)
                 {
                     constructorTxt += ", " + fctToInject + ": () => string";

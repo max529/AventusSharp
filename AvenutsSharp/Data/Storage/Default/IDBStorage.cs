@@ -33,7 +33,9 @@ namespace AventusSharp.Data.Storage.Default
         public string GetDatabaseName();
         public ResultWithError<Dictionary<TableInfo, IList>> GroupDataByType<X>(IList data);
 
-        public ResultWithError<Y> RunInsideTransaction<Y>(Y defaultValue, Func<ResultWithError<Y>> action);
+        public ResultWithError<Y> RunInsideTransaction<Y>(Y? defaultValue, Func<ResultWithError<Y>> action);
+        public ResultWithError<Y> RunInsideTransaction<Y>(Func<ResultWithError<Y>> action);
+        public VoidWithError RunInsideTransaction(Func<VoidWithError> action);
     }
 
 
