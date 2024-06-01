@@ -45,7 +45,7 @@ namespace AventusSharp.WebSocket.Request
                         dataToUse = dataToUse[prop];
                         if (dataToUse == null)
                         {
-                            result.Errors.Add(new WsError(WsErrorCode.CantGetValueFromBody, "Can't find path " + propPath + " in your data"));
+                            result.Errors.Add(new WsError(WsErrorCode.CantGetValueFromBody, "Can't find path " + propPath + " in your websocket body"));
                             return result;
                         }
                     }

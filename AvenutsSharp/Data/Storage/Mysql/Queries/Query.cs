@@ -77,9 +77,17 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 {
                     if (member.Key is ITableMemberInfoSqlLinkMultiple linkMultiple)
                     {
-                        if (linkMultiple.TableLinkedType == null) { continue; }
+                        if (linkMultiple.TableLinked == null) { continue; }
 
-                        string alias = queryBuilder.CreateAlias(linkMultiple.TableLinkedType);
+                        string alias = "";
+                        if (baseInfo.joinsNM.ContainsKey(linkMultiple))
+                        {
+                            alias = baseInfo.joinsNM[linkMultiple];
+                        }
+                        else
+                        {
+                            alias = queryBuilder.CreateAlias(baseInfo.TableInfo, linkMultiple.TableLinked);
+                        }
                         fields.Add("GROUP_CONCAT(" + alias + "." + linkMultiple.TableIntermediateKey2 + ") `" + baseInfo.Alias + "*" + member.Key.SqlName + "`");
                         joins.Add("LEFT OUTER JOIN `" + linkMultiple.TableIntermediateName + "` " + alias + " ON " + alias + "." + linkMultiple.TableIntermediateKey1 + "=" + baseInfo.Alias + "." + baseInfo.TableInfo.Primary?.SqlName);
                         if (groupBy == "")

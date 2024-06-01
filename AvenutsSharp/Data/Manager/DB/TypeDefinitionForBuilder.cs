@@ -110,12 +110,19 @@ namespace AventusSharp.Data.Manager.DB
     public class WhereGroupField : IWhereGroup
     {
         public string Alias { get; set; }
-        public TableMemberInfoSql TableMemberInfo { get; set; }
+        // private TableMemberInfoSql TableMemberInfo { get; set; }
+
+        public string SqlName { get; set; }
 
         public WhereGroupField(string alias, TableMemberInfoSql tableMemberInfo)
         {
             Alias = alias;
-            TableMemberInfo = tableMemberInfo;
+            // TableMemberInfo = tableMemberInfo;
+            SqlName = tableMemberInfo.SqlName;
+
+            if(tableMemberInfo is ITableMemberInfoSqlLinkMultiple multiple && multiple.TableIntermediateKey2 != null) {
+                SqlName = multiple.TableIntermediateKey2;
+            }
         }
     }
 
@@ -287,6 +294,7 @@ namespace AventusSharp.Data.Manager.DB
         public List<DatabaseBuilderInfoChild> Children { get; set; } = new List<DatabaseBuilderInfoChild>();
 
         public Dictionary<TableMemberInfoSql, DatabaseBuilderInfo> joins = new();
+        public Dictionary<ITableMemberInfoSqlLinkMultiple, string> joinsNM = new();
         public List<TableReverseMemberInfo> ReverseLinks { get; set; } = new List<TableReverseMemberInfo>();
 
         public DatabaseBuilderInfo(string alias, TableInfo tableInfo)
@@ -312,8 +320,36 @@ namespace AventusSharp.Data.Manager.DB
                     }
                 }
             }
-            result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+            if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
+            {
+                if (joinsNM.ContainsKey(linkMultiple))
+                {
+                    result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
+                }
+            }
+            else
+            {
+                result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+            }
             return result;
+        }
+
+        public TableMemberInfoSql? GetTableMemberInfo(string field)
+        {
+            TableMemberInfoSql? memberInfo = null;
+            memberInfo = TableInfo.Members.Find(m => m.Name == field);
+            if (memberInfo == null)
+            {
+                foreach (KeyValuePair<TableInfo, string> parent in Parents)
+                {
+                    memberInfo = parent.Key.Members.Find(m => m.Name == field);
+                    if (memberInfo != null)
+                    {
+                        return memberInfo;
+                    }
+                }
+            }
+            return memberInfo;
         }
 
         public TableReverseMemberInfo? GetReverseTableMemberInfo(string field)

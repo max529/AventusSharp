@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Project = Microsoft.CodeAnalysis.Project;
 
 namespace CSharpToTypescript
@@ -64,14 +65,29 @@ namespace CSharpToTypescript
             // Redirect the output stream of the child process.
             p.StartInfo.UseShellExecute = false;
             p.StartInfo.RedirectStandardOutput = true;
-            p.StartInfo.FileName = "cmd.exe";
-            string cmd = "dotnet build " + Config.csProj + " --no-dependencies -v m";
-            p.StartInfo.Arguments = "/C " + cmd;
+            string cmd = "build " + Config.csProj + " --no-dependencies -v m";
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                p.StartInfo.FileName = "cmd.exe";
+                p.StartInfo.Arguments = "/C dotnet " + cmd;
+            }
+            else
+            {
+                p.StartInfo.FileName = "dotnet";
+                p.StartInfo.Arguments = cmd;
+            }
             p.Start();
             // Read the output stream first and then wait.
             string output = p.StandardOutput.ReadToEnd();
             p.WaitForExit();
             List<string> splitted = output.Split("\n").ToList();
+            if (splitted.Count < 4)
+            {
+                Console.WriteLine("The build result seems to be wrong. Please send the result below to an admin");
+                Console.WriteLine(output);
+                Console.WriteLine("splitted count : " + splitted.Count);
+                return false;
+            }
             string nbErrors = splitted[splitted.Count - 4];
             if (!nbErrors.Contains("0"))
             {

@@ -66,7 +66,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                             if (fctGrp != null && fieldGrp != null)
                             {
                                 string action = fctGrp.Fct == WhereGroupFctEnum.Equal ? " IS NULL" : " IS NOT NULL";
-                                subQuery = fieldGrp.Alias + "." + fieldGrp.TableMemberInfo.SqlName + action;
+                                subQuery = fieldGrp.Alias + "." + fieldGrp.SqlName + action;
                                 break;
                             }
                         }
@@ -112,7 +112,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     }
                     else if (queryGroup is WhereGroupField fieldGrp)
                     {
-                        subQuery += fieldGrp.Alias + "." + fieldGrp.TableMemberInfo.SqlName;
+                        subQuery += fieldGrp.Alias + "." + fieldGrp.SqlName;
                     }
                     lastGroup = queryGroup;
                 }

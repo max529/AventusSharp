@@ -299,7 +299,7 @@ namespace AventusSharp.Routes.Request
                         dataToUse = dataToUse[prop];
                         if (dataToUse == null)
                         {
-                            result.Errors.Add(new RouteError(RouteErrorCode.CantGetValueFromBody, "Can't find path " + propPath + " in your data"));
+                            result.Errors.Add(new RouteError(RouteErrorCode.CantGetValueFromBody, "Can't find path " + propPath + " in your http body"));
                             return result;
                         }
                     }

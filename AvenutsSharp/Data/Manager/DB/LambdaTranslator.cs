@@ -325,7 +325,7 @@ namespace AventusSharp.Data.Manager.DB
                         if (memberInfo.Key.MemberType == typeof(bool))
                         {
                             WhereGroupSingleBool newGroup = new(memberInfo.Value, memberInfo.Key);
-                            if(nextGroupNegate)
+                            if (nextGroupNegate)
                             {
                                 newGroup.negate = true;
                                 nextGroupNegate = false;
@@ -391,6 +391,12 @@ namespace AventusSharp.Data.Manager.DB
                 {
                     fct = WhereGroupFctEnum.ListContains;
                     reverse = true;
+                }
+            }
+            else if(onType != null && isListUsable(onType)) {
+                if (methodName == "Contains")
+                {
+                    fct = WhereGroupFctEnum.Equal;
                 }
             }
             else if (node.Method.DeclaringType == typeof(Enumerable))
@@ -572,6 +578,20 @@ namespace AventusSharp.Data.Manager.DB
 
             AddToParentGroup(new WhereGroupConstantParameter(paramName));
 
+        }
+
+
+        private bool isListUsable(Type type)
+        {
+            if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))
+            {
+                Type typeInList = type.GetGenericArguments()[0];
+                if (typeInList != null && typeInList.GetInterfaces().Contains(typeof(IStorable)))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

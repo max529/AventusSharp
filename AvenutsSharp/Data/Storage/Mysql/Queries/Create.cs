@@ -30,16 +30,16 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         continue;
                     }
 
-                    if(member is ITableMemberInfoSqlLink)
+                    if (member is ITableMemberInfoSqlLink)
                     {
-                        if(member.IsAutoCreate || member.IsAutoUpdate)
+                        if (member.IsAutoCreate || member.IsAutoUpdate)
                         {
                             result.ToCheckBefore.Add(member);
                         }
                     }
-                    
 
-                    if(member is ITableMemberInfoSqlWritable memberBasic)
+
+                    if (member is ITableMemberInfoSqlWritable memberBasic)
                     {
                         ParamsInfo paramsInfo = new()
                         {
@@ -56,17 +56,17 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         {
                             paramsInfos.Add(paramsInfo);
                         }
-                        columns.Add(member.SqlName);
+                        columns.Add("`" + member.SqlName + "`");
                         values.Add("@" + member.SqlName);
                     }
-                    else if(member is ITableMemberInfoSqlLinkMultiple memberNM)
+                    else if (member is ITableMemberInfoSqlLinkMultiple memberNM)
                     {
                         string? intermediateTableName = memberNM.TableIntermediateName;
-                        if(!(member.TableInfo.Primary is ITableMemberInfoSqlWritable primary))
+                        if (!(member.TableInfo.Primary is ITableMemberInfoSqlWritable primary))
                         {
                             continue;
                         }
-                        
+
                         string linkInsert = $"INSERT INTO `{intermediateTableName}` (`{memberNM.TableIntermediateKey1}`, `{memberNM.TableIntermediateKey2}`) VALUES (@{memberNM.TableIntermediateKey1}, @{memberNM.TableIntermediateKey2});";
                         List<ParamsInfo> linkInfo = new List<ParamsInfo>()
                         {

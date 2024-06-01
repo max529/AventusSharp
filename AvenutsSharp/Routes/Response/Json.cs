@@ -25,6 +25,21 @@ namespace AventusSharp.Routes.Response
             }
         }
 
+        public Json(object? o, JsonConverter converter)
+        {
+            txt = JsonConvert.SerializeObject(o, converter);
+        }
+
+        public Json(object? o, JsonSerializerSettings settings)
+        {
+            txt = JsonConvert.SerializeObject(o, settings);
+        }
+
+        public Json(string json)
+        {
+            txt = json;
+        }
+
         public async Task send(HttpContext context)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(txt);

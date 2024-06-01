@@ -734,19 +734,19 @@ namespace CSharpToTypescript.Container
             if (typeContainer == null)
             {
                 returnTxt = "return await request.queryVoid(this.router);";
-                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
             }
             else if (typeContainer == typeof(Json))
             {
                 if (listReturns.Count == 0)
                 {
                     returnTxt = "return await request.queryVoid(this.router);";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
                 }
                 else if (listReturns.Count == 1 && new Regex("Aventus\\.VoidWithError(<|$)").IsMatch(listReturns[0] ?? ""))
                 {
                     returnTxt = "return await request.queryVoid(this.router);";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
                 }
                 else
                 {
@@ -773,19 +773,19 @@ namespace CSharpToTypescript.Container
 
                     string typeReturn = string.Join(" | ", realTypes);
                     typeTxt = "type TypeResult = " + typeReturn + ";";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<" + typeReturn + ", Aventus.GenericError<number>>>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<" + typeReturn + ">>");
                     returnTxt = "return await request.queryJSON<TypeResult>(this.router);";
                 }
 
             }
             else if (typeContainer == typeof(TextResponse))
             {
-                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<string, Aventus.GenericError<number>>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<string>>");
                 returnTxt = "return await request.queryTxt(this.router);";
             }
             else
             {
-                fctDesc = fctDesc.Replace("$resultType", "Promise<Aventus.ResultWithError<string, Aventus.GenericError<number>>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<string>>");
                 returnTxt = "return await request.queryTxt(this.router);";
             }
 

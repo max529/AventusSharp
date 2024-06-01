@@ -752,7 +752,7 @@ namespace CSharpToTypescript.Container
             else
             {
                 fctTxt = "return await this.endpoint.sendMessage(info);";
-                resultType = "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>";
+                resultType = "Promise<AventusSharp.Tools.VoidWithError>";
             }
             if (returnType != "")
             {
@@ -762,7 +762,7 @@ namespace CSharpToTypescript.Container
             else
             {
                 //fctTxt = "return await this.endpoint.sendMessage(info);";
-                //resultType = "Promise<Aventus.VoidWithError<Aventus.GenericError<number>>>";
+                //resultType = "Promise<AventusSharp.Tools.VoidWithError>";
 
             }
 
