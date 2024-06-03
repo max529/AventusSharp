@@ -27,7 +27,6 @@ namespace AventusSharp.Data.Storage.Default
         public string username;
         public string password;
         public string database;
-        public bool keepConnectionOpen;
         public bool addCreatedAndUpdatedDate = true;
 
         public StorageCredentials(string host, string username, string password, string database)
@@ -62,10 +61,7 @@ namespace AventusSharp.Data.Storage.Default
         protected string username;
         protected string password;
         protected string database;
-        protected bool keepConnectionOpen;
         protected bool addCreatedAndUpdatedDate;
-        protected DbConnection? connection;
-        private readonly Mutex mutex;
         private bool linksCreated;
         private DbTransaction? transaction;
         public bool IsConnectedOneTime { get; protected set; }
@@ -89,9 +85,7 @@ namespace AventusSharp.Data.Storage.Default
             username = info.username;
             password = info.password;
             database = info.database;
-            keepConnectionOpen = info.keepConnectionOpen;
             addCreatedAndUpdatedDate = info.addCreatedAndUpdatedDate;
-            mutex = new Mutex();
         }
 
         #region connection
@@ -104,12 +98,8 @@ namespace AventusSharp.Data.Storage.Default
             VoidWithError result = new();
             try
             {
-                connection = GetConnection();
+                using DbConnection connection = GetConnection();
                 connection.Open();
-                if (!keepConnectionOpen)
-                {
-                    connection.Close();
-                }
                 IsConnectedOneTime = true;
             }
             catch (Exception e)
@@ -137,18 +127,6 @@ namespace AventusSharp.Data.Storage.Default
             {
                 new DataError(DataErrorCode.UnknowError, e.Message).Print();
             }
-            try
-            {
-                if (connection != null)
-                {
-                    connection.Close();
-                    connection.Dispose();
-                }
-            }
-            catch (Exception e)
-            {
-                new DataError(DataErrorCode.UnknowError, e.Message).Print();
-            }
         }
 
         public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
@@ -166,24 +144,7 @@ namespace AventusSharp.Data.Storage.Default
         }
         public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            if (connection == null)
-            {
-                StorageQueryResult noConn = new();
-                noConn.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name + "(" + ToString() + ") doesn't have a connection"));
-                return noConn;
-            }
-            mutex.WaitOne();
             StorageExecutResult result = new();
-            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
-            {
-                if (!Connect())
-                {
-                    mutex.ReleaseMutex();
-                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
-                    return result;
-                }
-            }
-
             try
             {
                 bool isNewTransaction = false;
@@ -200,68 +161,78 @@ namespace AventusSharp.Data.Storage.Default
                     isNewTransaction = resultTransaction.Result.isNew;
                 }
 
-                command.Transaction = transaction;
-                command.Connection = connection;
+                DbConnection? connection = transaction.Connection;
+                if (connection == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                    return result;
+                }
+
                 try
                 {
-                    if (dataParameters != null)
+
+                    command.Transaction = transaction;
+                    command.Connection = connection;
+                    try
                     {
-                        foreach (Dictionary<string, object?> parameters in dataParameters)
+                        if (dataParameters != null)
                         {
-                            foreach (KeyValuePair<string, object?> parameter in parameters)
+                            foreach (Dictionary<string, object?> parameters in dataParameters)
                             {
-                                command.Parameters[parameter.Key].Value = parameter.Value;
+                                foreach (KeyValuePair<string, object?> parameter in parameters)
+                                {
+                                    command.Parameters[parameter.Key].Value = parameter.Value;
+                                }
+                                if (Debug)
+                                {
+                                    Console.WriteLine();
+                                    string queryWithParam = command.CommandText;
+                                    foreach (KeyValuePair<string, object?> parameter in parameters)
+                                    {
+                                        queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
+                                    }
+                                    Console.WriteLine(queryWithParam);
+                                    Console.WriteLine();
+                                }
+                                command.ExecuteNonQuery();
                             }
+                        }
+                        else
+                        {
                             if (Debug)
                             {
                                 Console.WriteLine();
-                                string queryWithParam = command.CommandText;
-                                foreach (KeyValuePair<string, object?> parameter in parameters)
-                                {
-                                    queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
-                                }
-                                Console.WriteLine(queryWithParam);
+                                Console.WriteLine(command.CommandText);
                                 Console.WriteLine();
                             }
                             command.ExecuteNonQuery();
                         }
-                    }
-                    else
-                    {
-                        if (Debug)
+                        if (isNewTransaction)
                         {
-                            Console.WriteLine();
-                            Console.WriteLine(command.CommandText);
-                            Console.WriteLine();
+                            ResultWithError<bool> transactionResult = CommitTransaction(transaction);
+                            result.Errors.AddRange(transactionResult.Errors);
                         }
-                        command.ExecuteNonQuery();
                     }
-                    if (isNewTransaction)
+                    catch (Exception e)
                     {
-                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
-                        result.Errors.AddRange(transactionResult.Errors);
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                        if (isNewTransaction)
+                        {
+                            ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
+                            result.Errors.AddRange(transactionResult.Errors);
+                        }
                     }
+
                 }
                 catch (Exception e)
                 {
                     result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
-                    if (isNewTransaction)
-                    {
-                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
-                        result.Errors.AddRange(transactionResult.Errors);
-                    }
                 }
-
             }
             catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
             }
-            if (!keepConnectionOpen)
-            {
-                Close();
-            }
-            mutex.ReleaseMutex();
             return result;
         }
         public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
@@ -279,29 +250,10 @@ namespace AventusSharp.Data.Storage.Default
         }
         public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            if (connection == null)
-            {
-                StorageQueryResult noConn = new();
-                noConn.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name + "(" + ToString() + ") doesn't have a connection"));
-                return noConn;
-            }
-            mutex.WaitOne();
             StorageQueryResult result = new();
-            if (!keepConnectionOpen || connection.State == ConnectionState.Closed)
-            {
-                VoidWithError connectionResult = ConnectWithError();
-                if (!connectionResult.Success)
-                {
-                    mutex.ReleaseMutex();
-                    result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
-                    result.Errors.AddRange(connectionResult.Errors);
-                    return result;
-                }
-            }
 
             try
             {
-
                 bool isNewTransaction = false;
                 DbTransaction? transaction = this.transaction;
                 if (transaction == null)
@@ -314,6 +266,13 @@ namespace AventusSharp.Data.Storage.Default
                     }
                     transaction = resultTransaction.Result.transaction;
                     isNewTransaction = resultTransaction.Result.isNew;
+                }
+
+                DbConnection? connection = transaction.Connection;
+                if (connection == null)
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                    return result;
                 }
 
                 command.Transaction = transaction;
@@ -413,31 +372,34 @@ namespace AventusSharp.Data.Storage.Default
                         result.Errors.AddRange(transactionResult.Errors);
                     }
                 }
+
             }
             catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message+ "\nSQL: " + command.CommandText, callerPath, callerNo));
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message + "\nSQL: " + command.CommandText, callerPath, callerNo));
             }
-            if (!keepConnectionOpen)
-            {
-                Close();
-            }
-            mutex.ReleaseMutex();
+
             return result;
         }
 
         public ResultWithError<BeginTransactionResult> BeginTransaction()
         {
             ResultWithError<BeginTransactionResult> result = new();
-            if (connection == null)
-            {
-                result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
-                return result;
-            }
+
             try
             {
                 if (transaction == null)
                 {
+                    DbConnection connection = GetConnection();
+                    try
+                    {
+                        connection.Open();
+                    }
+                    catch
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
+                        return result;
+                    }
                     transaction = connection.BeginTransaction();
                     result.Result = new BeginTransactionResult(true, transaction, CommitTransaction, RollbackTransaction);
                 }
@@ -450,6 +412,8 @@ namespace AventusSharp.Data.Storage.Default
             {
                 result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
             }
+
+
             return result;
         }
         public ResultWithError<bool> CommitTransaction()
@@ -477,6 +441,7 @@ namespace AventusSharp.Data.Storage.Default
                         transaction.Commit();
                         result.Result = true;
                         transaction.Dispose();
+                        transaction.Connection?.Dispose();
                         if (transaction == this.transaction)
                         {
                             this.transaction = null;
@@ -515,6 +480,7 @@ namespace AventusSharp.Data.Storage.Default
                         transaction.Rollback();
                         result.Result = true;
                         transaction.Dispose();
+                        transaction.Connection?.Dispose();
                         if (transaction == this.transaction)
                         {
                             this.transaction = null;
@@ -1923,7 +1889,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return resultTemp;
         }
-        
+
 
         public abstract string GetSqlColumnType(DbType dbType, TableMemberInfoSql tableMember);
         #endregion

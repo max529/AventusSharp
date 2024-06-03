@@ -27,13 +27,11 @@ namespace AventusSharp.Data.Storage.Mysql
                 Password = password,
                 Database = database
             };
-            if(port != null)
+            if (port != null)
             {
                 builder.Port = (uint)port;
             }
-
-            connection = new MySqlConnection(builder.ConnectionString);
-            return connection;
+            return new MySqlConnection(builder.ConnectionString);
         }
 
         public override VoidWithError ConnectWithError()
@@ -42,13 +40,11 @@ namespace AventusSharp.Data.Storage.Mysql
             try
             {
                 IsConnectedOneTime = true;
-                connection = GetConnection();
-                connection.Open();
-                if (!keepConnectionOpen)
+                using (DbConnection connection = GetConnection())
                 {
-                    connection.Close();
+                    connection.Open();
+                    IsConnectedOneTime = true;
                 }
-                IsConnectedOneTime = true;
             }
             catch (Exception e)
             {
@@ -62,12 +58,15 @@ namespace AventusSharp.Data.Storage.Mysql
                             {
                                 Server = host,
                                 UserID = username,
-                                Password = password
+                                Password = password,
+                                
                             };
-                            connection = new MySqlConnection(builder.ConnectionString);
-                            connection.Open();
-                            Execute("CREATE DATABASE " + database + ";");
-                            connection.Close();
+                            using (DbConnection connection = new MySqlConnection(builder.ConnectionString))
+                            {
+                                connection.Open();
+                                Execute("CREATE DATABASE " + database + ";");
+                            };
+
 
 
                             MySqlConnectionStringBuilder builderFull = new()
@@ -77,13 +76,10 @@ namespace AventusSharp.Data.Storage.Mysql
                                 Password = password,
                                 Database = database
                             };
-                            connection = new MySqlConnection(builder.ConnectionString);
-                            connection.Open();
-                            if (!keepConnectionOpen)
+                            using (DbConnection connection = new MySqlConnection(builderFull.ConnectionString))
                             {
-                                connection.Close();
+                                connection.Open();
                             }
-                            IsConnectedOneTime = true;
                         }
                         catch (Exception e2)
                         {
@@ -107,17 +103,17 @@ namespace AventusSharp.Data.Storage.Mysql
         public override ResultWithDataError<DbCommand> CreateCmd(string sql)
         {
             ResultWithDataError<DbCommand> result = new();
-            MySqlConnection? mySqlConnection = (MySqlConnection?)connection;
-            if (mySqlConnection != null)
+            try
             {
+                MySqlConnection mySqlConnection = (MySqlConnection)GetConnection();
                 MySqlCommand command = mySqlConnection.CreateCommand();
                 command.CommandType = System.Data.CommandType.Text;
                 command.CommandText = sql;
                 result.Result = command;
             }
-            else
+            catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
             }
             return result;
         }

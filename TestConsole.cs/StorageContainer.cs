@@ -26,10 +26,7 @@ namespace TestConsole.cs
                 database: "aventus",
                 username: "root",
                 password: ""
-            )
-            {
-                keepConnectionOpen = true,
-            });
+            ));
 
             if (!storage.Connect())
             {
@@ -50,10 +47,7 @@ namespace TestConsole.cs
                 database: "aventus2",
                 username: "root",
                 password: ""
-            )
-            {
-                keepConnectionOpen = true,
-            });
+            ));
 
             if (!storage.Connect())
             {
