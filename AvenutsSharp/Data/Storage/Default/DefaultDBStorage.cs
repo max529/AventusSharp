@@ -3,7 +3,9 @@ using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Manager.DB.Builders;
 using AventusSharp.Data.Storage.Default.TableMember;
 using AventusSharp.Data.Storage.Mysql.Queries;
+using AventusSharp.Routes.Attributes;
 using AventusSharp.Tools;
+using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI.Common;
 using Org.BouncyCastle.Asn1.Mozilla;
 using System;
@@ -11,12 +13,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Transactions;
 
 namespace AventusSharp.Data.Storage.Default
 {
@@ -43,17 +47,6 @@ namespace AventusSharp.Data.Storage.Default
         }
     }
 
-    public class StorageQueryResult : StorageExecutResult
-    {
-        public List<Dictionary<string, string>> Result { get; set; } = new List<Dictionary<string, string>>();
-    }
-    public class StorageExecutResult
-    {
-        public bool Success { get => Errors.Count == 0; }
-
-        public List<GenericError> Errors = new();
-    }
-
     public abstract class DefaultDBStorage<T> : IDBStorage where T : IDBStorage
     {
         protected string host;
@@ -63,9 +56,11 @@ namespace AventusSharp.Data.Storage.Default
         protected string database;
         protected bool addCreatedAndUpdatedDate;
         private bool linksCreated;
-        private DbTransaction? transaction;
+        private TransactionContext? transactionContext;
+        private SemaphoreSlim locker = new SemaphoreSlim(1, 1);
         public bool IsConnectedOneTime { get; protected set; }
         public bool Debug { get; set; }
+
 
         private readonly Dictionary<Type, TableInfo> allTableInfos = new();
         public TableInfo? GetTableInfo(Type type)
@@ -117,10 +112,10 @@ namespace AventusSharp.Data.Storage.Default
         {
             try
             {
-                if (transaction != null)
+                if (transactionContext != null)
                 {
-                    transaction.Rollback();
-                    transaction.Dispose();
+                    transactionContext.Rollback();
+                    transactionContext.Dispose();
                 }
             }
             catch (Exception e)
@@ -129,52 +124,146 @@ namespace AventusSharp.Data.Storage.Default
             }
         }
 
-        public StorageExecutResult Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public VoidWithError Execute(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
             if (commandResult.Result != null)
             {
-                StorageExecutResult result = Execute(commandResult.Result, null, callerPath, callerNo);
+                VoidWithError result = Execute(commandResult.Result, null, callerPath, callerNo);
                 commandResult.Result.Dispose();
                 return result;
             }
-            StorageExecutResult noCommand = new();
+            VoidWithError noCommand = new();
             noCommand.Errors.AddRange(commandResult.Errors);
             return noCommand;
         }
-        public StorageExecutResult Execute(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public VoidWithError Execute(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
-            StorageExecutResult result = new();
+            VoidWithError result = new();
             try
             {
-                bool isNewTransaction = false;
-                DbTransaction? transaction = this.transaction;
-                if (transaction == null)
+                lock (locker)
                 {
-                    ResultWithError<BeginTransactionResult> resultTransaction = BeginTransaction();
-                    result.Errors.AddRange(resultTransaction.Errors);
-                    if (!result.Success || resultTransaction.Result == null)
+                    if (transactionContext == null)
                     {
+                        return RunInsideTransaction(() =>
+                        {
+                            return Execute(command, dataParameters, callerPath, callerNo);
+                        });
+                    }
+
+                    locker.WaitAsync().GetAwaiter().GetResult();
+                    DbConnection? connection = transactionContext.Connection;
+                    if (connection == null)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
                         return result;
                     }
-                    transaction = resultTransaction.Result.transaction;
-                    isNewTransaction = resultTransaction.Result.isNew;
-                }
 
-                DbConnection? connection = transaction.Connection;
-                if (connection == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
-                    return result;
-                }
 
-                try
-                {
-
-                    command.Transaction = transaction;
-                    command.Connection = connection;
                     try
                     {
+                        command.Transaction = transactionContext.transaction;
+                        command.Connection = connection;
+                        try
+                        {
+                            if (dataParameters != null)
+                            {
+                                foreach (Dictionary<string, object?> parameters in dataParameters)
+                                {
+                                    foreach (KeyValuePair<string, object?> parameter in parameters)
+                                    {
+                                        command.Parameters[parameter.Key].Value = parameter.Value;
+                                    }
+                                    if (Debug)
+                                    {
+                                        Console.WriteLine();
+                                        string queryWithParam = command.CommandText;
+                                        foreach (KeyValuePair<string, object?> parameter in parameters)
+                                        {
+                                            queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
+                                        }
+                                        Console.WriteLine(queryWithParam);
+                                        Console.WriteLine();
+                                    }
+                                    command.ExecuteNonQuery();
+                                }
+                            }
+                            else
+                            {
+                                if (Debug)
+                                {
+                                    Console.WriteLine();
+                                    Console.WriteLine(command.CommandText);
+                                    Console.WriteLine();
+                                }
+                                command.ExecuteNonQuery();
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
+                    }
+                    finally
+                    {
+                    }
+                    locker.Release();
+                }
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+            }
+            return result;
+        }
+        public ResultWithError<List<Dictionary<string, string>>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        {
+            ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
+            if (commandResult.Result != null)
+            {
+                ResultWithError<List<Dictionary<string, string>>> result = Query(commandResult.Result, null, callerPath, callerNo);
+                commandResult.Result.Dispose();
+                return result;
+            }
+            ResultWithError<List<Dictionary<string, string>>> noCommand = new();
+            noCommand.Errors.AddRange(commandResult.Errors);
+            return noCommand;
+        }
+        public ResultWithError<List<Dictionary<string, string>>> Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0, int loop = 0)
+        {
+            ResultWithError<List<Dictionary<string, string>>> result = new()
+            {
+                Result = new List<Dictionary<string, string>>()
+            };
+            try
+            {
+                lock (locker)
+                {
+                    if (transactionContext == null)
+                    {
+                        return RunInsideTransaction(() =>
+                        {
+                            return Query(command, dataParameters, callerPath, callerNo);
+                        });
+                    }
+
+                    locker.WaitAsync().GetAwaiter().GetResult();
+                    DbConnection? connection = transactionContext.Connection;
+                    if (connection == null)
+                    {
+                        result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
+                        return result;
+                    }
+
+                    try
+                    {
+                        command.Transaction = transactionContext.transaction;
+                        command.Connection = connection;
                         if (dataParameters != null)
                         {
                             foreach (Dictionary<string, object?> parameters in dataParameters)
@@ -183,6 +272,7 @@ namespace AventusSharp.Data.Storage.Default
                                 {
                                     command.Parameters[parameter.Key].Value = parameter.Value;
                                 }
+
                                 if (Debug)
                                 {
                                     Console.WriteLine();
@@ -194,7 +284,32 @@ namespace AventusSharp.Data.Storage.Default
                                     Console.WriteLine(queryWithParam);
                                     Console.WriteLine();
                                 }
-                                command.ExecuteNonQuery();
+                                using (IDataReader reader = command.ExecuteReader())
+                                {
+                                    while (reader.Read())
+                                    {
+                                        Dictionary<string, string> temp = new();
+                                        for (int i = 0; i < reader.FieldCount; i++)
+                                        {
+                                            if (!temp.ContainsKey(reader.GetName(i)))
+                                            {
+                                                if (reader[reader.GetName(i)] != null)
+                                                {
+                                                    string? valueString = reader[reader.GetName(i)].ToString();
+                                                    valueString ??= "";
+                                                    temp.Add(reader.GetName(i), valueString);
+                                                }
+                                                else
+                                                {
+                                                    temp.Add(reader.GetName(i), "");
+                                                }
+                                            }
+                                        }
+                                        result.Result.Add(temp);
+                                    }
+                                    reader.Close();
+                                    reader.Dispose();
+                                }
                             }
                         }
                         else
@@ -205,174 +320,49 @@ namespace AventusSharp.Data.Storage.Default
                                 Console.WriteLine(command.CommandText);
                                 Console.WriteLine();
                             }
-                            command.ExecuteNonQuery();
-                        }
-                        if (isNewTransaction)
-                        {
-                            ResultWithError<bool> transactionResult = CommitTransaction(transaction);
-                            result.Errors.AddRange(transactionResult.Errors);
+                            using (IDataReader reader = command.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    Dictionary<string, string> temp = new();
+                                    for (int i = 0; i < reader.FieldCount; i++)
+                                    {
+                                        if (!temp.ContainsKey(reader.GetName(i)))
+                                        {
+                                            if (reader[reader.GetName(i)] != null)
+                                            {
+                                                string? valueString = reader[reader.GetName(i)].ToString();
+                                                valueString ??= "";
+                                                temp.Add(reader.GetName(i), valueString);
+                                            }
+                                            else
+                                            {
+                                                temp.Add(reader.GetName(i), "");
+                                            }
+                                        }
+                                    }
+                                    result.Result.Add(temp);
+                                }
+                                reader.Close();
+                                reader.Dispose();
+                            }
                         }
                     }
                     catch (Exception e)
                     {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
-                        if (isNewTransaction)
+                        // The DataReader is still attach to the connection => not possible
+                        // If we rerun the function it seems to be ok
+                        if (e.Message.StartsWith("There is already an open DataReader") && loop < 5)
                         {
-                            ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
-                            result.Errors.AddRange(transactionResult.Errors);
+                            locker.Release();
+                            return Query(command, dataParameters, callerPath, callerNo, loop + 1);
                         }
+                        DataError error = new DataError(DataErrorCode.UnknowError, e.Message + "\nSQL: " + command.CommandText);
+                        error.Details.Add(command.CommandText);
+                        result.Errors.Add(error);
                     }
-
+                    locker.Release();
                 }
-                catch (Exception e)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e.Message, callerPath, callerNo));
-                }
-            }
-            catch (Exception e)
-            {
-                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
-            }
-            return result;
-        }
-        public StorageQueryResult Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
-        {
-            ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
-            if (commandResult.Result != null)
-            {
-                StorageQueryResult result = Query(commandResult.Result, null, callerPath, callerNo);
-                commandResult.Result.Dispose();
-                return result;
-            }
-            StorageQueryResult noCommand = new();
-            noCommand.Errors.AddRange(commandResult.Errors);
-            return noCommand;
-        }
-        public StorageQueryResult Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
-        {
-            StorageQueryResult result = new();
-
-            try
-            {
-                bool isNewTransaction = false;
-                DbTransaction? transaction = this.transaction;
-                if (transaction == null)
-                {
-                    ResultWithError<BeginTransactionResult> resultTransaction = BeginTransaction();
-                    result.Errors.AddRange(resultTransaction.Errors);
-                    if (!result.Success || resultTransaction.Result == null)
-                    {
-                        return result;
-                    }
-                    transaction = resultTransaction.Result.transaction;
-                    isNewTransaction = resultTransaction.Result.isNew;
-                }
-
-                DbConnection? connection = transaction.Connection;
-                if (connection == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.NoConnectionInsideStorage, "The storage " + GetType().Name, " doesn't have a connection"));
-                    return result;
-                }
-
-                command.Transaction = transaction;
-                command.Connection = connection;
-                try
-                {
-                    if (dataParameters != null)
-                    {
-                        foreach (Dictionary<string, object?> parameters in dataParameters)
-                        {
-                            foreach (KeyValuePair<string, object?> parameter in parameters)
-                            {
-                                command.Parameters[parameter.Key].Value = parameter.Value;
-                            }
-
-                            if (Debug)
-                            {
-                                Console.WriteLine();
-                                string queryWithParam = command.CommandText;
-                                foreach (KeyValuePair<string, object?> parameter in parameters)
-                                {
-                                    queryWithParam = queryWithParam.Replace(parameter.Key, parameter.Key + "(" + parameter.Value?.ToString() + ")");
-                                }
-                                Console.WriteLine(queryWithParam);
-                                Console.WriteLine();
-                            }
-                            using IDataReader reader = command.ExecuteReader();
-                            while (reader.Read())
-                            {
-                                Dictionary<string, string> temp = new();
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    if (!temp.ContainsKey(reader.GetName(i)))
-                                    {
-                                        if (reader[reader.GetName(i)] != null)
-                                        {
-                                            string? valueString = reader[reader.GetName(i)].ToString();
-                                            valueString ??= "";
-                                            temp.Add(reader.GetName(i), valueString);
-                                        }
-                                        else
-                                        {
-                                            temp.Add(reader.GetName(i), "");
-                                        }
-                                    }
-                                }
-                                result.Result.Add(temp);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (Debug)
-                        {
-                            Console.WriteLine();
-                            Console.WriteLine(command.CommandText);
-                            Console.WriteLine();
-                        }
-                        using IDataReader reader = command.ExecuteReader();
-                        while (reader.Read())
-                        {
-                            Dictionary<string, string> temp = new();
-                            for (int i = 0; i < reader.FieldCount; i++)
-                            {
-                                if (!temp.ContainsKey(reader.GetName(i)))
-                                {
-                                    if (reader[reader.GetName(i)] != null)
-                                    {
-                                        string? valueString = reader[reader.GetName(i)].ToString();
-                                        valueString ??= "";
-                                        temp.Add(reader.GetName(i), valueString);
-                                    }
-                                    else
-                                    {
-                                        temp.Add(reader.GetName(i), "");
-                                    }
-                                }
-                            }
-                            result.Result.Add(temp);
-                        }
-                    }
-
-                    if (isNewTransaction)
-                    {
-                        ResultWithError<bool> transactionResult = CommitTransaction(transaction);
-                        result.Errors.AddRange(transactionResult.Errors);
-                    }
-                }
-                catch (Exception e)
-                {
-                    DataError error = new DataError(DataErrorCode.UnknowError, e.Message + "\nSQL: " + command.CommandText, callerPath, callerNo);
-                    error.Details.Add(command.CommandText);
-                    result.Errors.Add(error);
-                    if (isNewTransaction)
-                    {
-                        ResultWithError<bool> transactionResult = RollbackTransaction(transaction);
-                        result.Errors.AddRange(transactionResult.Errors);
-                    }
-                }
-
             }
             catch (Exception e)
             {
@@ -382,30 +372,37 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-        public ResultWithError<BeginTransactionResult> BeginTransaction()
+        protected ResultWithError<TransactionContext> BeginTransaction()
         {
-            ResultWithError<BeginTransactionResult> result = new();
+            ResultWithError<TransactionContext> result = new();
 
             try
             {
-                if (transaction == null)
+                lock (locker)
                 {
-                    DbConnection connection = GetConnection();
-                    try
+                    locker.WaitAsync().GetAwaiter().GetResult();
+                    if (transactionContext == null)
                     {
-                        connection.Open();
+                        DbConnection connection = GetConnection();
+                        try
+                        {
+                            connection.Open();
+                        }
+                        catch
+                        {
+                            result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
+                            return result;
+                        }
+                        DbTransaction transaction = connection.BeginTransaction();
+                        transactionContext = new TransactionContext(transaction, EndTransaction, RunInsideLocker);
+                        result.Result = transactionContext;
                     }
-                    catch
+                    else
                     {
-                        result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
-                        return result;
+                        transactionContext.count++;
+                        result.Result = transactionContext;
                     }
-                    transaction = connection.BeginTransaction();
-                    result.Result = new BeginTransactionResult(true, transaction, CommitTransaction, RollbackTransaction);
-                }
-                else
-                {
-                    result.Result = new BeginTransactionResult(false, transaction, CommitTransaction, RollbackTransaction);
+                    locker.Release();
                 }
             }
             catch (Exception e)
@@ -416,84 +413,31 @@ namespace AventusSharp.Data.Storage.Default
 
             return result;
         }
-        public ResultWithError<bool> CommitTransaction()
+
+        protected void EndTransaction()
         {
-            return CommitTransaction(transaction);
+            if (transactionContext != null)
+            {
+                transactionContext.transaction.Dispose();
+                if (transactionContext.transaction.Connection != null)
+                {
+                    transactionContext.transaction.Connection.Dispose();
+                }
+                transactionContext = null;
+            }
         }
-        public ResultWithError<bool> CommitTransaction(DbTransaction? transaction)
+
+        protected void RunInsideLocker(Action fct)
         {
-            ResultWithError<bool> result = new();
-            if (transaction == null)
+            lock (locker)
             {
-                result.Result = true;
-                return result;
+                locker.WaitAsync().GetAwaiter().GetResult();
+                fct();
+                locker.Release();
             }
-            lock (transaction)
-            {
-                if (transaction == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.NoTransactionInProgress, "There is no transation to commit"));
-                }
-                else
-                {
-                    try
-                    {
-                        transaction.Commit();
-                        result.Result = true;
-                        transaction.Dispose();
-                        transaction.Connection?.Dispose();
-                        if (transaction == this.transaction)
-                        {
-                            this.transaction = null;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
-                    }
-                }
-            }
-            return result;
         }
-        public ResultWithError<bool> RollbackTransaction()
-        {
-            return RollbackTransaction(transaction);
-        }
-        public ResultWithError<bool> RollbackTransaction(DbTransaction? transaction)
-        {
-            ResultWithError<bool> result = new();
-            if (transaction == null)
-            {
-                result.Result = true;
-                return result;
-            }
-            lock (transaction)
-            {
-                if (transaction == null)
-                {
-                    result.Errors.Add(new DataError(DataErrorCode.NoTransactionInProgress, "There is no transation to rollback"));
-                }
-                else
-                {
-                    try
-                    {
-                        transaction.Rollback();
-                        result.Result = true;
-                        transaction.Dispose();
-                        transaction.Connection?.Dispose();
-                        if (transaction == this.transaction)
-                        {
-                            this.transaction = null;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
-                    }
-                }
-            }
-            return result;
-        }
+
+
         #endregion
 
         #region init
@@ -665,7 +609,7 @@ namespace AventusSharp.Data.Storage.Default
             GrabValue
         }
         protected abstract object? TransformValueForFct(ParamsInfo paramsInfo);
-        protected StorageQueryResult QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
+        protected ResultWithError<List<Dictionary<string, string>>> QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
         {
             List<GenericError> errors = new();
 
@@ -675,7 +619,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             if (errors.Count > 0)
             {
-                StorageQueryResult queryResultTemp = new()
+                ResultWithError<List<Dictionary<string, string>>> queryResultTemp = new()
                 {
                     Result = new List<Dictionary<string, string>>()
                 };
@@ -713,7 +657,7 @@ namespace AventusSharp.Data.Storage.Default
                     parametersToUse.Add(parameterInfo.Key, parameterInfo.Value);
                 }
             }
-            StorageQueryResult result = new();
+            ResultWithError<List<Dictionary<string, string>>> result = new();
             ResultWithDataError<DbCommand> cmdResult = CreateCmd(sqlToExecute);
             result.Errors.AddRange(cmdResult.Errors);
             if (!result.Success || cmdResult.Result == null)
@@ -752,10 +696,10 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 parametersValue["@" + parameterInfo.Key.Name] = TransformValueForFct(parameterInfo.Key);
             }
-            StorageQueryResult queryResult;
+            ResultWithError<List<Dictionary<string, string>>> queryResult;
             if (errors.Count > 0)
             {
-                queryResult = new StorageQueryResult
+                queryResult = new ResultWithError<List<Dictionary<string, string>>>
                 {
                     Result = new List<Dictionary<string, string>>()
                 };
@@ -818,10 +762,10 @@ namespace AventusSharp.Data.Storage.Default
             string sql = queryBuilder.info.Sql;
 
 
-            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
+            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
 
             result.Errors.AddRange(queryResult.Errors);
-            if (queryResult.Success)
+            if (queryResult.Success && queryResult.Result != null)
             {
                 result.Result = new List<X>();
                 DatabaseBuilderInfo baseInfo = queryBuilder.InfoByPath[""];
@@ -1038,10 +982,10 @@ namespace AventusSharp.Data.Storage.Default
             }
             string sql = queryBuilder.info.Sql;
 
-            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
+            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
 
             result.Errors.AddRange(queryResult.Errors);
-            if (queryResult.Success && queryResult.Result.Count > 0 && queryResult.Result[0].ContainsKey("nb"))
+            if (queryResult.Success && queryResult.Result != null && queryResult.Result.Count > 0 && queryResult.Result[0].ContainsKey("nb"))
             {
                 result.Result = int.Parse(queryResult.Result[0]["nb"]) > 0;
             }
@@ -1086,7 +1030,7 @@ namespace AventusSharp.Data.Storage.Default
             if (tableExist.Success && !tableExist.Result)
             {
                 string sql = PrepareSQLCreateTable(table);
-                StorageExecutResult resultTemp = Execute(sql);
+                VoidWithError resultTemp = Execute(sql);
                 result.Errors.AddRange(resultTemp.Errors);
 
                 // create intermediate table
@@ -1097,7 +1041,7 @@ namespace AventusSharp.Data.Storage.Default
                 foreach (TableMemberInfoSql member in members)
                 {
                     intermediateQuery = PrepareSQLCreateIntermediateTable(member);
-                    StorageExecutResult resultTempInter = Execute(intermediateQuery);
+                    VoidWithError resultTempInter = Execute(intermediateQuery);
                     result.Errors.AddRange(resultTempInter.Errors);
                 }
             }
@@ -1125,10 +1069,10 @@ namespace AventusSharp.Data.Storage.Default
         {
             ResultWithError<bool> result = new();
             string sql = PrepareSQLTableExist(table);
-            StorageQueryResult queryResult = Query(sql);
+            ResultWithError<List<Dictionary<string, string>>> queryResult = Query(sql);
             result.Errors.AddRange(queryResult.Errors);
 
-            if (queryResult.Success && queryResult.Result.Count == 1)
+            if (queryResult.Success && queryResult.Result != null && queryResult.Result.Count == 1)
             {
                 int nb = int.Parse(queryResult.Result.ElementAt(0)["nb"]);
                 result.Result = (nb != 0);
@@ -1180,7 +1124,7 @@ namespace AventusSharp.Data.Storage.Default
                     parametersCreate.Add(query.PrimaryToSet, QueryParameterType.Normal);
                 }
 
-                StorageQueryResult createResult = QueryGeneric(StorableAction.Create, sql, parametersCreate, item);
+                ResultWithError<List<Dictionary<string, string>>> createResult = QueryGeneric(StorableAction.Create, sql, parametersCreate, item);
 
                 if (!createResult.Success)
                 {
@@ -1391,7 +1335,7 @@ namespace AventusSharp.Data.Storage.Default
                 parametersUpdate.Add(parameterInfo.Value, QueryParameterType.GrabValue);
             }
             #region query elements that will be updated
-            StorageQueryResult queryResult = QueryGeneric(StorableAction.Read, updateInfo.QuerySql, parametersQuery);
+            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, updateInfo.QuerySql, parametersQuery);
             List<int> list = new();
             if (!queryResult.Success)
             {
@@ -1465,7 +1409,7 @@ namespace AventusSharp.Data.Storage.Default
             #endregion
 
             #region update
-            StorageQueryResult updateResult = QueryGeneric(StorableAction.Update, updateInfo.UpdateSql, parametersUpdate, item);
+            ResultWithError<List<Dictionary<string, string>>> updateResult = QueryGeneric(StorableAction.Update, updateInfo.UpdateSql, parametersUpdate, item);
             if (!updateResult.Success)
             {
                 result.Errors.AddRange(updateResult.Errors);
@@ -1687,7 +1631,7 @@ namespace AventusSharp.Data.Storage.Default
                     parameterInfo.Value.Value = ids;
                     parametersDeleteNM.Add(parameterInfo.Value, QueryParameterType.Normal);
                 }
-                StorageQueryResult deleteResultNM = QueryGeneric(StorableAction.Delete, deleteNM.Key, parametersDeleteNM);
+                ResultWithError<List<Dictionary<string, string>>> deleteResultNM = QueryGeneric(StorableAction.Delete, deleteNM.Key, parametersDeleteNM);
             }
 
             // delete reverse
@@ -1741,7 +1685,7 @@ namespace AventusSharp.Data.Storage.Default
             }
 
             string sql = deleteBuilder.info.Sql;
-            StorageQueryResult deleteResult = QueryGeneric(StorableAction.Delete, sql, parametersDelete);
+            ResultWithError<List<Dictionary<string, string>>> deleteResult = QueryGeneric(StorableAction.Delete, sql, parametersDelete);
             if (!deleteResult.Success)
             {
                 result.Errors.AddRange(deleteResult.Errors);
@@ -1827,7 +1771,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <returns></returns>
         public ResultWithError<Y> RunInsideTransaction<Y>(Y? defaultValue, Func<ResultWithError<Y>> action)
         {
-            ResultWithError<BeginTransactionResult> transactionResult = BeginTransaction().ToGeneric();
+            ResultWithError<TransactionContext> transactionResult = BeginTransaction().ToGeneric();
             if (!transactionResult.Success || transactionResult.Result == null)
             {
                 ResultWithError<Y> resultError = new()
@@ -1838,15 +1782,15 @@ namespace AventusSharp.Data.Storage.Default
                 return resultError;
             }
             ResultWithError<Y> resultTemp = action();
-            if (resultTemp.Success && transactionResult.Result.isNew)
+            if (resultTemp.Success)
             {
-                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result.transaction).ToGeneric();
+                ResultWithError<bool> commitResult = transactionResult.Result.Commit();
                 resultTemp.Errors.AddRange(commitResult.Errors);
             }
-            else if (transactionResult.Result.isNew)
+            else
             {
-                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result.transaction);
-                resultTemp.Errors.AddRange(commitResult.Errors);
+                ResultWithError<bool> rollbackResult = transactionResult.Result.Rollback();
+                resultTemp.Errors.AddRange(rollbackResult.Errors);
             }
             return resultTemp;
         }
@@ -1867,7 +1811,7 @@ namespace AventusSharp.Data.Storage.Default
         /// <returns></returns>
         public VoidWithError RunInsideTransaction(Func<VoidWithError> action)
         {
-            ResultWithError<BeginTransactionResult> transactionResult = BeginTransaction().ToGeneric();
+            ResultWithError<TransactionContext> transactionResult = BeginTransaction().ToGeneric();
             if (!transactionResult.Success || transactionResult.Result == null)
             {
                 VoidWithError resultError = new()
@@ -1877,15 +1821,20 @@ namespace AventusSharp.Data.Storage.Default
                 return resultError;
             }
             VoidWithError resultTemp = action();
-            if (resultTemp.Success && transactionResult.Result.isNew)
+            if (resultTemp.Success)
             {
-                ResultWithError<bool> commitResult = CommitTransaction(transactionResult.Result.transaction).ToGeneric();
+                ResultWithError<bool> commitResult = transactionResult.Result.Commit();
+                if (commitResult.Result)
+                {
+                    transactionContext = null;
+                }
                 resultTemp.Errors.AddRange(commitResult.Errors);
             }
-            else if (transactionResult.Result.isNew)
+            else
             {
-                ResultWithError<bool> commitResult = RollbackTransaction(transactionResult.Result.transaction);
-                resultTemp.Errors.AddRange(commitResult.Errors);
+                ResultWithError<bool> rollbackResult = transactionResult.Result.Rollback();
+                transactionContext = null;
+                resultTemp.Errors.AddRange(rollbackResult.Errors);
             }
             return resultTemp;
         }
@@ -1907,31 +1856,106 @@ namespace AventusSharp.Data.Storage.Default
     }
 
 
-    public class BeginTransactionResult
+    public class TransactionContext : IDisposable
     {
-        public bool isNew;
+
         public DbTransaction transaction;
 
-        private Func<DbTransaction, ResultWithError<bool>> _Commit;
-        private Func<DbTransaction, ResultWithError<bool>> _Rollback;
+        private bool isEnded = false;
 
-        public BeginTransactionResult(bool isNew, DbTransaction transaction, Func<DbTransaction, ResultWithError<bool>> commit, Func<DbTransaction, ResultWithError<bool>> rollback)
+        public DbConnection? Connection
         {
-            this.isNew = isNew;
-            this.transaction = transaction;
-            _Commit = commit;
-            _Rollback = rollback;
+            get => transaction.Connection;
         }
 
+        public int count;
+        private Action<Action> _runInsideLocker;
+        private Action _endTransaction;
+
+        public TransactionContext(DbTransaction transaction, Action endTransaction, Action<Action> runInsideLocker)
+        {
+            this.transaction = transaction;
+            _endTransaction = endTransaction;
+            _runInsideLocker = runInsideLocker;
+            count = 1;
+            if (transaction.Connection == null) throw new Exception("Transaction without connection");
+        }
 
         public ResultWithError<bool> Commit()
         {
-            return _Commit(transaction);
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            _runInsideLocker(() =>
+            {
+                if (isEnded)
+                {
+                    result.Result = false;
+                    return;
+                }
+                count--;
+                if (count <= 0)
+                {
+                    isEnded = true;
+                    result = _Commit();
+                    return;
+                }
+                result.Result = false;
+            });
+            return result;
         }
+
+        private ResultWithError<bool> _Commit()
+        {
+            ResultWithError<bool> result = new();
+            try
+            {
+                transaction.Commit();
+                result.Result = true;
+                _endTransaction();
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+            }
+            return result;
+        }
+
 
         public ResultWithError<bool> Rollback()
         {
-            return _Rollback(transaction);
+            ResultWithError<bool> result = new ResultWithError<bool>();
+            _runInsideLocker(() =>
+            {
+                if (isEnded)
+                {
+                    result.Result = false;
+                    return;
+                }
+                isEnded = true;
+                result = _Rollback();
+            });
+            return result;
+        }
+
+        private ResultWithError<bool> _Rollback()
+        {
+            ResultWithError<bool> result = new();
+            try
+            {
+                transaction.Rollback();
+                result.Result = true;
+                _endTransaction();
+            }
+            catch (Exception e)
+            {
+                result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+            }
+            return result;
+        }
+
+        public void Dispose()
+        {
+            _Rollback();
+            transaction.Dispose();
         }
     }
 }

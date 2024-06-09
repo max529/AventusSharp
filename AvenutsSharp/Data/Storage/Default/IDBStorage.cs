@@ -22,11 +22,7 @@ namespace AventusSharp.Data.Storage.Default
         public VoidWithError DeleteFromBuilder<X>(DatabaseDeleteBuilder<X> queryBuilder, List<X> elementsToDelete) where X : IStorable;
         public VoidWithError CreateTable(PyramidInfo pyramid);
         public ResultWithError<bool> TableExist(PyramidInfo pyramid);
-
-        public ResultWithError<BeginTransactionResult> BeginTransaction();
-        public ResultWithError<bool> CommitTransaction(DbTransaction transaction);
-        public ResultWithError<bool> RollbackTransaction(DbTransaction transaction);
-
+       
         public VoidWithError ConnectWithError();
         public ResultWithError<bool> ResetStorage();
 
