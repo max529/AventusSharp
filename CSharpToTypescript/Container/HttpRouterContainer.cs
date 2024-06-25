@@ -392,6 +392,10 @@ namespace CSharpToTypescript.Container
                 {
                     needRecheck = true;
                 }
+                else if(returnType == typeof(byte[]))
+                {
+                    typeContainer = typeof(ByteResponse);
+                }
                 else
                 {
                     typeContainer = typeof(Json);
@@ -777,6 +781,11 @@ namespace CSharpToTypescript.Container
                     returnTxt = "return await request.queryJSON<TypeResult>(this.router);";
                 }
 
+            }
+            else if(typeContainer == typeof(ByteResponse))
+            {
+                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<Blob>>");
+                returnTxt = "return await request.queryBlob(this.router);";
             }
             else if (typeContainer == typeof(TextResponse))
             {

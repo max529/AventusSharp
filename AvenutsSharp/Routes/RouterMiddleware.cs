@@ -373,6 +373,9 @@ namespace AventusSharp.Routes
                             {
                                 await response.send(context);
                             }
+                            else if(o is byte[] bytes) {
+                                await new ByteResponse(bytes).send(context);
+                            }
                             else
                             {
                                 await new Json(o).send(context);
