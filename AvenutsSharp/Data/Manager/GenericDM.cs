@@ -265,7 +265,7 @@ namespace AventusSharp.Data.Manager
 
         IDeleteBuilder<X> IGenericDM.CreateDelete<X>()
         {
-            IDeleteBuilder<X>? result = InvokeMethod<IDeleteBuilder<X>, X>( ref ICreateDelete, Array.Empty<object>());
+            IDeleteBuilder<X>? result = InvokeMethod<IDeleteBuilder<X>, X>(ref ICreateDelete, Array.Empty<object>());
             if (result == null)
             {
                 throw new Exception("Create delete not exist => impossible");
@@ -874,6 +874,22 @@ namespace AventusSharp.Data.Manager
 
         #endregion
 
+        private MethodInfo? IOnItemLoaded = null;
+
+        /// <summary>
+        /// Trigger when a item is converter into real object
+        /// </summary>
+        /// <typeparam name="X"></typeparam>
+        /// <param name="item"></param>
+        public virtual void OnItemLoaded<X>(X item) where X : U {}
+
+        void IGenericDM.OnItemLoaded<X>(X item)
+        {
+            InvokeMethodVoid<X>(ref IOnItemLoaded, new object[] { item });
+        }
+
+
+
         #endregion
 
         #region Exist
@@ -1110,7 +1126,7 @@ namespace AventusSharp.Data.Manager
         {
             if (value is U)
             {
-                U? result = InvokeMethod<U, U>(ref ICreate,new object[] { value });
+                U? result = InvokeMethod<U, U>(ref ICreate, new object[] { value });
                 if (result is X resultCasted)
                 {
                     return resultCasted;
@@ -1680,6 +1696,70 @@ namespace AventusSharp.Data.Manager
 
             throw new DataError(DataErrorCode.MethodNotFound, "The method " + name + "(" + string.Join(", ", parameters.Select(p => p.GetType().Name)) + ") can't be found").GetException();
         }
+        
+        protected void InvokeMethodVoid<Y>(ref MethodInfo? methodSaved, object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
+        {
+            if (methodSaved != null)
+            {
+                Type YType = typeof(Y);
+                MethodInfo methodType = methodSaved.MakeGenericMethod(YType);
+                methodType.Invoke(this, parameters);
+                return;
+            }
+            parameters ??= Array.Empty<object>();
+            List<Type> types = new();
+            foreach (object param in parameters)
+            {
+                Type type = param.GetType();
+                if (param is Expression exp && type.IsGenericType)
+                {
+                    Type[] t = exp.Type.GetGenericArguments();
+                    Type fctType = t.Length switch
+                    {
+                        1 => typeof(Func<>),
+                        2 => typeof(Func<,>),
+                        _ => throw new NotImplementedException()
+                    };
+                    fctType = fctType.MakeGenericType(t);
+                    type = typeof(Expression<>).MakeGenericType(fctType);
+                }
+                types.Add(type);
+            }
+
+            MethodInfo[] methods = this.GetType().GetMethods();
+            foreach (MethodInfo method in methods)
+            {
+                if (method.Name == name && method.IsGenericMethod)
+                {
+                    try
+                    {
+                        Type YType = typeof(Y);
+                        MethodInfo methodType = method.MakeGenericMethod(YType);
+                        if (checkSameParam)
+                        {
+                            if (GenericDM<T, U>.IsSameParameters(methodType.GetParameters(), types))
+                            {
+                                methodType.Invoke(this, parameters);
+                                methodSaved = method;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            methodType.Invoke(this, parameters);
+                            methodSaved = method;
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                    }
+                }
+            }
+
+            throw new DataError(DataErrorCode.MethodNotFound, "The method " + name + "(" + string.Join(", ", parameters.Select(p => p.GetType().Name)) + ") can't be found or failed").GetException();
+        }
         private static bool IsSameParameters(ParameterInfo[] parameterInfos, List<Type> types)
         {
             if (parameterInfos.Length == types.Count)
@@ -1717,6 +1797,7 @@ namespace AventusSharp.Data.Manager
         {
             PrintErrors(withError);
         }
+
 
         #endregion
 

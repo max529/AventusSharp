@@ -391,6 +391,7 @@ namespace AventusSharp.Data.Storage.Default
                         catch
                         {
                             result.Errors.Add(new DataError(DataErrorCode.StorageDisconnected, "The storage " + GetType().Name + "(" + ToString() + ") can't connect to the database"));
+                            locker.Release();
                             return result;
                         }
                         DbTransaction transaction = connection.BeginTransaction();
@@ -778,6 +779,7 @@ namespace AventusSharp.Data.Storage.Default
                     {
                         if (resultTemp.Result is X oCasted)
                         {
+                            queryBuilder.DM.OnItemLoaded(oCasted);
                             result.Result.Add(oCasted);
                         }
                         else

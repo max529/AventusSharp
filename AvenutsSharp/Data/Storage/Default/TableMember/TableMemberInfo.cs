@@ -66,10 +66,14 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         }
 
        
-        public List<GenericError> IsValid(object? o)
+        public List<GenericError> IsValid(object? o, object? rootValue)
         {
             List<GenericError> errors = new();
-            ValidationContext context = new(Name, MemberType, ReflectedType, TableInfo);
+            IStorable? storable = null;
+            if(rootValue is IStorable storableTemp) {
+                storable = storableTemp;
+            }
+            ValidationContext context = new(Name, MemberType, ReflectedType, TableInfo, storable);
             foreach (var validationAttribute in ValidationAttributes)
             {
                 ValidationResult result = validationAttribute.IsValid(o, context);

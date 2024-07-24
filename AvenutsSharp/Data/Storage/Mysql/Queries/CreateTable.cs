@@ -77,6 +77,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 foreach (KeyValuePair<string, List<TableMemberInfoSql>> pri in primary.Value)
                 {
                     bool deleteOnCascade = pri.Value.FirstOrDefault(p => p.IsDeleteOnCascade) != null;
+                    bool deleteSetNull = pri.Value.FirstOrDefault(p => p.IsDeleteSetNull) != null;
                     string constraintName = "FK_" + string.Join("_", pri.Value.Select(field => field.SqlName)) + "_" + table.SqlTableName + "_" + primary.Key;
                     constraintName = Utils.CheckConstraint(constraintName);
                     string foreignKey = string.Join(", ", pri.Value.Select(field => "`" + field.SqlName + "`"));
@@ -86,6 +87,10 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         // TODO pour les tests mais doit être calculé du côté manager (seulement si stocker dans la RAM?)
                         constraintProp += " ON DELETE CASCADE";
+                    }
+                    else if(deleteSetNull) {
+                        // TODO pour les tests mais doit être calculé du côté manager (seulement si stocker dans la RAM?)
+                        constraintProp += " ON DELETE SET NULL";
                     }
                     foreignConstraint.Add(constraintProp);
                 }

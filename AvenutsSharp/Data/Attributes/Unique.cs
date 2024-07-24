@@ -43,9 +43,10 @@ namespace AventusSharp.Data.Attributes
                 m.Invoke(this, new object?[] { context.TableInfo.DM, context.ReflectedType, context, value });
             }
 
-            if (setVariable != null && runWithError != null && query != null)
+            if (setVariable != null && runWithError != null && query != null && context.Item != null)
             {
                 setVariable.Invoke(query, new object?[] { "value", value });
+                setVariable.Invoke(query, new object?[] { "id", context.Item.Id });
                 IResultWithError? resultWithError = (IResultWithError?)runWithError.Invoke(query, null);
                 if (resultWithError != null)
                 {
@@ -98,22 +99,35 @@ namespace AventusSharp.Data.Attributes
                 throw error.GetException();
             }
 
+            // t
             ParameterExpression argParam = Expression.Parameter(context.TableInfo.Type, "t");
-            Expression nameProperty;
-            Type varType = context.TableInfo.Type;
-            nameProperty = Expression.PropertyOrField(argParam, context.FieldName);
 
-            Expression<Func<T?>> idLambda = () => value;
+            // t.$FieldName
+            Expression nameProperty = Expression.PropertyOrField(argParam, context.FieldName);
+
+            // value
+            Expression<Func<T?>> propLambda = () => value;
 
             Type? typeIfNullable = System.Nullable.GetUnderlyingType(nameProperty.Type);
             if (typeIfNullable != null)
             {
                 nameProperty = Expression.Call(nameProperty, "GetValueOrDefault", Type.EmptyTypes);
             }
+            // t.$FieldName == value
+            Expression e1 = Expression.Equal(nameProperty, propLambda.Body);
 
-            Expression e1 = Expression.Equal(nameProperty, idLambda.Body);
-            LambdaExpression lambda = Expression.Lambda(e1, argParam);
+            // t.Id
+            Expression idProperty = Expression.PropertyOrField(argParam, Storable.Id);
+            int id = 0;
+            Expression<Func<int>> idLambda = () => id;
+            // t.Id != id
+            Expression e2 = Expression.NotEqual(idProperty, idLambda.Body);
 
+            // t.$FieldName == value && t.Id != id
+            Expression e3 = Expression.AndAlso(e1, e2);
+
+            // t => t.$FieldName == value && t.Id != id
+            LambdaExpression lambda = Expression.Lambda(e3, argParam);
             whereWithParam.Invoke(query, new object[] { lambda });
         }
     }

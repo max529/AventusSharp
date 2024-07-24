@@ -256,6 +256,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         public bool IsAutoIncrement { get; protected set; }
         public bool IsNullable { get; protected set; }
         public bool IsDeleteOnCascade { get; protected set; }
+        public bool IsDeleteSetNull { get; protected set; }
         public bool IsUpdatable { get; internal set; } = true;
         public bool IsUnique { get; internal set; }
         public string SqlName { get; protected set; } = "";
@@ -314,6 +315,11 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             if (attribute is DeleteOnCascade)
             {
                 IsDeleteOnCascade = true;
+                return true;
+            }
+            if (attribute is DeleteSetNull)
+            {
+                IsDeleteSetNull = true;
                 return true;
             }
             if (attribute is Unique)

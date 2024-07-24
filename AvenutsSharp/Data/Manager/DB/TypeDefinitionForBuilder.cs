@@ -128,11 +128,16 @@ namespace AventusSharp.Data.Manager.DB
 
     public class ParamsInfo
     {
+
+        public ParamsInfo() {
+
+        }
         public string Name { get; set; } = "";
         public Type TypeLvl0 { get; set; } = typeof(object);
         public DbType DbType { get; set; }
         public List<TableMemberInfoSql> MembersList { get; set; } = new List<TableMemberInfoSql>();
 
+        public object? RootValue { get; set; }
         public object? Value { get; set; }
 
         public WhereGroupFctEnum FctMethodCall { get; set; }
@@ -143,6 +148,7 @@ namespace AventusSharp.Data.Manager.DB
         }
         public void SetValue(object value)
         {
+            RootValue = value;
             if (value.GetType() == TypeLvl0)
             {
                 object? valueToSet = value;
@@ -187,6 +193,7 @@ namespace AventusSharp.Data.Manager.DB
 
         public void SetCurrentValueOnObject(object baseObj)
         {
+            RootValue = baseObj;
             Type toCheck = TypeLvl0;
             if (toCheck.IsGenericType)
             {
@@ -224,7 +231,7 @@ namespace AventusSharp.Data.Manager.DB
         public List<GenericError> IsValueValid()
         {
             TableMemberInfo memberInfo = MembersList[^1];
-            return memberInfo.IsValid(Value);
+            return memberInfo.IsValid(Value, RootValue);
         }
 
     }
