@@ -38,12 +38,12 @@ namespace AventusSharp.Data.Storage.Default.TableMember
 
         protected override bool ParseAttribute(Attribute attribute)
         {
-            if(base.ParseAttribute(attribute))
+            if (base.ParseAttribute(attribute))
             {
                 return true;
             }
 
-            if(attribute is Size sizeAttr)
+            if (attribute is Size sizeAttr)
             {
                 SizeAttr = sizeAttr;
                 return true;
@@ -56,7 +56,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return GetValue(obj);
         }
 
-        protected override void SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string? value)
         {
             if (MemberType == typeof(int))
             {
@@ -103,18 +103,25 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             }
             else if (MemberType == typeof(DateTime))
             {
-                if (value == "")
+                if(value == null)
                 {
                     SetValue(obj, null);
                 }
-                else
+                else if(DateTime.TryParse(value, out DateTime dateTime))
                 {
-                    SetValue(obj, DateTime.Parse(value));
+                    SetValue(obj, dateTime);
                 }
             }
             else if (MemberType.IsEnum)
             {
-                SetValue(obj, Enum.Parse(MemberType, value.ToString()));
+                if (value == null)
+                {
+                    SetValue(obj, null);
+                }
+                else if (Enum.TryParse(MemberType, value, out object? val))
+                {
+                    SetValue(obj, val);
+                }
             }
         }
     }

@@ -178,6 +178,15 @@ namespace CSharpToTypescript.Container
         public virtual string GetTypeName(ISymbol type, int depth = 0, bool genericExtendsConstraint = false)
         {
             string name = "";
+            bool isNullable = false;
+            if (type is ITypeSymbol typeSymbol && typeSymbol.NullableAnnotation == NullableAnnotation.Annotated)
+            {
+                isNullable = true;
+                if(typeSymbol is INamedTypeSymbol named && named.TypeArguments.Length == 1)
+                {
+                    type = named.TypeArguments[0];
+                }
+            }
             if (type.ContainingAssembly.Name == ProjectManager.CurrentAssemblyName)
             {
                 SyntaxTree? general = this.type.Locations[0].SourceTree;
@@ -210,7 +219,7 @@ namespace CSharpToTypescript.Container
                 name = DetermineGenericType(namedType, name, depth, genericExtendsConstraint);
             }
             //name = Replacer(name);
-            if (type is ITypeSymbol typeSymbol && typeSymbol.NullableAnnotation == NullableAnnotation.Annotated)
+            if(isNullable)
             {
                 name += "?";
             }

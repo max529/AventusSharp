@@ -10,19 +10,48 @@ namespace AventusSharp.Data.Manager.DB.Builders
 {
     public class DatabaseUpdateBuilderInfo
     {
-        public string UpdateSql { get; set; }
         public string QuerySql { get; set; }
+        public List<DatabaseUpdateBuilderInfoQuery> Queries { get; set; } = new List<DatabaseUpdateBuilderInfoQuery>();
 
         public List<TableReverseMemberInfo> ReverseMembers { get; set; } = new();
 
         public List<TableMemberInfoSql> ToCheckBefore { get; set; } = new();
 
-        public DatabaseUpdateBuilderInfo(string updateSql, string querySql)
+        public DatabaseUpdateBuilderInfo(string querySql)
         {
-            UpdateSql = updateSql;
             QuerySql = querySql;
         }
     }
+    public class DatabaseUpdateBuilderInfoQuery
+    {
+        public string Sql { get; set; }
+        public List<ParamsInfo> Parameters { get; }
+        public List<ParamsInfo> ParametersGrap { get; }
+
+
+        public DatabaseUpdateBuilderInfoQuery(string sql, List<ParamsInfo> parameters, List<ParamsInfo> parametersGrap)
+        {
+            Sql = sql;
+            Parameters = parameters;
+            ParametersGrap = parametersGrap;
+        }
+
+    }
+    //public class DatabaseUpdateBuilderInfo
+    //{
+    //    public string UpdateSql { get; set; }
+    //    public string QuerySql { get; set; }
+
+    //    public List<TableReverseMemberInfo> ReverseMembers { get; set; } = new();
+
+    //    public List<TableMemberInfoSql> ToCheckBefore { get; set; } = new();
+
+    //    public DatabaseUpdateBuilderInfo(string updateSql, string querySql)
+    //    {
+    //        UpdateSql = updateSql;
+    //        QuerySql = querySql;
+    //    }
+    //}
     public class DatabaseUpdateBuilder<T> : DatabaseGenericBuilder<T>, ILambdaTranslatable, IUpdateBuilder<T> where T : IStorable
     {
         public Dictionary<string, ParamsInfo> UpdateParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>();

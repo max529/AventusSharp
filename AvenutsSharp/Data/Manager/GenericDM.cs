@@ -359,13 +359,29 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.GetAllWithError<X>()
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IGetAllWithError, Array.Empty<object>());
-            if (result == null)
+            try
             {
-                result = new ResultWithError<List<X>>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetAllWithError"));
+                ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IGetAllWithError, Array.Empty<object>());
+                if (result == null)
+                {
+                    result = new ResultWithError<List<X>>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetAllWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -393,12 +409,20 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.GetAll<X>()
         {
-            List<X>? result = InvokeMethod<List<X>, X>(ref IGetAll, Array.Empty<object>());
-            if (result == null)
+            try
             {
+                List<X>? result = InvokeMethod<List<X>, X>(ref IGetAll, Array.Empty<object>());
+                if (result == null)
+                {
+                    return new List<X>();
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
                 return new List<X>();
             }
-            return result;
         }
 
         #endregion
@@ -495,13 +519,29 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<X> IGenericDM.GetByIdWithError<X>(int id)
         {
-            ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(ref IGetByIdWithError, new object[] { id });
-            if (result == null)
+            try
             {
-                result = new ResultWithError<X>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdWithError"));
+                ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(ref IGetByIdWithError, new object[] { id });
+                if (result == null)
+                {
+                    result = new ResultWithError<X>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<X> result = new ResultWithError<X>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -528,14 +568,24 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         X IGenericDM.GetById<X>(int id)
         {
-            X? result = InvokeMethod<X, X>(ref IGetById, new object[] { id });
-            if (result == null)
+            try
             {
+                X? result = InvokeMethod<X, X>(ref IGetById, new object[] { id });
+                if (result == null)
+                {
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                    return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
                 return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
             }
-            return result;
         }
 
         object? IGenericDM.GetById(int id)
@@ -628,13 +678,29 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.GetByIdsWithError<X>(List<int> ids)
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IGetByIdsWithError, new object[] { ids });
-            if (result == null)
+            try
             {
-                result = new ResultWithError<List<X>>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdsWithError"));
+                ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IGetByIdsWithError, new object[] { ids });
+                if (result == null)
+                {
+                    result = new ResultWithError<List<X>>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method GetByIdsWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -661,14 +727,22 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.GetByIds<X>(List<int> ids)
         {
-            List<X>? result = InvokeMethod<List<X>, X>(ref IGetByIds, new object[] { ids });
-            if (result == null)
+            try
             {
+                List<X>? result = InvokeMethod<List<X>, X>(ref IGetByIds, new object[] { ids });
+                if (result == null)
+                {
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
-                return default;
+                    return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return new List<X>();
+            }
         }
         #endregion
 
@@ -757,13 +831,29 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.WhereWithError<X>(Expression<Func<X, bool>> func)
         {
-            ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IWhereWithError, new object[] { func });
-            if (result == null)
+            try
             {
-                result = new ResultWithError<List<X>>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
+                ResultWithError<List<X>>? result = InvokeMethod<ResultWithError<List<X>>, X>(ref IWhereWithError, new object[] { func });
+                if (result == null)
+                {
+                    result = new ResultWithError<List<X>>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -790,12 +880,20 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.Where<X>(Expression<Func<X, bool>> func)
         {
-            List<X>? result = InvokeMethod<List<X>, X>(ref IWhere, new object[] { func }, false);
-            if (result == null)
+            try
             {
+                List<X>? result = InvokeMethod<List<X>, X>(ref IWhere, new object[] { func }, false);
+                if (result == null)
+                {
+                    return new List<X>();
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
                 return new List<X>();
             }
-            return result;
         }
         #endregion
 
@@ -828,13 +926,29 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<X> IGenericDM.SingleWithError<X>(Expression<Func<X, bool>> func)
         {
-            ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(ref ISingleWithError, new object[] { func });
-            if (result == null)
+            try
             {
-                result = new ResultWithError<X>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method SingleWithError"));
+                ResultWithError<X>? result = InvokeMethod<ResultWithError<X>, X>(ref ISingleWithError, new object[] { func });
+                if (result == null)
+                {
+                    result = new ResultWithError<X>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method SingleWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<X> result = new ResultWithError<X>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -862,14 +976,24 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         X IGenericDM.Single<X>(Expression<Func<X, bool>> func)
         {
-            X? result = InvokeMethod<X?, X>(ref ISingle, new object[] { func }, false);
-            if (result == null)
+            try
             {
+                X? result = InvokeMethod<X?, X>(ref ISingle, new object[] { func }, false);
+                if (result == null)
+                {
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                    return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
                 return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
             }
-            return result;
         }
 
         #endregion
@@ -881,11 +1005,18 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         /// <typeparam name="X"></typeparam>
         /// <param name="item"></param>
-        public virtual void OnItemLoaded<X>(X item) where X : U {}
+        public virtual void OnItemLoaded<X>(X item) where X : U { }
 
         void IGenericDM.OnItemLoaded<X>(X item)
         {
-            InvokeMethodVoid<X>(ref IOnItemLoaded, new object[] { item });
+            try
+            {
+                InvokeMethodVoid<X>(ref IOnItemLoaded, new object[] { item });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
         }
 
 
@@ -904,13 +1035,29 @@ namespace AventusSharp.Data.Manager
         private MethodInfo? IExistWithError = null;
         ResultWithError<bool> IGenericDM.ExistWithError<X>(Expression<Func<X, bool>> func)
         {
-            ResultWithError<bool>? result = InvokeMethod<ResultWithError<bool>, X>(ref IExistWithError, new object[] { func }, false);
-            if (result == null)
+            try
             {
-                result = new ResultWithError<bool>();
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
+                ResultWithError<bool>? result = InvokeMethod<ResultWithError<bool>, X>(ref IExistWithError, new object[] { func }, false);
+                if (result == null)
+                {
+                    result = new ResultWithError<bool>();
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method WhereWithError"));
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                ResultWithError<bool> result = new ResultWithError<bool>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         public bool Exist(Expression<Func<U, bool>> func)
         {
@@ -1006,27 +1153,43 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.CreateWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
-
-            List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = CreateWithError(valuesTemp);
-            if (resultTemp != null)
+            try
             {
-                if (resultTemp.Result is List<U> castedList)
+                ResultWithError<List<X>> result = new();
+
+                List<U> valuesTemp = TransformList<X, U>(values);
+                ResultWithError<List<U>>? resultTemp = CreateWithError(valuesTemp);
+                if (resultTemp != null)
                 {
-                    result.Result = TransformList<U, X>(castedList);
+                    if (resultTemp.Result is List<U> castedList)
+                    {
+                        result.Result = TransformList<U, X>(castedList);
+                    }
+                    else
+                    {
+                        result.Errors = resultTemp.Errors;
+                    }
                 }
                 else
                 {
-                    result.Errors = resultTemp.Errors;
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method CreateWithError"));
                 }
-            }
-            else
-            {
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method CreateWithError"));
-            }
 
-            return result;
+                return result;
+            }
+            catch (Exception e)
+            {
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
+            }
         }
         /// <summary>
         /// <inheritdoc />
@@ -1046,14 +1209,22 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.Create<X>(List<X> values)
         {
-            List<X> result = new();
-            List<U> valuesTemp = TransformList<X, U>(values);
-            List<U>? resultTemp = InvokeMethod<List<U>, U>(ref ICreateList, new object[] { valuesTemp });
-            if (resultTemp != null)
+            try
             {
-                return TransformList<U, X>(resultTemp);
+                List<X> result = new();
+                List<U> valuesTemp = TransformList<X, U>(values);
+                List<U>? resultTemp = InvokeMethod<List<U>, U>(ref ICreateList, new object[] { valuesTemp });
+                if (resultTemp != null)
+                {
+                    return TransformList<U, X>(resultTemp);
+                }
+                return result;
             }
-            return result;
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                return new List<X>();
+            }
         }
         #endregion
 
@@ -1082,29 +1253,45 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<X> IGenericDM.CreateWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
-            if (value is U)
+            try
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref ICreateWithError, new object[] { value });
-                if (resultTemp != null)
+                ResultWithError<X> result = new();
+                if (value is U)
                 {
-                    if (resultTemp.Result is X casted)
+                    ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref ICreateWithError, new object[] { value });
+                    if (resultTemp != null)
                     {
-                        result.Result = casted;
+                        if (resultTemp.Result is X casted)
+                        {
+                            result.Result = casted;
+                        }
+                        else
+                        {
+                            result.Errors = resultTemp.Errors;
+                        }
                     }
                     else
                     {
-                        result.Errors = resultTemp.Errors;
+                        result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method CreateWithError"));
                     }
+                    return result;
+                }
+                result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide a value to create"));
+                return result;
+            }
+            catch (Exception e)
+            {
+                ResultWithError<X> result = new ResultWithError<X>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
                 }
                 else
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method CreateWithError"));
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
                 }
                 return result;
             }
-            result.Errors.Add(new DataError(DataErrorCode.NoItemProvided, "You must provide a value to create"));
-            return result;
         }
         /// <summary>
         /// <inheritdoc />
@@ -1124,18 +1311,27 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         X IGenericDM.Create<X>(X value)
         {
-            if (value is U)
+            try
             {
-                U? result = InvokeMethod<U, U>(ref ICreate, new object[] { value });
-                if (result is X resultCasted)
+                if (value is U)
                 {
-                    return resultCasted;
+                    U? result = InvokeMethod<U, U>(ref ICreate, new object[] { value });
+                    if (result is X resultCasted)
+                    {
+                        return resultCasted;
+                    }
                 }
-            }
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
-            return default;
+                return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
-
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
         }
         #endregion
 
@@ -1220,25 +1416,41 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.UpdateWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
-            List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(ref IUpdateListWithError, new object[] { valuesTemp });
-            if (resultTemp != null)
+            try
             {
-                if (resultTemp.Result is List<U> castedList)
+                ResultWithError<List<X>> result = new();
+                List<U> valuesTemp = TransformList<X, U>(values);
+                ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(ref IUpdateListWithError, new object[] { valuesTemp });
+                if (resultTemp != null)
                 {
-                    result.Result = TransformList<U, X>(castedList);
+                    if (resultTemp.Result is List<U> castedList)
+                    {
+                        result.Result = TransformList<U, X>(castedList);
+                    }
+                    else
+                    {
+                        result.Errors = resultTemp.Errors;
+                    }
                 }
                 else
                 {
-                    result.Errors = resultTemp.Errors;
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method UpdateWithError"));
                 }
+                return result;
             }
-            else
+            catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method UpdateWithError"));
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
             }
-            return result;
         }
         /// <summary>
         /// <inheritdoc />
@@ -1258,14 +1470,25 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.Update<X>(List<X> values)
         {
-            List<U> valuesTemp = TransformList<X, U>(values);
-            List<U>? result = InvokeMethod<List<U>, U>(ref IUpdateList, new object[] { valuesTemp });
-            if (result != null)
+            try
             {
-                return TransformList<U, X>(result);
+                List<U> valuesTemp = TransformList<X, U>(values);
+                List<U>? result = InvokeMethod<List<U>, U>(ref IUpdateList, new object[] { valuesTemp });
+                if (result != null)
+                {
+                    return TransformList<U, X>(result);
+                }
+                return new List<X>();
             }
-            return new List<X>();
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                return new List<X>();
+            }
         }
+
+        // todo maybe add a function to update without reload to optimize request (be aware for all DM)
+        // public VoidWithError UpdateWithErrorNoReload<X>(List<X> values)
         #endregion
 
         #region Item
@@ -1293,27 +1516,43 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<X> IGenericDM.UpdateWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
-            if (value is U)
+            try
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref IUpdateWithError, new object[] { value });
-                if (resultTemp != null)
+                ResultWithError<X> result = new();
+                if (value is U)
                 {
-                    if (resultTemp.Result is X castedItem)
+                    ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref IUpdateWithError, new object[] { value });
+                    if (resultTemp != null)
                     {
-                        result.Result = castedItem;
+                        if (resultTemp.Result is X castedItem)
+                        {
+                            result.Result = castedItem;
+                        }
+                        else
+                        {
+                            result.Errors = resultTemp.Errors;
+                        }
                     }
                     else
                     {
-                        result.Errors = resultTemp.Errors;
+                        result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method UpdateWithError"));
                     }
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                ResultWithError<X> result = new ResultWithError<X>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
                 }
                 else
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method UpdateWithError"));
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
                 }
+                return result;
             }
-            return result;
         }
         /// <summary>
         /// <inheritdoc />
@@ -1333,17 +1572,27 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         X IGenericDM.Update<X>(X value)
         {
-            if (value is U)
+            try
             {
-                U? result = InvokeMethod<U, U>(ref IUpdate, new object[] { value });
-                if (result is X casted)
+                if (value is U)
                 {
-                    return casted;
+                    U? result = InvokeMethod<U, U>(ref IUpdate, new object[] { value });
+                    if (result is X casted)
+                    {
+                        return casted;
+                    }
                 }
-            }
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
-            return default;
+                return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
         }
         #endregion
 
@@ -1427,25 +1676,41 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<List<X>> IGenericDM.DeleteWithError<X>(List<X> values)
         {
-            ResultWithError<List<X>> result = new();
-            List<U> valuesTemp = TransformList<X, U>(values);
-            ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(ref IDeleteListWithError, new object[] { valuesTemp });
-            if (resultTemp != null)
+            try
             {
-                if (resultTemp.Result is List<U> castedList)
+                ResultWithError<List<X>> result = new();
+                List<U> valuesTemp = TransformList<X, U>(values);
+                ResultWithError<List<U>>? resultTemp = InvokeMethod<ResultWithError<List<U>>, U>(ref IDeleteListWithError, new object[] { valuesTemp });
+                if (resultTemp != null)
                 {
-                    result.Result = TransformList<U, X>(castedList);
+                    if (resultTemp.Result is List<U> castedList)
+                    {
+                        result.Result = TransformList<U, X>(castedList);
+                    }
+                    else
+                    {
+                        result.Errors = resultTemp.Errors;
+                    }
                 }
                 else
                 {
-                    result.Errors = resultTemp.Errors;
+                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method DeleteWithError"));
                 }
+                return result;
             }
-            else
+            catch (Exception e)
             {
-                result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method DeleteWithError"));
+                ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
+                }
+                else
+                {
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
+                }
+                return result;
             }
-            return result;
         }
         /// <summary>
         /// <inheritdoc />
@@ -1465,13 +1730,21 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         List<X> IGenericDM.Delete<X>(List<X> values)
         {
-            List<U> valuesTemp = TransformList<X, U>(values);
-            List<U>? result = InvokeMethod<List<U>, U>(ref IDeleteList, new object[] { valuesTemp });
-            if (result != null)
+            try
             {
-                return TransformList<U, X>(result);
+                List<U> valuesTemp = TransformList<X, U>(values);
+                List<U>? result = InvokeMethod<List<U>, U>(ref IDeleteList, new object[] { valuesTemp });
+                if (result != null)
+                {
+                    return TransformList<U, X>(result);
+                }
+                return new List<X>();
             }
-            return new List<X>();
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                return new List<X>();
+            }
         }
         #endregion
 
@@ -1500,27 +1773,43 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         ResultWithError<X> IGenericDM.DeleteWithError<X>(X value)
         {
-            ResultWithError<X> result = new();
-            if (value is U)
+            try
             {
-                ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref IDeleteWithError, new object[] { value });
-                if (resultTemp != null)
+                ResultWithError<X> result = new();
+                if (value is U)
                 {
-                    if (resultTemp.Result is X castedItem)
+                    ResultWithError<U>? resultTemp = InvokeMethod<ResultWithError<U>, U>(ref IDeleteWithError, new object[] { value });
+                    if (resultTemp != null)
                     {
-                        result.Result = castedItem;
+                        if (resultTemp.Result is X castedItem)
+                        {
+                            result.Result = castedItem;
+                        }
+                        else
+                        {
+                            result.Errors = resultTemp.Errors;
+                        }
                     }
                     else
                     {
-                        result.Errors = resultTemp.Errors;
+                        result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method DeleteWithError"));
                     }
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                ResultWithError<X> result = new ResultWithError<X>();
+                if (e is AventusException aventusException)
+                {
+                    result.Errors.Add(aventusException.Error);
                 }
                 else
                 {
-                    result.Errors.Add(new DataError(DataErrorCode.MethodNotFound, "Can't found the method DeleteWithError"));
+                    result.Errors.Add(new DataError(DataErrorCode.UnknowError, e));
                 }
+                return result;
             }
-            return result;
         }
         /// <summary>
         /// <inheritdoc />
@@ -1540,17 +1829,27 @@ namespace AventusSharp.Data.Manager
         /// </summary>
         X IGenericDM.Delete<X>(X value)
         {
-            if (value is U)
+            try
             {
-                U? result = InvokeMethod<U, U>(ref IDelete, new object[] { value });
-                if (result is X casted)
+                if (value is U)
                 {
-                    return casted;
+                    U? result = InvokeMethod<U, U>(ref IDelete, new object[] { value });
+                    if (result is X casted)
+                    {
+                        return casted;
+                    }
                 }
-            }
 #pragma warning disable CS8603 // Existence possible d'un retour de référence null.
-            return default;
+                return default;
 #pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+#pragma warning disable CS8603 // Existence possible d'un retour de référence null.
+                return default;
+#pragma warning restore CS8603 // Existence possible d'un retour de référence null.
+            }
         }
         #endregion
 
@@ -1589,6 +1888,7 @@ namespace AventusSharp.Data.Manager
                 X? result = (X?)methodType.Invoke(this, parameters);
                 return result;
             }
+            bool mustThrow = false;
             parameters ??= Array.Empty<object>();
             List<Type> types = new();
             foreach (object param in parameters)
@@ -1618,6 +1918,8 @@ namespace AventusSharp.Data.Manager
                     {
                         Type YType = typeof(Y);
                         MethodInfo methodType = method.MakeGenericMethod(YType);
+                        mustThrow = true;
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
                         if (checkSameParam)
                         {
                             if (GenericDM<T, U>.IsSameParameters(methodType.GetParameters(), types))
@@ -1634,9 +1936,15 @@ namespace AventusSharp.Data.Manager
                             return result;
                         }
                     }
-                    catch
+                    catch (Exception e)
                     {
-                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                        if (mustThrow)
+                        {
+                            PrintErrors(e);
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+                            throw e;
+#pragma warning restore CA2200 // Rethrow to preserve stack details
+                        }
                     }
                 }
             }
@@ -1646,7 +1954,7 @@ namespace AventusSharp.Data.Manager
 
         protected X? InvokeMethod<X>(Type YType, object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
         {
-
+            bool mustThrow = false;
             parameters ??= Array.Empty<object>();
             List<Type> types = new();
             foreach (object param in parameters)
@@ -1675,6 +1983,8 @@ namespace AventusSharp.Data.Manager
                     try
                     {
                         MethodInfo methodType = method.MakeGenericMethod(YType);
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                        mustThrow = true;
                         if (checkSameParam)
                         {
                             if (GenericDM<T, U>.IsSameParameters(methodType.GetParameters(), types))
@@ -1687,16 +1997,22 @@ namespace AventusSharp.Data.Manager
                             return (X?)methodType.Invoke(this, parameters);
                         }
                     }
-                    catch
+                    catch (Exception e)
                     {
-                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                        if (mustThrow)
+                        {
+                            PrintErrors(e);
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+                            throw e;
+#pragma warning restore CA2200 // Rethrow to preserve stack details
+                        }
                     }
                 }
             }
 
             throw new DataError(DataErrorCode.MethodNotFound, "The method " + name + "(" + string.Join(", ", parameters.Select(p => p.GetType().Name)) + ") can't be found").GetException();
         }
-        
+
         protected void InvokeMethodVoid<Y>(ref MethodInfo? methodSaved, object[]? parameters = null, bool checkSameParam = true, [CallerMemberName] string name = "")
         {
             if (methodSaved != null)
@@ -1706,6 +2022,7 @@ namespace AventusSharp.Data.Manager
                 methodType.Invoke(this, parameters);
                 return;
             }
+            bool mustThrow = false;
             parameters ??= Array.Empty<object>();
             List<Type> types = new();
             foreach (object param in parameters)
@@ -1735,6 +2052,8 @@ namespace AventusSharp.Data.Manager
                     {
                         Type YType = typeof(Y);
                         MethodInfo methodType = method.MakeGenericMethod(YType);
+                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                        mustThrow = true;
                         if (checkSameParam)
                         {
                             if (GenericDM<T, U>.IsSameParameters(methodType.GetParameters(), types))
@@ -1751,9 +2070,15 @@ namespace AventusSharp.Data.Manager
                             return;
                         }
                     }
-                    catch
+                    catch(Exception e)
                     {
-                        // it ll fail if Generic constraint are different but we can't deal it properly inside code so let the compiler do the job
+                        if (mustThrow)
+                        {
+                            PrintErrors(e);
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+                            throw e;
+#pragma warning restore CA2200 // Rethrow to preserve stack details
+                        }
                     }
                 }
             }
@@ -1790,6 +2115,14 @@ namespace AventusSharp.Data.Manager
             if (printErrorInConsole)
             {
                 withError.Print();
+            }
+        }
+
+        internal void PrintErrors(Exception e)
+        {
+            if (printErrorInConsole)
+            {
+                Console.WriteLine(e);
             }
         }
 

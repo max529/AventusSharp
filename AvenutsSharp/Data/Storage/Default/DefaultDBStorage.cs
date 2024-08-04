@@ -221,24 +221,24 @@ namespace AventusSharp.Data.Storage.Default
             }
             return result;
         }
-        public ResultWithError<List<Dictionary<string, string>>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        public ResultWithError<List<Dictionary<string, string?>>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
             if (commandResult.Result != null)
             {
-                ResultWithError<List<Dictionary<string, string>>> result = Query(commandResult.Result, null, callerPath, callerNo);
+                ResultWithError<List<Dictionary<string, string?>>> result = Query(commandResult.Result, null, callerPath, callerNo);
                 commandResult.Result.Dispose();
                 return result;
             }
-            ResultWithError<List<Dictionary<string, string>>> noCommand = new();
+            ResultWithError<List<Dictionary<string, string?>>> noCommand = new();
             noCommand.Errors.AddRange(commandResult.Errors);
             return noCommand;
         }
-        public ResultWithError<List<Dictionary<string, string>>> Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0, int loop = 0)
+        public ResultWithError<List<Dictionary<string, string?>>> Query(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0, int loop = 0)
         {
-            ResultWithError<List<Dictionary<string, string>>> result = new()
+            ResultWithError<List<Dictionary<string, string?>>> result = new()
             {
-                Result = new List<Dictionary<string, string>>()
+                Result = new List<Dictionary<string, string?>>()
             };
             try
             {
@@ -288,7 +288,7 @@ namespace AventusSharp.Data.Storage.Default
                                 {
                                     while (reader.Read())
                                     {
-                                        Dictionary<string, string> temp = new();
+                                        Dictionary<string, string?> temp = new();
                                         for (int i = 0; i < reader.FieldCount; i++)
                                         {
                                             if (!temp.ContainsKey(reader.GetName(i)))
@@ -301,7 +301,7 @@ namespace AventusSharp.Data.Storage.Default
                                                 }
                                                 else
                                                 {
-                                                    temp.Add(reader.GetName(i), "");
+                                                    temp.Add(reader.GetName(i), null);
                                                 }
                                             }
                                         }
@@ -324,7 +324,7 @@ namespace AventusSharp.Data.Storage.Default
                             {
                                 while (reader.Read())
                                 {
-                                    Dictionary<string, string> temp = new();
+                                    Dictionary<string, string?> temp = new();
                                     for (int i = 0; i < reader.FieldCount; i++)
                                     {
                                         if (!temp.ContainsKey(reader.GetName(i)))
@@ -337,7 +337,7 @@ namespace AventusSharp.Data.Storage.Default
                                             }
                                             else
                                             {
-                                                temp.Add(reader.GetName(i), "");
+                                                temp.Add(reader.GetName(i), null);
                                             }
                                         }
                                     }
@@ -610,7 +610,7 @@ namespace AventusSharp.Data.Storage.Default
             GrabValue
         }
         protected abstract object? TransformValueForFct(ParamsInfo paramsInfo);
-        protected ResultWithError<List<Dictionary<string, string>>> QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
+        protected ResultWithError<List<Dictionary<string, string?>>> QueryGeneric(StorableAction action, string sql, Dictionary<ParamsInfo, QueryParameterType> parameters, IStorable? item = null)
         {
             List<GenericError> errors = new();
 
@@ -620,9 +620,9 @@ namespace AventusSharp.Data.Storage.Default
             }
             if (errors.Count > 0)
             {
-                ResultWithError<List<Dictionary<string, string>>> queryResultTemp = new()
+                ResultWithError<List<Dictionary<string, string?>>> queryResultTemp = new()
                 {
-                    Result = new List<Dictionary<string, string>>()
+                    Result = new List<Dictionary<string, string?>>()
                 };
                 foreach (DataError error in errors)
                 {
@@ -658,7 +658,7 @@ namespace AventusSharp.Data.Storage.Default
                     parametersToUse.Add(parameterInfo.Key, parameterInfo.Value);
                 }
             }
-            ResultWithError<List<Dictionary<string, string>>> result = new();
+            ResultWithError<List<Dictionary<string, string?>>> result = new();
             ResultWithDataError<DbCommand> cmdResult = CreateCmd(sqlToExecute);
             result.Errors.AddRange(cmdResult.Errors);
             if (!result.Success || cmdResult.Result == null)
@@ -697,12 +697,12 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 parametersValue["@" + parameterInfo.Key.Name] = TransformValueForFct(parameterInfo.Key);
             }
-            ResultWithError<List<Dictionary<string, string>>> queryResult;
+            ResultWithError<List<Dictionary<string, string?>>> queryResult;
             if (errors.Count > 0)
             {
-                queryResult = new ResultWithError<List<Dictionary<string, string>>>
+                queryResult = new ResultWithError<List<Dictionary<string, string?>>>
                 {
-                    Result = new List<Dictionary<string, string>>()
+                    Result = new List<Dictionary<string, string?>>()
                 };
                 foreach (DataError error in errors)
                 {
@@ -763,7 +763,7 @@ namespace AventusSharp.Data.Storage.Default
             string sql = queryBuilder.info.Sql;
 
 
-            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
+            ResultWithError<List<Dictionary<string, string?>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
 
             result.Errors.AddRange(queryResult.Errors);
             if (queryResult.Success && queryResult.Result != null)
@@ -773,7 +773,7 @@ namespace AventusSharp.Data.Storage.Default
 
                 for (int i = 0; i < queryResult.Result.Count; i++)
                 {
-                    Dictionary<string, string> itemFields = queryResult.Result[i];
+                    Dictionary<string, string?> itemFields = queryResult.Result[i];
                     ResultWithDataError<object> resultTemp = CreateObject(baseInfo, itemFields);
                     if (resultTemp.Success && resultTemp.Result != null)
                     {
@@ -797,7 +797,7 @@ namespace AventusSharp.Data.Storage.Default
 
             return result;
         }
-        protected ResultWithDataError<object> CreateObject(DatabaseBuilderInfo info, Dictionary<string, string> itemFields)
+        protected ResultWithDataError<object> CreateObject(DatabaseBuilderInfo info, Dictionary<string, string?> itemFields)
         {
             ResultWithDataError<object> result = new ResultWithDataError<object>();
             string rootAlias = info.Alias;
@@ -822,7 +822,7 @@ namespace AventusSharp.Data.Storage.Default
                     return result;
                 }
 
-                ResultWithDataError<Type> typeToCreate = TypeTools.GetTypeDataObject(itemFields[fieldTypeName]);
+                ResultWithDataError<Type> typeToCreate = TypeTools.GetTypeDataObject(fieldTypeName);
                 if (!typeToCreate.Success || typeToCreate.Result == null)
                 {
                     result.Errors.AddRange(typeToCreate.Errors);
@@ -853,7 +853,8 @@ namespace AventusSharp.Data.Storage.Default
                         {
                             if (member.Value.UseDM)
                             {
-                                object? oTemp = memberInfo1N.TableLinked?.DM?.GetById(int.Parse(itemFields[key]));
+                                string idValue = itemFields[key] ?? string.Empty;
+                                object? oTemp = memberInfo1N.TableLinked?.DM?.GetById(int.Parse(idValue));
                                 memberInfo.SetValue(o, oTemp);
                             }
                             else if (info.joins.ContainsKey(memberInfo))
@@ -984,12 +985,12 @@ namespace AventusSharp.Data.Storage.Default
             }
             string sql = queryBuilder.info.Sql;
 
-            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
+            ResultWithError<List<Dictionary<string, string?>>> queryResult = QueryGeneric(StorableAction.Read, sql, queryBuilder.WhereParamsInfo.ToDictionary(p => p.Value, p => QueryParameterType.Normal));
 
             result.Errors.AddRange(queryResult.Errors);
             if (queryResult.Success && queryResult.Result != null && queryResult.Result.Count > 0 && queryResult.Result[0].ContainsKey("nb"))
             {
-                result.Result = int.Parse(queryResult.Result[0]["nb"]) > 0;
+                result.Result = int.Parse(queryResult.Result[0]["nb"] ?? "0") > 0;
             }
             return result;
         }
@@ -1071,12 +1072,12 @@ namespace AventusSharp.Data.Storage.Default
         {
             ResultWithError<bool> result = new();
             string sql = PrepareSQLTableExist(table);
-            ResultWithError<List<Dictionary<string, string>>> queryResult = Query(sql);
+            ResultWithError<List<Dictionary<string, string?>>> queryResult = Query(sql);
             result.Errors.AddRange(queryResult.Errors);
 
             if (queryResult.Success && queryResult.Result != null && queryResult.Result.Count == 1)
             {
-                int nb = int.Parse(queryResult.Result.ElementAt(0)["nb"]);
+                int nb = int.Parse(queryResult.Result.ElementAt(0)["nb"] ?? "0");
                 result.Result = (nb != 0);
             }
             return result;
@@ -1126,7 +1127,7 @@ namespace AventusSharp.Data.Storage.Default
                     parametersCreate.Add(query.PrimaryToSet, QueryParameterType.Normal);
                 }
 
-                ResultWithError<List<Dictionary<string, string>>> createResult = QueryGeneric(StorableAction.Create, sql, parametersCreate, item);
+                ResultWithError<List<Dictionary<string, string?>>> createResult = QueryGeneric(StorableAction.Create, sql, parametersCreate, item);
 
                 if (!createResult.Success)
                 {
@@ -1135,7 +1136,7 @@ namespace AventusSharp.Data.Storage.Default
                 }
                 else if (query.HasPrimaryResult && createResult.Result != null)
                 {
-                    id = int.Parse(createResult.Result[0][Storable.Id]);
+                    id = int.Parse(createResult.Result[0][Storable.Id] ?? "0");
                     item.Id = id;
                 }
             }
@@ -1324,20 +1325,14 @@ namespace AventusSharp.Data.Storage.Default
             }
 
 
-            Dictionary<ParamsInfo, QueryParameterType> parametersUpdate = new();
             Dictionary<ParamsInfo, QueryParameterType> parametersQuery = new();
             foreach (KeyValuePair<string, ParamsInfo> parameterInfo in updateBuilder.WhereParamsInfo)
             {
-                parametersUpdate.Add(parameterInfo.Value, QueryParameterType.Normal);
                 parametersQuery.Add(parameterInfo.Value, QueryParameterType.Normal);
             }
 
-            foreach (KeyValuePair<string, ParamsInfo> parameterInfo in updateBuilder.UpdateParamsInfo)
-            {
-                parametersUpdate.Add(parameterInfo.Value, QueryParameterType.GrabValue);
-            }
             #region query elements that will be updated
-            ResultWithError<List<Dictionary<string, string>>> queryResult = QueryGeneric(StorableAction.Read, updateInfo.QuerySql, parametersQuery);
+            ResultWithError<List<Dictionary<string, string?>>> queryResult = QueryGeneric(StorableAction.Read, updateInfo.QuerySql, parametersQuery);
             List<int> list = new();
             if (!queryResult.Success)
             {
@@ -1346,16 +1341,16 @@ namespace AventusSharp.Data.Storage.Default
             }
             else if (queryResult.Result != null)
             {
-                foreach (Dictionary<string, string> row in queryResult.Result)
+                foreach (Dictionary<string, string?> row in queryResult.Result)
                 {
                     if (row.ContainsKey(Storable.Id))
                     {
-                        list.Add(int.Parse(row[Storable.Id]));
+                        list.Add(int.Parse(row[Storable.Id] ?? "0"));
                     }
                 }
             }
 
-            CheckAutoCUDBeforeUpdate(updateInfo.ToCheckBefore, item, list, updateBuilder.DM);
+            CheckAutoCUDBeforeUpdate(updateInfo.ToCheckBefore, item, list, updateBuilder.DM, out List<IStorable> storableToDeleted);
 
             foreach (TableReverseMemberInfo reverseMember in updateInfo.ReverseMembers)
             {
@@ -1411,14 +1406,39 @@ namespace AventusSharp.Data.Storage.Default
             #endregion
 
             #region update
-            ResultWithError<List<Dictionary<string, string>>> updateResult = QueryGeneric(StorableAction.Update, updateInfo.UpdateSql, parametersUpdate, item);
-            if (!updateResult.Success)
+            foreach (DatabaseUpdateBuilderInfoQuery query in updateInfo.Queries)
             {
-                result.Errors.AddRange(updateResult.Errors);
-                return result;
+                string sql = query.Sql;
+                Dictionary<ParamsInfo, QueryParameterType> parametersUpdate = new();
+                foreach (ParamsInfo parameterInfo in query.Parameters)
+                {
+                    parametersUpdate.Add(parameterInfo, QueryParameterType.Normal);
+                }
+                foreach (ParamsInfo parameterInfo in query.ParametersGrap)
+                {
+                    parametersUpdate.Add(parameterInfo, QueryParameterType.GrabValue);
+                }
+                ResultWithError<List<Dictionary<string, string?>>> updateResult = QueryGeneric(StorableAction.Update, query.Sql, parametersUpdate, item);
+
+                if (!updateResult.Success)
+                {
+                    result.Errors.AddRange(updateResult.Errors);
+                    return result;
+                }
+
             }
             #endregion
             result.Result = list;
+
+            foreach(IStorable storable in storableToDeleted)
+            {
+                List<GenericError> resultError = storable.DeleteWithError();
+                if (resultError.Count != 0)
+                {
+                    result.Errors.AddRange(resultError);
+                    return result;
+                }
+            }
 
             return result;
         }
@@ -1442,9 +1462,10 @@ namespace AventusSharp.Data.Storage.Default
             }
         }
 
-        protected VoidWithError CheckAutoCUDBeforeUpdate<X>(List<TableMemberInfoSql> members, X item, List<int> listIdUpdate, IGenericDM DM) where X : IStorable
+        protected VoidWithError CheckAutoCUDBeforeUpdate<X>(List<TableMemberInfoSql> members, X item, List<int> listIdUpdate, IGenericDM DM, out List<IStorable> storableToDeleted) where X : IStorable
         {
             VoidWithError result = new VoidWithError();
+            storableToDeleted = new List<IStorable>();
             if (members.Count == 0)
             {
                 return result;
@@ -1479,6 +1500,33 @@ namespace AventusSharp.Data.Storage.Default
                 return result;
             }
 
+            Func<IStorable, TableMemberInfoSql, Dictionary<int, IStorable>, bool> manageStorable = (currentStorable, member, oldValues) =>
+            {
+                if (currentStorable.Id == 0 && member.IsAutoCreate)
+                {
+                    List<GenericError> resultError = currentStorable.CreateWithError();
+                    if (resultError.Count != 0)
+                    {
+                        result.Errors.AddRange(resultError);
+                        return false;
+                    }
+                }
+                else if (member.IsAutoUpdate)
+                {
+                    List<GenericError> resultError = currentStorable.UpdateWithError();
+                    if (resultError.Count != 0)
+                    {
+                        result.Errors.AddRange(resultError);
+                        return false;
+                    }
+                    if (oldValues.ContainsKey(currentStorable.Id))
+                    {
+                        oldValues.Remove(currentStorable.Id);
+                    }
+                }
+                return true;
+            };
+
             // merge into one item
             foreach (TableMemberInfoSql member in members)
             {
@@ -1497,37 +1545,85 @@ namespace AventusSharp.Data.Storage.Default
                     object? currentValue = member.GetValue(item);
                     if (currentValue is IStorable currentStorable)
                     {
-                        if (currentStorable.Id == 0 && member.IsAutoCreate)
+                        if(!manageStorable(currentStorable, member, oldValues))
                         {
-                            List<GenericError> resultError = currentStorable.CreateWithError();
-                            if (resultError.Count != 0)
-                            {
-                                result.Errors.AddRange(resultError);
-                                return result;
-                            }
-                        }
-                        else if (member.IsAutoUpdate)
-                        {
-                            List<GenericError> resultError = currentStorable.UpdateWithError();
-                            if (resultError.Count != 0)
-                            {
-                                result.Errors.AddRange(resultError);
-                                return result;
-                            }
-                            if (oldValues.ContainsKey(currentStorable.Id))
-                            {
-                                oldValues.Remove(currentStorable.Id);
-                            }
+                            return result;
                         }
                     }
 
-                    foreach (KeyValuePair<int, IStorable> oldValuePair in oldValues)
+                    if (member.IsAutoDelete)
                     {
-                        List<GenericError> resultError = oldValuePair.Value.DeleteWithError();
-                        if (resultError.Count != 0)
+                        foreach (KeyValuePair<int, IStorable> oldValuePair in oldValues)
                         {
-                            result.Errors.AddRange(resultError);
-                            return result;
+                            storableToDeleted.Add(oldValuePair.Value);
+                        }
+                    }
+
+                }
+                else if (member is ITableMemberInfoSqlLinkMultiple)
+                {
+                    Dictionary<int, IStorable> oldValues = new Dictionary<int, IStorable>();
+                    foreach (IStorable itemTemp in resultTemp.Result)
+                    {
+                        object? o = member.GetValue(itemTemp);
+                        if (o is IList listLinkOld)
+                        {
+                            foreach (object itemLink in listLinkOld)
+                            {
+                                if (itemLink is IStorable storableTemp && !oldValues.ContainsKey(storableTemp.Id))
+                                {
+                                    oldValues[storableTemp.Id] = storableTemp;
+                                }
+                            }
+                        }
+                        else if (o is IDictionary dicoLinkOld)
+                        {
+                            foreach (DictionaryEntry? itemLink in dicoLinkOld)
+                            {
+                                if (itemLink.Value.Value is IStorable storableTemp && !oldValues.ContainsKey(storableTemp.Id))
+                                {
+                                    oldValues[storableTemp.Id] = storableTemp;
+                                }
+                            }
+                        }
+
+                    }
+
+                    object? currentValue = member.GetValue(item);
+                    if (currentValue is IList listLink)
+                    {
+                        foreach (object itemLink in listLink)
+                        {
+                            if (itemLink is IStorable currentStorable)
+                            {
+                                if (!manageStorable(currentStorable, member, oldValues))
+                                {
+                                    return result;
+                                }
+                            }
+                        }
+                                
+                    }
+                    else if (currentValue is IDictionary dicoLink)
+                    {
+                        foreach (DictionaryEntry? itemLink in dicoLink)
+                        {
+                            if (itemLink.Value.Value is IStorable currentStorable)
+                            {
+                                if (!manageStorable(currentStorable, member, oldValues))
+                                {
+                                    return result;
+                                }
+                            }
+                        }
+
+                    }
+
+                    if (member.IsAutoDelete)
+                    {
+                        foreach (KeyValuePair<int, IStorable> oldValuePair in oldValues)
+                        {
+                            storableToDeleted.Add(oldValuePair.Value);
                         }
                     }
 
@@ -1633,7 +1729,7 @@ namespace AventusSharp.Data.Storage.Default
                     parameterInfo.Value.Value = ids;
                     parametersDeleteNM.Add(parameterInfo.Value, QueryParameterType.Normal);
                 }
-                ResultWithError<List<Dictionary<string, string>>> deleteResultNM = QueryGeneric(StorableAction.Delete, deleteNM.Key, parametersDeleteNM);
+                ResultWithError<List<Dictionary<string, string?>>> deleteResultNM = QueryGeneric(StorableAction.Delete, deleteNM.Key, parametersDeleteNM);
             }
 
             // delete reverse
@@ -1687,7 +1783,7 @@ namespace AventusSharp.Data.Storage.Default
             }
 
             string sql = deleteBuilder.info.Sql;
-            ResultWithError<List<Dictionary<string, string>>> deleteResult = QueryGeneric(StorableAction.Delete, sql, parametersDelete);
+            ResultWithError<List<Dictionary<string, string?>>> deleteResult = QueryGeneric(StorableAction.Delete, sql, parametersDelete);
             if (!deleteResult.Success)
             {
                 result.Errors.AddRange(deleteResult.Errors);

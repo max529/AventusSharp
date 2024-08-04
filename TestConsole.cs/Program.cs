@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using TestConsole.cs;
 using TestConsole.cs.Data;
 using AventusSharp.Data.Manager;
+using TestConsole.cs.Logic;
 
 
 
@@ -24,11 +25,11 @@ DataMainManager.Configure(config =>
 {
     config.defaultStorage = StorageContainer.storage1;
     config.defaultDM = typeof(SimpleDatabaseDM<>);
-    config.preferLocalCache = false;
-    config.preferShortLink = false;
-    config.nullByDefault = false;
-    config.log.monitorDataOrdered = true;
-    config.log.monitorManagerOrdered = true;
+    //config.preferLocalCache = false;
+    //config.preferShortLink = false;
+    //config.nullByDefault = false;
+    //config.log.monitorDataOrdered = true;
+    //config.log.monitorManagerOrdered = true;
     config.log.printErrorInConsole = true;
 });
 
@@ -46,45 +47,48 @@ if (!appResult.Success)
     return;
 }
 
-List<int> ids = new List<int> { 1, 2 };
-IQueryBuilder<Location> query = Location.StartQuery().WhereWithParameters(l => ids.Contains(l.Human.Id));
-query.SetVariable("ids", new List<int> () { 3, 4 });
-query.Run();
 
-Console.WriteLine();
+if (true)
+{
+    Console.Clear();
+    Console.WriteLine("---------------------- Create tags ----------------------");
+    Tag tag1 = new Tag()
+    {
+        Name = "Tag1"
+    };
+    var t1 = tag1.CreateWithError();
 
-//if (false)
-//{
-//    Tag tag1 = new Tag()
-//    {
-//        Name = "Tag1"
-//    };
-//    var t1 = tag1.CreateWithError();
+    Tag tag2 = new Tag()
+    {
+        Name = "Tag2"
+    };
+    t1 = tag2.CreateWithError();
 
-//    Tag tag2 = new Tag()
-//    {
-//        Name = "Tag2"
-//    };
-//    t1 = tag2.CreateWithError();
+    Tag tag3 = new Tag()
+    {
+        Name = "Tag3"
+    };
+    t1 = tag3.CreateWithError();
+    Console.WriteLine("---------------------- Create product ----------------------");
+    Product p = new Product()
+    {
+        Name = "Product",
+        Tags = new List<Tag>() { tag1, tag2 }
+    };
+    t1 = p.CreateWithError();
 
-//    Product p = new Product()
-//    {
-//        Name = "Product",
-//        //    Tags = new List<Tag>()
-//        //{
-//        //    tag1, tag2
-//        //}
-//        tag = tag1
-//    };
-//    t1 = p.CreateWithError();
+    tag2.Name = "Tag22";
+    Console.WriteLine("---------------------- Update product ----------------------");
+    p.Tags = new List<Tag>() { tag2, tag3 };
 
-//    t1 = p.UpdateWithError();
-
-//    t1 = p.DeleteWithError();
-
-//    //var ps = Product.GetAllWithError();
-//    return;
-//}
+    t1 = p.UpdateWithError();
+    //Console.WriteLine("---------------------- Delete product ----------------------");
+    //t1 = p.DeleteWithError();
+    Console.WriteLine("---------------------- Get product ----------------------");
+    var ps = Product.GetAllWithError();
+    Console.WriteLine("in");
+    return;
+}
 
 //if (false)
 //{

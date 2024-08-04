@@ -170,7 +170,8 @@ namespace AventusSharp.Routes
         }
         public static Regex PrepareUrl(string urlPattern, Dictionary<string, RouterParameterInfo> @params, Type t)
         {
-            if(urlPattern.StartsWith("°") && urlPattern.EndsWith("°")) {
+            if (urlPattern.StartsWith("°") && urlPattern.EndsWith("°"))
+            {
                 return new Regex(urlPattern.Substring(1, urlPattern.Length - 2));
             }
             urlPattern = ReplaceParams(urlPattern, @params);
@@ -373,7 +374,8 @@ namespace AventusSharp.Routes
                             {
                                 await response.send(context);
                             }
-                            else if(o is byte[] bytes) {
+                            else if (o is byte[] bytes)
+                            {
                                 await new ByteResponse(bytes).send(context);
                             }
                             else

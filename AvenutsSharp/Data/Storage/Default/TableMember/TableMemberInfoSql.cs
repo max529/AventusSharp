@@ -200,8 +200,8 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         }
         public abstract object? GetSqlValue(object obj);
 
-        protected abstract void SetSqlValue(object obj, string value);
-        public virtual void ApplySqlValue(object? obj, string value)
+        protected abstract void SetSqlValue(object obj, string? value);
+        public virtual void ApplySqlValue(object? obj, string? value)
         {
             if (obj == null)
             {

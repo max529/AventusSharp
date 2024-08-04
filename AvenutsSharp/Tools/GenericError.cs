@@ -39,7 +39,7 @@ namespace AventusSharp.Tools
             Message = exception.ToString();
         }
 
-        protected virtual string GetMessageException(bool showDetails)
+        public virtual string GetMessageException(bool showDetails)
         {
             string exceptionMsg = "Error " + Code + ": " + Message;
             if (Details.Count > 0)
@@ -64,7 +64,7 @@ namespace AventusSharp.Tools
         }
         public Exception GetException(bool showDetails)
         {
-            return new Exception(GetMessageException(showDetails));
+            return new AventusException(GetMessageException(showDetails), this);
         }
 
         public void Print()
@@ -94,5 +94,16 @@ namespace AventusSharp.Tools
 
     }
 
-  
+
+    public class AventusException : Exception
+    {
+
+        public readonly GenericError Error;
+
+        public AventusException(string message, GenericError error) : base(message)
+        {
+            Error = error;
+        }
+    }
+
 }
