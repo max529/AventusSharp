@@ -2,6 +2,7 @@
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data;
 using AventusSharpTest.Program.Data.Abstract;
+using AventusSharpTest.Test.AAA_Init;
 using AventusSharpTest.Test.AAB_Create;
 using AventusSharpTest.Tools;
 using NUnit.Framework;
@@ -20,7 +21,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void SimpleGetAll()
         {
-            ResultWithDataError<List<PersonHuman>> peopleWithError = PersonHuman.GetAllWithError();
+            ResultWithError<List<PersonHuman>> peopleWithError = PersonHuman.GetAllWithError();
             NUnitExt.AssertNoError(peopleWithError);
             List<PersonHuman> people = peopleWithError.Result;
             Assert.IsTrue(people.Count == 2);
@@ -32,7 +33,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceGetAll()
         {
-            ResultWithDataError<List<IAnimal>> animalsWithError = Animal<IAnimal>.GetAllWithError();
+            ResultWithError<List<IAnimal>> animalsWithError = Animal<IAnimal>.GetAllWithError();
             NUnitExt.AssertNoError(animalsWithError);
 
             List<IAnimal> animals = animalsWithError.Result;
@@ -46,7 +47,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceChildGetAll()
         {
-            ResultWithDataError<List<Dog>> dogsWithError = Dog.GetAllWithError();
+            ResultWithError<List<Dog>> dogsWithError = Dog.GetAllWithError();
             NUnitExt.AssertNoError(dogsWithError);
 
             List<Dog> dogs = dogsWithError.Result;
@@ -58,7 +59,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void InheritanceChildAbstractGetAll()
         {
-            ResultWithDataError<List<IFelin>> felinsWithError = Animal<IFelin>.GetAllWithError();
+            ResultWithError<List<IFelin>> felinsWithError = Animal<IFelin>.GetAllWithError();
             NUnitExt.AssertNoError(felinsWithError);
 
             List<IFelin> felins = felinsWithError.Result;

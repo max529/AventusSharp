@@ -3,6 +3,7 @@ using AventusSharp.Data.Manager;
 using AventusSharp.Data.Manager.DB;
 using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Mysql;
+using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data.Abstract;
 using AventusSharpTest.Tools;
@@ -29,12 +30,9 @@ namespace AventusSharpTest.Test.AAA_Init
             storage = new(new StorageCredentials(
                 host: "localhost",
                 database: "aventus",
-                username: "maxime",
-                password: "pass$1234"
-            )
-            {
-                keepConnectionOpen = true,
-            });
+                username: "root",
+                password: ""
+            ));
             NUnitExt.AssertNoError(storage.ConnectWithError());
         }
 
@@ -49,21 +47,17 @@ namespace AventusSharpTest.Test.AAA_Init
         [Order(3)]
         public void InitManager()
         {
-            Task<bool> registeringProcess = DataMainManager.Configure(new DataManagerConfig()
+            DataMainManager.Configure(config =>
             {
-                defaultStorage = storage,
-                defaultDM = typeof(DatabaseDM<>),
-                log = new DataManagerConfigLog()
-                {
-                    monitorManagerInit = true,
-                },
-                preferLocalCache = true,
-                preferShortLink = false,
-                nullByDefault = false,
-                searchingAssemblies = new() { Assembly.GetExecutingAssembly() }
+                config.defaultStorage = storage;
+                config.defaultDM = typeof(SimpleDatabaseDM<>);
+                config.preferLocalCache = true;
+                config.preferShortLink = false;
+                config.nullByDefault = false;
             });
-            registeringProcess.Wait();
-            Assert.IsTrue(registeringProcess.Result, "Something went wrong during loading");
+            Task<VoidWithError> resultTemp = DataMainManager.Init(Assembly.GetExecutingAssembly());
+            resultTemp.Wait();
+            NUnitExt.AssertNoError(resultTemp.Result);
             GenericDM.Get(typeof(IAnimal));
         }
     }

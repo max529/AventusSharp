@@ -324,7 +324,7 @@ namespace AventusSharp.Data.Manager.DB
                         temp = temp2.Expression;
                     }
 
-                    LoadLinks(names, types, true);
+                    LoadLinks(names, types, false);
 
                     string fullPath = string.Join(".", names.SkipLast(1));
                     KeyValuePair<TableMemberInfoSql?, string> memberInfo = InfoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);

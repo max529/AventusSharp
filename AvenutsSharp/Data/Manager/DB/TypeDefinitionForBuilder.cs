@@ -327,17 +327,19 @@ namespace AventusSharp.Data.Manager.DB
                     }
                 }
             }
-            if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
-            {
-                if (joinsNM.ContainsKey(linkMultiple))
-                {
-                    result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
-                }
-            }
-            else
-            {
-                result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
-            }
+            result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+
+            //if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
+            //{
+            //    if (joinsNM.ContainsKey(linkMultiple))
+            //    {
+            //        result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
+            //    }
+            //}
+            //else
+            //{
+            //    result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+            //}
             return result;
         }
 

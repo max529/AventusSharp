@@ -20,12 +20,12 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void SimpleGetById()
         {
-            ResultWithDataError<Cat> cat1 = Cat.GetByIdWithError(1);
+            ResultWithError<Cat> cat1 = Cat.GetByIdWithError(1);
             NUnitExt.AssertNoError(cat1);
 
             Assert.IsTrue(cat1.Result.Equals(Create.felix));
 
-            ResultWithDataError<Cat> cat2 = Cat.GetByIdWithError(2); // its a dog
+            ResultWithError<Cat> cat2 = Cat.GetByIdWithError(2); // its a dog
             NUnitExt.AssertError(cat2);
             Assert.IsNull(cat2.Result);
         }
@@ -33,7 +33,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void SimpleGetByIds()
         {
-            ResultWithDataError<List<IAnimal>> resultWithError = Animal<IAnimal>.GetByIdsWithError(1, 2);
+            ResultWithError<List<IAnimal>> resultWithError = Animal<IAnimal>.GetByIdsWithError(1, 2);
             NUnitExt.AssertNoError(resultWithError);
 
             List<IAnimal> animals = resultWithError.Result;

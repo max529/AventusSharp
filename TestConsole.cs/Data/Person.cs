@@ -10,13 +10,11 @@ namespace TestConsole.cs.Data
 
         public string lastname { get; set; }
 
-        //public AventusFile picture { get; set; }
+        [Nullable]
+        public Location location { get; set; }
 
-        //[Nullable]
-        //public Location location { get; set; }
-
-        //[NotInDB]
-        //public Role role { get; set; }
+        [NotInDB]
+        public Role role { get; set; }
     }
 
 

@@ -9,12 +9,12 @@ using TestConsole.cs.Data;
 
 namespace TestConsole.cs.Logic
 {
-    internal class TagDM : DatabaseDM<TagDM, Tag>
-    {
+    //internal class TagDM : DatabaseDM<TagDM, Tag>
+    //{
 
         //protected override IDBStorage DefineStorage()
         //{
         //    return StorageContainer.storage2;
         //}
-    }
+    //}
 }

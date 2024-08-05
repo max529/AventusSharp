@@ -27,7 +27,7 @@ namespace AventusSharpTest.Test.AAD_Update
                 color = "Pink"
             };
             int id = 1;
-            ResultWithDataError<List<Cat>> result = Cat.StartUpdate().Field(c => c.color).Where(c => c.Id == id).RunWithError(c);
+            ResultWithError<List<Cat>> result = Cat.StartUpdate().Field(c => c.color).Where(c => c.Id == id).RunWithError(c);
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
@@ -45,7 +45,7 @@ namespace AventusSharpTest.Test.AAD_Update
             int id = 1;
             IUpdateBuilder<Cat> query = Cat.StartUpdate().Field(c => c.color).WhereWithParameters(c => c.Id == id);
             query.Prepare(3);
-            ResultWithDataError<List<Cat>> result = query.RunWithError(c);
+            ResultWithError<List<Cat>> result = query.RunWithError(c);
             NUnitExt.AssertNoError(result);
 
             Assert.IsTrue(result.Result.Count == 1);
@@ -64,16 +64,15 @@ namespace AventusSharpTest.Test.AAD_Update
                 }
             };
             int id = 1;
-            ResultWithDataError<List<PersonHuman>> resultWithError = PersonHuman.StartUpdate()
+            ResultWithError<List<PersonHuman>> resultWithError = PersonHuman.StartUpdate()
                 .Field(p => p.location.name)
                 .Where(c => c.Id == id)
                 .RunWithError(temp);
-
             NUnitExt.AssertNoError(resultWithError);
 
-            Assert.IsTrue(resultWithError.Result.Count == 1);
-            Assert.IsTrue(resultWithError.Result[0].Id == id);
-            Assert.IsTrue(resultWithError.Result[0].location.name == "Case");
+            Assert.IsTrue(resultWithError.Result.Count == 1, "Count is't right: expect 1 receive "+ resultWithError.Result.Count);
+            Assert.IsTrue(resultWithError.Result[0].Id == id, "Id inside where isn't matching");
+            Assert.IsTrue(resultWithError.Result[0].location.name == "Casa", "The Location name is not Casa but "+ resultWithError.Result[0].location.name);
         }
     }
 }

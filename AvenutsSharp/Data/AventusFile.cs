@@ -39,7 +39,7 @@ namespace AventusSharp.Data
             return null;
         }
 
-        protected override void SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string? value)
         {
             if (!string.IsNullOrEmpty(value) && dataMemberInfo != null && dataMemberInfo.Type != null)
             {

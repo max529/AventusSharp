@@ -64,7 +64,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return null;
         }
 
-        protected override void SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string? value)
         {
             // it's link
             if (string.IsNullOrEmpty(value))
@@ -87,6 +87,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
     {
         public TableMemberInfoSqlParent(MemberInfo? memberInfo, TableInfo tableInfo, bool isNullable) : base(memberInfo, tableInfo, isNullable)
         {
+            IsAutoIncrement = false;
         }
 
         protected override void ParseAttributes()

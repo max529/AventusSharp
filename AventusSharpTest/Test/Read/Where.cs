@@ -21,12 +21,12 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void SimpleWhere()
         {
-            ResultWithDataError<List<IAnimal>> resultWithError = Storable<IAnimal>.WhereWithError(a => a.name == AAB_Create.Create.felix.name);
+            ResultWithError<List<IAnimal>> resultWithError = Storable<IAnimal>.WhereWithError(a => a.name == AAB_Create.Create.felix.name);
             NUnitExt.AssertNoError(resultWithError);
 
             Assert.IsTrue(resultWithError.Result.Count == 1);
 
-            ResultWithDataError<List<Cat>> result2WithError = Cat.WhereWithError(c => c.color == AAB_Create.Create.felix.color);
+            ResultWithError<List<Cat>> result2WithError = Cat.WhereWithError(c => c.color == AAB_Create.Create.felix.color);
             NUnitExt.AssertNoError(result2WithError);
 
             Assert.IsTrue(result2WithError.Result.Count == 1);
@@ -35,7 +35,7 @@ namespace AventusSharpTest.Test.AAC_Read
         [Test]
         public void LinkWhere()
         {
-            ResultWithDataError<List<PersonHuman>> resultWithError = PersonHuman.WhereWithError(p => p.location != null && p.location.name == Create.home.name);
+            ResultWithError<List<PersonHuman>> resultWithError = PersonHuman.WhereWithError(p => p.location != null && p.location.name == Create.home.name);
             NUnitExt.AssertNoError(resultWithError);
 
             Assert.IsTrue(resultWithError.Result.Count == 1);

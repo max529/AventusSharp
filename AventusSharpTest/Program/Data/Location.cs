@@ -1,9 +1,8 @@
 ﻿using AventusSharp;
 using AventusSharp.Attributes;
 using AventusSharp.Data;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using AventusSharp.Data.Attributes;
+
 
 namespace AventusSharpTest.Program.Data
 {

@@ -126,7 +126,7 @@ namespace AventusSharp.Data.Storage.Mysql
         {
             ResultWithError<bool> result = new();
             string sql = "SELECT concat('DROP TABLE IF EXISTS `', table_name, '`;') as query FROM information_schema.tables WHERE table_schema = '" + this.database + "'; ";
-            ResultWithError<List<Dictionary<string, string>>> queryResult = Query(sql);
+            ResultWithError<List<Dictionary<string, string?>>> queryResult = Query(sql);
             if (!queryResult.Success || queryResult.Result == null)
             {
                 result.Errors.AddRange(queryResult.Errors);
@@ -134,7 +134,7 @@ namespace AventusSharp.Data.Storage.Mysql
             }
 
             string dropAllCmd = "SET FOREIGN_KEY_CHECKS = 0;";
-            foreach (Dictionary<string, string> line in queryResult.Result)
+            foreach (Dictionary<string, string?> line in queryResult.Result)
             {
                 dropAllCmd += line["query"];
             }

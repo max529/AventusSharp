@@ -168,10 +168,10 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return GetValue(obj);
         }
 
-        protected override void SetSqlValue(object obj, string value)
+        protected override void SetSqlValue(object obj, string? value)
         {
             List<int> ids = new();
-            string[] splitted = value.Split(",");
+            string[] splitted = value?.Split(",") ?? Array.Empty<string>();
             foreach (string s in splitted)
             {
                 int id;

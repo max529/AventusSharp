@@ -822,7 +822,7 @@ namespace AventusSharp.Data.Storage.Default
                     return result;
                 }
 
-                ResultWithDataError<Type> typeToCreate = TypeTools.GetTypeDataObject(fieldTypeName);
+                ResultWithDataError<Type> typeToCreate = TypeTools.GetTypeDataObject(itemFields[fieldTypeName] ?? "");
                 if (!typeToCreate.Success || typeToCreate.Result == null)
                 {
                     result.Errors.AddRange(typeToCreate.Errors);

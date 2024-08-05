@@ -9,9 +9,9 @@ namespace TestConsole.cs.Data
 {
     public class Location : Storable<Location>
     {
-        public string Name { get; set; }
+        public string name { get; set; }
 
-        public PersonHuman Human { get; set; }
-        //public List<PersonHuman> HumanList { get; set; } = new List<PersonHuman>();
+        [AutoCreate, AutoUpdate, AutoDelete]
+        public ICountry country { get; set; }
     }
 }

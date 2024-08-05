@@ -33,13 +33,18 @@ namespace AventusSharpTest.Test.AAD_Update
             Cat c = new()
             {
                 Id = 1,
-                name = "felix2"
+                name = "felix2",
+                color = "blue"
             };
-            ResultWithDataError<IAnimal> resultWithError = Animal<IAnimal>.UpdateWithError(c);
+            ResultWithError<IAnimal> resultWithError = Animal<IAnimal>.UpdateWithError(c);
             NUnitExt.AssertNoError(resultWithError);
 
             IAnimal animal = resultWithError.Result;
-            Assert.IsTrue(Create.felix.Equals(animal));
+            Assert.IsTrue(animal is Cat, "This isn't a cat");
+            Cat c2 = (Cat) animal;
+            Assert.IsTrue(c.Id == c2.Id, "The id are different");
+            Assert.IsTrue(c.name == c2.name, "The name are different");
+            Assert.IsTrue(c.color == c2.color, "The color are different");
 
         }
     }

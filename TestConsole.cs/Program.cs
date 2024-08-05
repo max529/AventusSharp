@@ -16,6 +16,7 @@ using TestConsole.cs;
 using TestConsole.cs.Data;
 using AventusSharp.Data.Manager;
 using TestConsole.cs.Logic;
+using TestConsole.cs.Data.Abstract;
 
 
 
@@ -48,47 +49,54 @@ if (!appResult.Success)
 }
 
 
-if (true)
-{
-    Console.Clear();
-    Console.WriteLine("---------------------- Create tags ----------------------");
-    Tag tag1 = new Tag()
-    {
-        Name = "Tag1"
-    };
-    var t1 = tag1.CreateWithError();
 
-    Tag tag2 = new Tag()
-    {
-        Name = "Tag2"
-    };
-    t1 = tag2.CreateWithError();
+//if (false)
+//{
+//    Console.Clear();
+//    Console.WriteLine("---------------------- Create tags ----------------------");
+//    Tag tag1 = new Tag()
+//    {
+//        Name = "Tag1"
+//    };
+//    var t1 = tag1.CreateWithError();
 
-    Tag tag3 = new Tag()
-    {
-        Name = "Tag3"
-    };
-    t1 = tag3.CreateWithError();
-    Console.WriteLine("---------------------- Create product ----------------------");
-    Product p = new Product()
-    {
-        Name = "Product",
-        Tags = new List<Tag>() { tag1, tag2 }
-    };
-    t1 = p.CreateWithError();
+//    Tag tag2 = new Tag()
+//    {
+//        Name = "Tag2"
+//    };
+//    t1 = tag2.CreateWithError();
 
-    tag2.Name = "Tag22";
-    Console.WriteLine("---------------------- Update product ----------------------");
-    p.Tags = new List<Tag>() { tag2, tag3 };
+//    Tag tag3 = new Tag()
+//    {
+//        Name = "Tag3"
+//    };
+//    t1 = tag3.CreateWithError();
+//    Console.WriteLine("---------------------- Create product ----------------------");
+//    Product p = new Product()
+//    {
+//        Name = "Product",
+//        Tags = new List<Tag>() { tag1, tag2 }
+//    };
+//    t1 = p.CreateWithError();
 
-    t1 = p.UpdateWithError();
-    //Console.WriteLine("---------------------- Delete product ----------------------");
-    //t1 = p.DeleteWithError();
-    Console.WriteLine("---------------------- Get product ----------------------");
-    var ps = Product.GetAllWithError();
-    Console.WriteLine("in");
-    return;
-}
+//    tag2.Name = "Tag22";
+//    Console.WriteLine("---------------------- Update product ----------------------");
+//    p.Tags = new List<Tag>() { tag2, tag3 };
+
+//    t1 = p.UpdateWithError();
+//    //Console.WriteLine("---------------------- Delete product ----------------------");
+//    //t1 = p.DeleteWithError();
+//    Console.Clear();
+//    Console.WriteLine("---------------------- Get product ----------------------");
+//    var ps = Product.GetAllWithError();
+
+//    var ps1 = Product.StartQuery()
+//        .Field(p => p.Id)
+//        .Field(p => p.Tags)
+//        .RunWithError();
+//    Console.WriteLine("in");
+//    return;
+//}
 
 //if (false)
 //{
@@ -200,33 +208,37 @@ if (true)
 //benjamin.Create();
 
 
-//Cat felix = new()
-//{
-//    name = "felix",
-//    color = "brun"
-//};
-//felix.Create();
+Cat felix = new()
+{
+    name = "felix",
+    color = "brun"
+};
+felix.Create();
 
-//Dog medor = new()
-//{
-//    name = "medor"
-//};
-//Animal<IAnimal>.Create(medor);
+Dog medor = new()
+{
+    name = "medor"
+};
+Animal<IAnimal>.Create(medor);
 
-//Cat filou = new()
-//{
-//    color = "white",
-//    name = "filou"
-//};
+Cat filou = new()
+{
+    color = "white",
+    name = "filou"
+};
 
-//Dog snoopy = new()
-//{
-//    name = "snoopy"
-//};
+Dog snoopy = new()
+{
+    name = "snoopy"
+};
 
-//Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
+Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
 
-//Console.WriteLine("Creation done");
+Console.WriteLine("Creation done");
+
+felix.name += "2";
+var t = felix.UpdateWithError();
+Console.WriteLine("");
 //#endregion
 
 //#region GetAll
@@ -287,8 +299,8 @@ if (true)
 
 //Console.WriteLine(felix.name);
 
-////maxime.firstname += "2";
-////PersonHuman.Update(maxime);
+//maxime.firstname += "2";
+//PersonHuman.Update(maxime);
 
 ////benjamin.firstname += "2";
 ////benjamin.Update();

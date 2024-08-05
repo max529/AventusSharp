@@ -21,8 +21,11 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             DatabaseBuilderInfo mainInfo = updateBuilder.InfoByPath[""];
             List<string> fields = new();
             List<string> joins = new();
+            List<ParamsInfo> paramsInfosGrab = new();
+            List<DatabaseUpdateBuilderInfoQuery> updateBefore = new List<DatabaseUpdateBuilderInfoQuery>();
+            List<DatabaseUpdateBuilderInfoQuery> updateAfter = new List<DatabaseUpdateBuilderInfoQuery>();
 
-            void loadInfo(DatabaseBuilderInfo baseInfo)
+            void loadInfo(DatabaseBuilderInfo baseInfo, List<TableMemberInfoSql> membersList)
             {
                 if (updateBuilder.AllFieldsUpdate)
                 {
@@ -31,9 +34,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
 
                 string lastAlias = baseInfo.Alias;
                 TableInfo lastTableInfo = baseInfo.TableInfo;
-                List<ParamsInfo> paramsInfosGrab = new();
-                List<DatabaseUpdateBuilderInfoQuery> updateBefore = new List<DatabaseUpdateBuilderInfoQuery>();
-                List<DatabaseUpdateBuilderInfoQuery> updateAfter = new List<DatabaseUpdateBuilderInfoQuery>();
+                
 
                 foreach (KeyValuePair<TableMemberInfoSql, DatabaseBuilderInfoMember> member in baseInfo.Members)
                 {
@@ -48,12 +49,15 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     {
                         string alias = member.Value.Alias;
                         string name = alias + "." + member.Key.SqlName;
+                        List<TableMemberInfoSql> membersListTemp = new List<TableMemberInfoSql>();
+                        membersListTemp.AddRange(membersList);
+                        membersListTemp.Add(member.Key);
                         paramsInfosGrab.Add(new ParamsInfo()
                         {
                             DbType = writable.SqlType,
                             Name = name,
                             TypeLvl0 = baseInfo.TableInfo.Type,
-                            MembersList = new List<TableMemberInfoSql>() { member.Key }
+                            MembersList = membersListTemp
                         });
                         fields.Add(name + " = @" + name);
                     }
@@ -106,59 +110,75 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     TableInfo info = parentLink.Key;
                     if (updateBuilder.AllFieldsUpdate)
                     {
-                        LoadTableFieldUpdate(info, alias, baseInfo, paramsInfosGrab);
+                        LoadTableFieldUpdate(info, alias, baseInfo, paramsInfosGrab, fields);
                     }
                     joins.Add("INNER JOIN `" + info.SqlTableName + "` " + alias + " ON " + lastAlias + "." + lastTableInfo.Primary?.SqlName + "=" + alias + "." + info.Primary?.SqlName);
                     lastAlias = alias;
                     lastTableInfo = info;
                 }
+
+                foreach (KeyValuePair<TableMemberInfoSql, DatabaseBuilderInfo> linkInfo in baseInfo.joins)
+                {
+                    TableMemberInfoSql tableMemberInfo = linkInfo.Key;
+                    DatabaseBuilderInfo databaseQueryBuilderInfo = linkInfo.Value;
+                    if (tableMemberInfo.MemberType == null)
+                    {
+                        continue;
+                    }
+                    joins.Add("LEFT OUTER JOIN `" + databaseQueryBuilderInfo.TableInfo.SqlTableName + "` " + databaseQueryBuilderInfo.Alias + " ON " + baseInfo.Alias + "." + tableMemberInfo.SqlName + "=" + databaseQueryBuilderInfo.Alias + "." + databaseQueryBuilderInfo.TableInfo.Primary?.SqlName);
+                    membersList.Add(tableMemberInfo);
+                    loadInfo(databaseQueryBuilderInfo, membersList);
+                    membersList.Remove(tableMemberInfo);
+
+                }
+
                 result.ReverseMembers.AddRange(baseInfo.ReverseLinks);
-
-
-                string whereTxt = BuilderTools.Where(updateBuilder.Wheres);
-
-                string joinTxt = string.Join(" ", joins);
-                if (joinTxt.Length > 1)
-                {
-                    joinTxt = " " + joinTxt;
-                }
-
-                string sql = "UPDATE `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
-                    + joinTxt
-                    + " SET " + string.Join(",", fields)
-                    + whereTxt;
-
-                DatabaseUpdateBuilderInfoQuery resultTemp = new(sql, updateBuilder.WhereParamsInfo.Values.ToList(), paramsInfosGrab);
-
-
-                KeyValuePair<TableMemberInfoSql?, string> pair = updateBuilder.InfoByPath[""].GetTableMemberInfoAndAlias(TypeTools.GetMemberName((IStorable i) => i.Id));
-                if (pair.Key == null)
-                {
-                    throw new Exception("Can't find Id... 0_o");
-                }
-                string idField = pair.Value + "." + pair.Key.SqlName;
-                result.QuerySql = "SELECT " + idField + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias + joinTxt + whereTxt;
-
-
-                result.Queries.AddRange(updateBefore);
-                result.Queries.Add(resultTemp);
-                result.Queries.AddRange(updateAfter);
-                updateBuilder.UpdateParamsInfo = paramsInfosGrab.ToDictionary(p => p.Name, p => p);
+               
             }
 
-            loadInfo(mainInfo);
+            loadInfo(mainInfo, new List<TableMemberInfoSql>());
 
+
+            string whereTxt = BuilderTools.Where(updateBuilder.Wheres);
+
+            string joinTxt = string.Join(" ", joins);
+            if (joinTxt.Length > 1)
+            {
+                joinTxt = " " + joinTxt;
+            }
+
+            string sql = "UPDATE `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
+                + joinTxt
+                + " SET " + string.Join(",", fields)
+                + whereTxt;
+
+            DatabaseUpdateBuilderInfoQuery resultTemp = new(sql, updateBuilder.WhereParamsInfo.Values.ToList(), paramsInfosGrab);
+
+
+            KeyValuePair<TableMemberInfoSql?, string> pair = updateBuilder.InfoByPath[""].GetTableMemberInfoAndAlias(TypeTools.GetMemberName((IStorable i) => i.Id));
+            if (pair.Key == null)
+            {
+                throw new Exception("Can't find Id... 0_o");
+            }
+            string idField = pair.Value + "." + pair.Key.SqlName;
+            result.QuerySql = "SELECT " + idField + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias + joinTxt + whereTxt;
+
+
+            result.Queries.AddRange(updateBefore);
+            result.Queries.Add(resultTemp);
+            result.Queries.AddRange(updateAfter);
+            updateBuilder.UpdateParamsInfo = paramsInfosGrab.ToDictionary(p => p.Name, p => p);
 
             return result;
         }
 
-        private static void LoadTableFieldUpdate(TableInfo tableInfo, string alias, DatabaseBuilderInfo baseInfo, List<ParamsInfo> updateParamsInfo)
+        private static void LoadTableFieldUpdate(TableInfo tableInfo, string alias, DatabaseBuilderInfo baseInfo, List<ParamsInfo> updateParamsInfo, List<string> fields)
         {
             foreach (TableMemberInfoSql member in tableInfo.Members)
             {
                 if (!member.IsUpdatable)
                 {
-                    return;
+                    continue;
                 }
 
                 if (member is ITableMemberInfoSqlWritable memberLink)
@@ -171,6 +191,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                         TypeLvl0 = tableInfo.Type,
                         MembersList = new List<TableMemberInfoSql>() { member }
                     });
+                    fields.Add(name + " = @" + name);
                 }
             }
 

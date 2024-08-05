@@ -1,4 +1,5 @@
 ﻿using AventusSharp.Data;
+using AventusSharp.Tools;
 using AventusSharpTest.Attribute;
 using AventusSharpTest.Program.Data;
 using AventusSharpTest.Program.Data.Abstract;
@@ -23,7 +24,7 @@ namespace AventusSharpTest.Test.AAE_Delete
         [Order(1)]
         public void DeleteLinkFailed()
         {
-            List<DataError> errors = Create.home.DeleteWithError();
+            List<GenericError> errors = Create.home.DeleteWithError();
             NUnitExt.AssertError(errors);
         }
         [Test]
@@ -43,7 +44,7 @@ namespace AventusSharpTest.Test.AAE_Delete
         [Order(3)]
         public void DeleteLink()
         {
-            List<DataError> errors = Create.home.DeleteWithError();
+            List<GenericError> errors = Create.home.DeleteWithError();
             NUnitExt.AssertNoError(errors);
         }
     }
