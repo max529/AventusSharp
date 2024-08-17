@@ -160,9 +160,9 @@ namespace AventusSharp.Data.Storage.Mysql
         {
             return Queries.CreateIntermediateTable.GetQuery(tableMember, this);
         }
-        protected override string PrepareSQLTableExist(TableInfo table)
+        protected override string PrepareSQLTableExist(string table)
         {
-            string sql = "SELECT COUNT(*) nb FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table.SqlTableName + "' and TABLE_SCHEMA = '" + GetDatabaseName() + "'; ";
+            string sql = "SELECT COUNT(*) nb FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + table + "' and TABLE_SCHEMA = '" + GetDatabaseName() + "'; ";
             return sql;
         }
         #endregion

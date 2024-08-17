@@ -143,7 +143,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
         protected override void SetSqlValue(object obj, string? value)
         {
             List<int> ids = new();
-            string[] splitted = value.Split(",") ?? Array.Empty<string>();
+            string[] splitted = value?.Split(",") ?? Array.Empty<string>();
             foreach (string s in splitted)
             {
                 int id;

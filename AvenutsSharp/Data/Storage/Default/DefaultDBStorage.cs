@@ -1067,8 +1067,12 @@ namespace AventusSharp.Data.Storage.Default
             result.Result = false;
             return result;
         }
-        protected abstract string PrepareSQLTableExist(TableInfo table);
+        protected abstract string PrepareSQLTableExist(string table);
         public ResultWithError<bool> TableExist(TableInfo table)
+        {
+            return TableExist(table.SqlTableName);
+        }
+        public ResultWithError<bool> TableExist(string table)
         {
             ResultWithError<bool> result = new();
             string sql = PrepareSQLTableExist(table);

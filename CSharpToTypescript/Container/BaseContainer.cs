@@ -136,7 +136,7 @@ namespace CSharpToTypescript.Container
         }
         public static string GetAccessibility(ISymbol type)
         {
-            return type.DeclaredAccessibility switch
+            string result = type.DeclaredAccessibility switch
             {
                 Accessibility.Public => "public ",
                 Accessibility.Protected => "protected ",
@@ -146,6 +146,11 @@ namespace CSharpToTypescript.Container
                 Accessibility.ProtectedOrFriend => "protected ",
                 _ => ""
             };
+            if(type.IsStatic)
+            {
+                result += "static ";
+            }
+            return result;
         }
         protected string GetDocumentation(ISymbol type)
         {
