@@ -4,6 +4,7 @@ using AventusSharp.WebSocket.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket.Event
@@ -20,7 +21,7 @@ namespace AventusSharp.WebSocket.Event
         protected string uid { get; private set; } = "";
         protected string basePath { get; set; } = "";
         protected string? path { get; set; } = null;
-        protected ResponseTypeEnum eventType { get; set; }
+        protected ResponseTypeEnum? eventType { get; set; }
 
         protected Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? CustomFct;
 
@@ -53,34 +54,61 @@ namespace AventusSharp.WebSocket.Event
             this.uid = uid;
             this.eventType = ResponseTypeEnum.Single;
             this.connection = connection;
-            return Emit();
+            return _Emit();
         }
         public Task EmitTo(WsEndPoint endPoint, string uid = "")
         {
             this.uid = uid;
             eventType = ResponseTypeEnum.Broadcast;
             this.endPoint = endPoint;
-            return Emit();
+            return _Emit();
         }
 
         public async Task<VoidWithError> EmitTo<T>(string uid = "") where T : WsEndPoint
         {
-            VoidWithError result = new VoidWithError();
-            WsEndPoint? endPoint = WebSocketMiddleware.endPointInstances.Values.FirstOrDefault(p => p.GetType() == typeof(T));
-            if (endPoint == null)
-            {
-                result.Errors.Add(new WsError(WsErrorCode.NoEndPoint, "No endpoint of type " + typeof(T).Name + " found. Did you register the WebSocketMiddleware?"));
-                return result;
-            }
+            VoidWithError result = PrepareEndPointType(typeof(T));
+            if (!result.Success) return result;
             this.uid = uid;
             eventType = ResponseTypeEnum.Broadcast;
-            this.endPoint = endPoint;
-            await Emit();
+            await _Emit();
+            return result;
+        }
+
+        public async Task<VoidWithError> Emit(string uid = "")
+        {
+            VoidWithError result = new VoidWithError();
+            List<Attribute> attributes = GetType().GetCustomAttributes().ToList();
+            foreach (Attribute attribute in attributes)
+            {
+                if (attribute is EndPoint endPointAttr)
+                {
+                    result.Run(() => PrepareEndPointType(endPointAttr.endpoint));
+                }
+            }
+            if (!result.Success) return result;
+            this.uid = uid;
+            eventType = ResponseTypeEnum.Broadcast;
+            await _Emit();
+            return result;
+        }
+
+        protected VoidWithError PrepareEndPointType(Type endPointType)
+        {
+            VoidWithError result = new VoidWithError();
+            WsEndPoint? endPoint = WebSocketMiddleware.endPointInstances.Values.FirstOrDefault(p => p.GetType() == endPointType);
+            if (endPoint == null)
+            {
+                result.Errors.Add(new WsError(WsErrorCode.NoEndPoint, "No endpoint of type " + endPointType.Name + " found. Did you register the WebSocketMiddleware?"));
+            }
+            else
+            {
+                this.endPoint = endPoint;
+            }
             return result;
         }
 
 
-        public abstract Task Emit();
+        internal abstract Task _Emit();
 
         protected async Task DefaultEmit(object? o)
         {

@@ -8,7 +8,7 @@ namespace AventusSharp.WebSocket.Event
     [NoTypescript]
     public class EmptyEvent : WebSocketEvent
     {
-        public override async Task Emit()
+        internal override async Task _Emit()
         {
             path = basePath;
             await DefaultEmit(null);

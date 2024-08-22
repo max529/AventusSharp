@@ -276,7 +276,7 @@ namespace AventusSharp.WebSocket
                             }
                         }
                         _event.Configure(path, this, connection, uid, routeInfo.eventType, routeInfo.CustomFct);
-                        await _event.Emit();
+                        await _event._Emit();
                     }
                 }
             }

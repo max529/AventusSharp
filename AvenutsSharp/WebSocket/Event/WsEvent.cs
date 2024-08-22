@@ -79,7 +79,7 @@ namespace AventusSharp.WebSocket.Event
         }
 
 
-        public override async Task Emit()
+        internal override async Task _Emit()
         {
             T o = await Prepare();
             if (path == null)

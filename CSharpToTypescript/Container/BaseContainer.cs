@@ -48,7 +48,8 @@ namespace CSharpToTypescript.Container
         public BaseContainer(INamedTypeSymbol type)
         {
             this.type = type;
-            var splitted = type.ContainingNamespace.ToString()?.Split(".").ToList();
+
+            var splitted = type.ContainingSymbol.ToString()?.Split(".").ToList();
             if (splitted != null)
             {
                 splitted.RemoveAt(0);
@@ -146,7 +147,7 @@ namespace CSharpToTypescript.Container
                 Accessibility.ProtectedOrFriend => "protected ",
                 _ => ""
             };
-            if(type.IsStatic)
+            if (type.IsStatic)
             {
                 result += "static ";
             }
@@ -187,7 +188,7 @@ namespace CSharpToTypescript.Container
             if (type is ITypeSymbol typeSymbol && typeSymbol.NullableAnnotation == NullableAnnotation.Annotated)
             {
                 isNullable = true;
-                if(typeSymbol is INamedTypeSymbol named && named.TypeArguments.Length == 1)
+                if (typeSymbol is INamedTypeSymbol named && named.TypeArguments.Length == 1)
                 {
                     type = named.TypeArguments[0];
                 }
@@ -224,7 +225,7 @@ namespace CSharpToTypescript.Container
                 name = DetermineGenericType(namedType, name, depth, genericExtendsConstraint);
             }
             //name = Replacer(name);
-            if(isNullable)
+            if (isNullable)
             {
                 name += "?";
             }

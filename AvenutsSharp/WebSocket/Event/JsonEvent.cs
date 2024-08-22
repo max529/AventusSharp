@@ -15,7 +15,7 @@ namespace AventusSharp.WebSocket.Event
             this.o = o;
         }
 
-        public override async Task Emit()
+        internal override async Task _Emit()
         {
             path = basePath;
             await DefaultEmit(o);

@@ -129,13 +129,18 @@ namespace AventusSharp.Data.Storage.Default
             ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
             if (commandResult.Result != null)
             {
-                VoidWithError result = Execute(commandResult.Result, null, callerPath, callerNo);
+                VoidWithError result = Execute(commandResult.Result, dataParameters: null, callerPath, callerNo);
                 commandResult.Result.Dispose();
                 return result;
             }
             VoidWithError noCommand = new();
             noCommand.Errors.AddRange(commandResult.Errors);
             return noCommand;
+        }
+
+        public VoidWithError Execute(DbCommand command, Dictionary<string, object?> parameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
+        {
+            return Execute(command, new List<Dictionary<string, object?>>() { parameters }, callerPath, callerNo);
         }
         public VoidWithError Execute(DbCommand command, List<Dictionary<string, object?>>? dataParameters, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
@@ -221,6 +226,7 @@ namespace AventusSharp.Data.Storage.Default
             }
             return result;
         }
+
         public ResultWithError<List<Dictionary<string, string?>>> Query(string sql, [CallerFilePath] string callerPath = "", [CallerLineNumber] int callerNo = 0)
         {
             ResultWithDataError<DbCommand> commandResult = CreateCmd(sql);
@@ -372,7 +378,7 @@ namespace AventusSharp.Data.Storage.Default
             return result;
         }
 
-        protected ResultWithError<TransactionContext> BeginTransaction()
+        public ResultWithError<TransactionContext> BeginTransaction()
         {
             ResultWithError<TransactionContext> result = new();
 
@@ -1434,7 +1440,7 @@ namespace AventusSharp.Data.Storage.Default
             #endregion
             result.Result = list;
 
-            foreach(IStorable storable in storableToDeleted)
+            foreach (IStorable storable in storableToDeleted)
             {
                 List<GenericError> resultError = storable.DeleteWithError();
                 if (resultError.Count != 0)
@@ -1549,7 +1555,7 @@ namespace AventusSharp.Data.Storage.Default
                     object? currentValue = member.GetValue(item);
                     if (currentValue is IStorable currentStorable)
                     {
-                        if(!manageStorable(currentStorable, member, oldValues))
+                        if (!manageStorable(currentStorable, member, oldValues))
                         {
                             return result;
                         }
@@ -1606,7 +1612,7 @@ namespace AventusSharp.Data.Storage.Default
                                 }
                             }
                         }
-                                
+
                     }
                     else if (currentValue is IDictionary dicoLink)
                     {
