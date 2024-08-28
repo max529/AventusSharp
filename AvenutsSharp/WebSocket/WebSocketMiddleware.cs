@@ -36,9 +36,19 @@ namespace AventusSharp.WebSocket
             injected[o.GetType()] = o;
         }
 
+        public static WebSocketConnection? GetConnection<T>(string sessionId) where T : WsEndPoint
+        {
+            WsEndPoint? endPoint = endPointInstances.Values.FirstOrDefault(p => p.GetType() == typeof(T));
+            if(endPoint == null) return null;
 
-        public static async Task Stop() {
-            foreach(KeyValuePair<string, WsEndPoint> endpoint in endPointInstances) {
+            WebSocketConnection? connection = endPoint.connections.FirstOrDefault(p => p.SessionId == sessionId);
+            return connection;
+        }
+
+        public static async Task Stop()
+        {
+            foreach (KeyValuePair<string, WsEndPoint> endpoint in endPointInstances)
+            {
                 await endpoint.Value.Stop();
             }
         }
@@ -187,9 +197,9 @@ namespace AventusSharp.WebSocket
 
                     List<Attribute> methodsAttribute = method.GetCustomAttributes().ToList();
                     WebSocketAttributeAnalyze infoMethod = PrepareAttributes(methodsAttribute);
-                    
+
                     if (!infoMethod.canUse) continue;
-                    
+
                     if (infoMethod.endPoints.Count == 0)
                     {
                         if (endpointsClass.Count == 0)
@@ -202,7 +212,7 @@ namespace AventusSharp.WebSocket
                         }
                     }
 
-                    if(infoMethod.pathes.Count == 0)
+                    if (infoMethod.pathes.Count == 0)
                     {
                         infoMethod.pathes.Add(Tools.GetDefaultMethodUrl(method));
                     }
@@ -285,15 +295,15 @@ namespace AventusSharp.WebSocket
                     }
                 }
             }
-            else if(attr is ResponseType responseType)
+            else if (attr is ResponseType responseType)
             {
-                if(info.eventType < responseType.Type)
+                if (info.eventType < responseType.Type)
                 {
                     info.eventType = responseType.Type;
                 }
                 info.CustomFct = responseType.CustomFct;
             }
-            else if(attr is NotRoute)
+            else if (attr is NotRoute)
             {
                 info.canUse = false;
             }

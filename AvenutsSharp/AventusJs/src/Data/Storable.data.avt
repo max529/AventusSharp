@@ -1,8 +1,0 @@
-namespace Data {
-
-	export interface IStorableTimestamp extends Aventus.IData  {
-		CreatedDate: Date;
-		UpdatedDate: Date;
-	}
-
-}

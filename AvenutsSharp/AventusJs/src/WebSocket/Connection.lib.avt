@@ -33,6 +33,12 @@ namespace WebSocket {
             }
         }
 
+        //#region events
+        public readonly onOpen:Aventus.Callback<() => void> = new Aventus.Callback();
+        public readonly onClose:Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
+        public readonly onError:Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
+        //#endregion
+
         /**
          * Define the configuration for your websocket
          */
@@ -283,12 +289,6 @@ namespace WebSocket {
             return false;
         }
 
-        /**
-         * Callback when the websocket connection is open
-         */
-        protected onOpen() {
-
-        }
         private _onOpen() {
             if(this.socket?.isReady()) {
                 if(this.openCallback) {
@@ -296,7 +296,7 @@ namespace WebSocket {
                     this.openCallback = undefined;
                 }
                 this.log('Connection successfully established !' + this.options.host + ":" + this.options.port);
-                this.onOpen();
+                this.onOpen.trigger([]);
 
                 for(let i = 0; i < this.memoryBeforeOpen.length; i++) {
                     this.sendMessage(this.memoryBeforeOpen[i]);
@@ -312,12 +312,7 @@ namespace WebSocket {
         }
 
         private errorOccur: boolean = false;
-        /**
-         * Callback called when the socket as an error
-         */
-        protected onError(event: Event) {
 
-        }
         private _onError(event: Event) {
             this.errorOccur = true;
             if(this.openCallback) {
@@ -326,22 +321,16 @@ namespace WebSocket {
                 return;
             }
             this.log('An error has occured');
-            this.onError(event);
+            this.onError.trigger([event]);
         }
 
-        /**
-         * Callback called when the connection closed without calling the close function
-         */
-        public onClose(event: Event) {
-
-        }
         private _onClose(event: Event) {
             if(this.errorOccur) {
                 this.errorOccur = false;
                 return;
             }
             this.log('Closing connection');
-            this.onClose(event);
+            this.onClose.trigger([event]);
         }
 
         /**

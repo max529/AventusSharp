@@ -28,7 +28,7 @@ namespace AventusSharp.WebSocket
 
 
         internal Dictionary<string, WebSocketRouteInfo> routesInfo = new Dictionary<string, WebSocketRouteInfo>();
-        private readonly List<WebSocketConnection> connections = new();
+        internal readonly List<WebSocketConnection> connections = new();
         private readonly List<Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>>> middlewares = new();
         internal JsonConverter converter;
         public string Path { get; }

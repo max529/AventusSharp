@@ -21,6 +21,7 @@ namespace AventusSharp.WebSocket
     public class WebSocketConnection
     {
         public static bool DisplayMsg { get; set; }
+        public string SessionId { get; private set; }
         private readonly HttpContext context;
         private readonly System.Net.WebSockets.WebSocket webSocket;
         public readonly WsEndPoint instance;
@@ -55,6 +56,7 @@ namespace AventusSharp.WebSocket
         public WebSocketConnection(HttpContext context, System.Net.WebSockets.WebSocket webSocket, WsEndPoint instance)
         {
             this.context = context;
+            SessionId = context.Session.Id;
             this.webSocket = webSocket;
             this.instance = instance;
             tokenSource = new CancellationTokenSource();
