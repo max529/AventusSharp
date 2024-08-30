@@ -1,4 +1,4 @@
-import type { Event } from "./Event.lib.avt";
+import type { WsEvent } from "./Event.lib.avt";
 import { EndPoint } from "./EndPoint.lib.avt";
 
 namespace WebSocket {
@@ -20,6 +20,6 @@ namespace WebSocket {
     }
 }
 
-export type ExtractResponse<T extends Event<U>, U = any> = T extends Event<infer U> ? 
+export type ExtractResponse<T extends WsEvent<U>, U = any> = T extends WsEvent<infer U> ? 
 Aventus.ResultWithError<Aventus.ExtractFromError<U>> 
 : never;

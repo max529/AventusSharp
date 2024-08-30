@@ -1,7 +1,7 @@
 import { Route, type WsRouteSendOptions, type ExtractResponse } from '../../WebSocket/Route.lib.avt';
 import { EndPoint } from '../../WebSocket/EndPoint.lib.avt';
 import { type SocketSendMessageOptions } from '../../WebSocket/ISocket.lib.avt';
-import { Event } from '../../WebSocket/Event.lib.avt';
+import { WsEvent } from '../../WebSocket/Event.lib.avt';
 import { ResultWithError } from '../Tools/ResultWithError.lib.avt';
 
 namespace WebSocket {
@@ -109,7 +109,7 @@ namespace WebSocket {
 		public abstract StorableName(): string;
 	}
 	 
-	export class StorableWsRoute_GetAll<T> extends Event<T[]> {
+	export class StorableWsRoute_GetAll<T> extends WsEvent<T[]> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
@@ -125,7 +125,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_Create<T> extends Event<T> {
+	export class StorableWsRoute_Create<T> extends WsEvent<T> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
@@ -141,7 +141,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_GetById<T> extends Event<T> {
+	export class StorableWsRoute_GetById<T> extends WsEvent<T> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
@@ -157,7 +157,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_Update<T> extends Event<T> {
+	export class StorableWsRoute_Update<T> extends WsEvent<T> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
@@ -173,7 +173,7 @@ namespace WebSocket {
 		}
 	}
 	 
-	export class StorableWsRoute_Delete<T> extends Event<T> {
+	export class StorableWsRoute_Delete<T> extends WsEvent<T> {
 		
 		public StorableName: () => string;
 		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
@@ -189,7 +189,7 @@ namespace WebSocket {
 		}
 	}
 
-	export class StorableWsRoute_CreateMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
+	export class StorableWsRoute_CreateMany<T extends Aventus.IData> extends WsEvent<ResultWithError<T[]>> {
 		/**
 		 * @inheritdoc
 		 */
@@ -203,7 +203,7 @@ namespace WebSocket {
 		}
 	}
 
-	export class StorableWsRoute_UpdateMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
+	export class StorableWsRoute_UpdateMany<T extends Aventus.IData> extends WsEvent<ResultWithError<T[]>> {
 		/**
 		 * @inheritdoc
 		 */
@@ -217,7 +217,7 @@ namespace WebSocket {
 		}
 	}
 
-	export class StorableWsRoute_DeleteMany<T extends Aventus.IData> extends Event<ResultWithError<T[]>> {
+	export class StorableWsRoute_DeleteMany<T extends Aventus.IData> extends WsEvent<ResultWithError<T[]>> {
 		/**
 		 * @inheritdoc
 		 */

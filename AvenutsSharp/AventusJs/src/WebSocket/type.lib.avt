@@ -1,6 +1,6 @@
 import { Route } from "./Route.lib.avt";
 import { EndPoint } from "./EndPoint.lib.avt";
-import { Event } from "./Event.lib.avt";
+import { WsEvent } from "./Event.lib.avt";
 
 namespace WebSocket {
     export interface WsRouterOptions {
@@ -9,6 +9,6 @@ namespace WebSocket {
 
     // export type WsRouteType = new (options: RouterOptions) => HttpRoute;
     export type WsRouteType = abstract new (...args: any[]) => Route;
-    export type WsEventType = abstract new (...args: any[]) => Event;
+    export type WsEventType = abstract new (...args: any[]) => WsEvent;
     export type WsEndPointType = (abstract new (...args: any[]) => EndPoint);
 }

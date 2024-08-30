@@ -327,7 +327,7 @@ namespace CSharpToTypescript.Container
             else if (fullName == typeof(IStorable).FullName) result = "Aventus.IData";
             else if (fullName == typeof(GenericError).FullName) result = "Aventus.GenericError";
             else if (fullName == typeof(Route).FullName) result = "Aventus.HttpRoute";
-            else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.WebSocket.Event";
+            else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.WebSocket.WsEvent";
             else if (fullName == typeof(WsRoute).FullName) result = "AventusSharp.WebSocket.Route";
             else if (fullName == typeof(WsEndPoint).FullName) result = "AventusSharp.WebSocket.EndPoint";
             else if (fullName == typeof(HttpFile).FullName) result = "File";

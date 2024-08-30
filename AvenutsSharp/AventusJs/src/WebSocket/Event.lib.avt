@@ -3,8 +3,8 @@ import { EndPoint } from "./EndPoint.lib.avt";
 
 namespace WebSocket {
 
-    export type ExtractResultFrom<T extends Event, U = any> = T extends Event<infer U> ? U : never;
-    export abstract class Event<T extends any = any> {
+    export type ExtractResultFrom<T extends WsEvent, U = any> = T extends WsEvent<infer U> ? U : never;
+    export abstract class WsEvent<T extends any = any> {
         protected endpoint: EndPoint;
 
         public onTrigger: Aventus.Callback<(item: Aventus.ExtractFromError<T>, params: Aventus.UriParamsValue, uid?: string) => void> = new Aventus.Callback();
