@@ -49,7 +49,7 @@ namespace AventusSharp.Routes
         public static void Register(IEnumerable<Type> types)
         {
             LoadConfig();
-            Func<string, Dictionary<string, RouterParameterInfo>, Type, Regex> transformPattern = config.transformPattern ?? PrepareUrl;
+            Func<string, Dictionary<string, RouterParameterInfo>, Type, MethodInfo, Regex> transformPattern = config.transformPattern ?? PrepareUrl;
 
             foreach (Type t in types)
             {
@@ -134,7 +134,7 @@ namespace AventusSharp.Routes
                                 string urlPattern = route;
                                 try
                                 {
-                                    Regex regex = transformPattern(urlPattern, @params, t);
+                                    Regex regex = transformPattern(urlPattern, @params, t, method);
                                     RouteInfo info = new RouteInfo(regex, methodType, method, routerInstances[t], parameters.Length);
                                     info.parameters = @params;
 
@@ -168,7 +168,7 @@ namespace AventusSharp.Routes
         {
             injected[o.GetType()] = o;
         }
-        public static Regex PrepareUrl(string urlPattern, Dictionary<string, RouterParameterInfo> @params, Type t)
+        public static Regex PrepareUrl(string urlPattern, Dictionary<string, RouterParameterInfo> @params, Type t, MethodInfo methodInfo)
         {
             if (urlPattern.StartsWith("°") && urlPattern.EndsWith("°"))
             {
@@ -302,7 +302,7 @@ namespace AventusSharp.Routes
                                                 if (!resultTemp.Success)
                                                 {
                                                     context.Response.StatusCode = 422;
-                                                    await new Json(resultTemp).send(context);
+                                                    await new Json(resultTemp).send(context, routerInfo.router);
                                                     return;
                                                 }
                                             }
@@ -320,7 +320,7 @@ namespace AventusSharp.Routes
                                                 if (!bodyPart.Success)
                                                 {
                                                     context.Response.StatusCode = 422;
-                                                    await new Json(bodyPart).send(context);
+                                                    await new Json(bodyPart).send(context, routerInfo.router);
                                                     return;
                                                 }
                                                 value = bodyPart.Result;
@@ -372,15 +372,15 @@ namespace AventusSharp.Routes
 
                             if (o is IResponse response)
                             {
-                                await response.send(context);
+                                await response.send(context, routerInfo.router);
                             }
                             else if (o is byte[] bytes)
                             {
-                                await new ByteResponse(bytes).send(context);
+                                await new ByteResponse(bytes).send(context, routerInfo.router);
                             }
                             else
                             {
-                                await new Json(o).send(context);
+                                await new Json(o).send(context, routerInfo.router);
                             }
                         }
                         return;

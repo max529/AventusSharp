@@ -10,15 +10,14 @@ namespace AventusSharp.Routes.Response
 {
     public class View : IResponse
     {
-        internal static string directory = RouterMiddleware.config.ViewDir;
-
         private string viewName;
         public View(string viewName)
         {
             this.viewName = viewName;
         }
-        public async Task send(HttpContext context)
+        public async Task send(HttpContext context, IRoute? from = null)
         {
+            string directory = RouterMiddleware.config.ViewDir(context, from);
             string path = Path.Combine(directory, viewName);
             if (!path.EndsWith(".html"))
             {
@@ -34,7 +33,10 @@ namespace AventusSharp.Routes.Response
             }
             else
             {
+                byte[] bytes = Encoding.ASCII.GetBytes("View " + path + " not found");
                 context.Response.StatusCode = 400;
+                context.Response.Headers.Add("content-length", bytes.Length + "");
+                await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
             }
         }
     }

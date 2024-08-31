@@ -13,7 +13,7 @@ namespace AventusSharp.Routes.Response
             this.text = text;
             this.code = code;
         }
-        public async Task send(HttpContext context)
+        public async Task send(HttpContext context, IRoute? from = null)
         {
             var bytes = Encoding.UTF8.GetBytes(text);
             context.Response.StatusCode = code;

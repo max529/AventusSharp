@@ -6,7 +6,7 @@ namespace AventusSharp.Routes.Response
 {
     public class DummyResponse : IResponse
     {
-        public async Task send(HttpContext context)
+        public async Task send(HttpContext context, IRoute? from = null)
         {
             byte[]? bytes = Encoding.UTF8.GetBytes("Im dummy");
             context.Response.StatusCode = 200;

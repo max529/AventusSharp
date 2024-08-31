@@ -10,7 +10,6 @@ namespace AventusSharp.Routes.Response
 {
     public class ViewDynamic : IResponse
     {
-        internal static string directory = RouterMiddleware.config.ViewDir;
         private static Dictionary<string, Template> parsed = new Dictionary<string, Template>();
 
         private string viewName;
@@ -20,8 +19,9 @@ namespace AventusSharp.Routes.Response
             this.viewName = viewName;
             this.model = model;
         }
-        public async Task send(HttpContext context)
+        public async Task send(HttpContext context, IRoute? from)
         {
+            string directory = RouterMiddleware.config.ViewDir(context, from);
             string path = Path.Combine(directory, viewName);
             if (!path.EndsWith(".sbnhtml"))
             {
@@ -43,7 +43,10 @@ namespace AventusSharp.Routes.Response
             }
             else
             {
+                byte[] bytes = Encoding.ASCII.GetBytes("View " + path + " not found");
                 context.Response.StatusCode = 400;
+                context.Response.Headers.Add("content-length", bytes.Length + "");
+                await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
             }
         }
     }
