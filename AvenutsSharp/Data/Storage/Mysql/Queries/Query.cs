@@ -131,6 +131,17 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 joinTxt = " " + joinTxt;
             }
 
+            List<string> orderByPart = new List<string>();
+            if (queryBuilder.Sorting != null)
+            {
+                foreach (SortInfo sortInfo in queryBuilder.Sorting)
+                {
+                    string order = sortInfo.Sort == Sort.ASC ? "ASC" : "DESC";
+                    orderByPart.Add("`"+sortInfo.Alias+"."+sortInfo.TableMember.SqlName+"` "+order);
+                }
+            }
+            string orderBy = string.Join(", ", orderByPart);
+
             string limitOffset = "";
             if (queryBuilder.LimitSize != null)
             {
@@ -146,6 +157,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 + joinTxt
                 + whereTxt
                 + groupBy
+                + orderBy
                 + limitOffset;
 
 

@@ -10,6 +10,11 @@ using System.Linq.Expressions;
 
 namespace AventusSharp.Data.Manager.DB
 {
+    public enum Sort
+    {
+        ASC,
+        DESC
+    }
     public class DatabaseGenericBuilder<T> : ILambdaTranslatable
     {
         public Dictionary<string, bool> AllMembersByPath = new Dictionary<string, bool>() { { "", true } };
@@ -28,6 +33,7 @@ namespace AventusSharp.Data.Manager.DB
 
         public int? LimitSize { get; private set; } = null;
         public int? OffsetSize { get; private set; } = null;
+        public List<SortInfo>? Sorting { get; private set; } = null;
 
         public DatabaseGenericBuilder(IDBStorage storage, IGenericDM DM, Type? baseType = null) : base()
         {
@@ -302,6 +308,7 @@ namespace AventusSharp.Data.Manager.DB
         }
         protected string FieldGeneric<X>(Expression<Func<T, X>> expression)
         {
+            // TODO add WhereGroupFctSqlEnum management to get for example lowercase
             // the strucutre must be Lambda => Convert? => (member x times)
             if (expression is LambdaExpression lambdaExpression)
             {
@@ -359,6 +366,55 @@ namespace AventusSharp.Data.Manager.DB
 
             throw new Exception();
         }
+        protected void SortGeneric<X>(Expression<Func<T, X>> expression, Sort sort)
+        {
+            // TODO add WhereGroupFctSqlEnum management to get for example lowercase
+            // the strucutre must be Lambda => Convert? => (member x times)
+            if (expression is LambdaExpression lambdaExpression)
+            {
+                if(Sorting == null) {
+                    Sorting = new List<SortInfo>();
+                }
+                Expression exp = lambdaExpression.Body;
+                if (lambdaExpression.Body is UnaryExpression convertExpression)
+                {
+                    exp = convertExpression.Operand;
+                }
+
+                if (exp is MemberExpression memberExpression)
+                {
+                    List<Type> types = new();
+                    List<string> names = new();
+
+                    types.Insert(0, memberExpression.Type);
+                    names.Insert(0, memberExpression.Member.Name);
+
+                    Expression? temp = memberExpression.Expression;
+                    while (temp is MemberExpression temp2)
+                    {
+                        types.Insert(0, temp2.Type);
+                        names.Insert(0, temp2.Member.Name);
+                        temp = temp2.Expression;
+                    }
+
+                    LoadLinks(names, types, false);
+
+                    string fullPath = string.Join(".", names.SkipLast(1));
+                    KeyValuePair<TableMemberInfoSql?, string> memberInfo = InfoByPath[fullPath].GetTableMemberInfoAndAlias(memberExpression.Member.Name);
+                    if (memberInfo.Key != null)
+                    {
+                        Sorting.Add(new SortInfo(memberInfo.Key, memberInfo.Value, sort));
+                    }
+                    else {
+                        throw new NotImplementedException();
+                    }
+                    return;
+                }
+            }
+
+            throw new Exception();
+        }
+
 
         protected void IncludeGeneric(Expression<Func<T, IStorable>> expression)
         {

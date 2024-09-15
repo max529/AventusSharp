@@ -137,7 +137,8 @@ namespace AventusSharp.Data.Manager.DB
             // TableMemberInfo = tableMemberInfo;
             SqlName = tableMemberInfo.SqlName;
 
-            if(tableMemberInfo is ITableMemberInfoSqlLinkMultiple multiple && multiple.TableIntermediateKey2 != null) {
+            if (tableMemberInfo is ITableMemberInfoSqlLinkMultiple multiple && multiple.TableIntermediateKey2 != null)
+            {
                 SqlName = multiple.TableIntermediateKey2;
             }
         }
@@ -146,7 +147,8 @@ namespace AventusSharp.Data.Manager.DB
     public class ParamsInfo
     {
 
-        public ParamsInfo() {
+        public ParamsInfo()
+        {
 
         }
         public string Name { get; set; } = "";
@@ -253,6 +255,20 @@ namespace AventusSharp.Data.Manager.DB
 
     }
 
+    public class SortInfo
+    {
+        public TableMemberInfoSql TableMember { get; set; }
+        public string Alias {get; set;}
+
+        public Sort Sort {get; set;} 
+
+        public SortInfo(TableMemberInfoSql tableMember, string alias, Sort sort)
+        {
+            TableMember = tableMember;
+            Alias = alias;
+            Sort = sort;
+        }   
+    }
     public class DatabaseBuilderInfoChild
     {
         public string Alias { get; set; }
@@ -348,14 +364,14 @@ namespace AventusSharp.Data.Manager.DB
 
             if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
             {
-               if (joinsNM.ContainsKey(linkMultiple))
-               {
-                   result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
-               }
+                if (joinsNM.ContainsKey(linkMultiple))
+                {
+                    result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
+                }
             }
             else
             {
-               result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+                result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
             }
             return result;
         }

@@ -91,6 +91,12 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return this;
         }
 
+        public IQueryBuilder<T> Sort<U>(Expression<Func<T, U>> expression, Sort sort = DB.Sort.ASC)
+        {
+            SortGeneric(expression, sort);
+            return this;
+        }
+
         public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> expression)
         {
             IncludeGeneric(expression);
