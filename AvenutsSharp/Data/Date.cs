@@ -92,6 +92,22 @@ namespace AventusSharp.Data
         public static bool operator !=(Date d1, Date d2) => !(d1 == d2);
         public static bool operator !=(Date d1, DateTime d2) => !(d1 == d2);
 
+        public override bool Equals(object? obj)
+        {
+            if(obj is DateTime dateTime) {
+                return this == dateTime;
+            }
+            if(obj is Date date) {
+                return this == date;
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
     }
 
 }
