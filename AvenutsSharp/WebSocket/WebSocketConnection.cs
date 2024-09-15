@@ -135,7 +135,6 @@ namespace AventusSharp.WebSocket
                 if (!websocketHasError && !(e is OperationCanceledException))
                 {
                     websocketHasError = true;
-                    Console.WriteLine(e);
                 }
             }
             instance.RemoveInstance(this);

@@ -15,11 +15,11 @@ namespace WebSocket {
         private actionGuard: Aventus.ActionGuard = new Aventus.ActionGuard();
 
         /**
-		 * Create a singleton
-		 */
-		public static getInstance(): Connection {
-			return Aventus.Instance.get(Connection);
-		}
+         * Create a singleton
+         */
+        public static getInstance(): Connection {
+            return Aventus.Instance.get(Connection);
+        }
 
         protected constructor() {
             this.options = this._configure(this.configure({}));
@@ -34,9 +34,9 @@ namespace WebSocket {
         }
 
         //#region events
-        public readonly onOpen:Aventus.Callback<() => void> = new Aventus.Callback();
-        public readonly onClose:Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
-        public readonly onError:Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
+        public readonly onOpen: Aventus.Callback<() => void> = new Aventus.Callback();
+        public readonly onClose: Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
+        public readonly onError: Aventus.Callback<(event: Event) => void> = new Aventus.Callback();
         //#endregion
 
         /**
@@ -74,6 +74,10 @@ namespace WebSocket {
 
             if(options.autoStart === undefined) {
                 options.autoStart = true;
+            }
+
+            if(options.sendPing !== undefined && options.sendPing <= 0) {
+                options.sendPing = undefined;
             }
 
             return options as Required<ConnectionOptions>;
@@ -159,7 +163,7 @@ namespace WebSocket {
             if(this[key] instanceof Date && this[key].getFullYear() < 100) {
                 return "0001-01-01T00:00:00";
             } else if(this[key] instanceof Date) {
-                const offset = this[key].getTimezoneOffset() * 60000
+                const offset = this[key].getTimezoneOffset() * 60000;
                 return new Date(this[key].getTime() - offset).toISOString();
             }
             return value;
@@ -199,7 +203,7 @@ namespace WebSocket {
                         if(typeof options.body != 'string') {
                             message.data = JSON.stringify(options.body, this.jsonReplacer);
                         }
-                    } else {
+                    } else if(options.channel != "/ping") {
                         this.log(message);
                     }
 
@@ -289,6 +293,23 @@ namespace WebSocket {
             return false;
         }
 
+        protected sendPingTimeout: number = 0;
+        protected sendPing() {
+            this.sendMessage({
+                channel: "/ping",
+            });
+        }
+
+        protected startPing() {
+            clearInterval(this.sendPingTimeout);
+            this.sendPingTimeout = setInterval(() => {
+                this.sendPing();
+            }, 5000);
+        }
+        protected stopPing() {
+            clearInterval(this.sendPingTimeout);
+        }
+
         private _onOpen() {
             if(this.socket?.isReady()) {
                 if(this.openCallback) {
@@ -302,6 +323,9 @@ namespace WebSocket {
                     this.sendMessage(this.memoryBeforeOpen[i]);
                 }
                 this.memoryBeforeOpen = [];
+                if(this.options.sendPing) {
+                    this.startPing();
+                }
             }
             else {
                 if(this.openCallback) {
@@ -325,6 +349,7 @@ namespace WebSocket {
         }
 
         private _onClose(event: Event) {
+            this.stopPing();
             if(this.errorOccur) {
                 this.errorOccur = false;
                 return;

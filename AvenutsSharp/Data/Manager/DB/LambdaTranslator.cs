@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data.Storage.Default;
 using AventusSharp.Data.Storage.Default.TableMember;
+using AventusSharp.Tools;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -181,7 +182,8 @@ namespace AventusSharp.Data.Manager.DB
             }
             if (q == null && c.Value != null)
             {
-                switch (Type.GetTypeCode(c.Value.GetType()))
+                TypeCode code = Type.GetTypeCode(c.Value.GetType());
+                switch (code)
                 {
                     case TypeCode.Boolean:
                         AddToParentGroup(new WhereGroupConstantBool((bool)c.Value));
@@ -202,7 +204,14 @@ namespace AventusSharp.Data.Manager.DB
                             List<string?> tupple = new();
                             foreach (object o in list)
                             {
-                                tupple.Add(o.ToString());
+                                if (o.IsNumber())
+                                {
+                                    tupple.Add(o.ToString());
+                                }
+                                else
+                                {
+                                    tupple.Add("'" + o.ToString() + "'");
+                                }
                             }
                             if (tupple.Count == 0)
                             {
@@ -210,6 +219,16 @@ namespace AventusSharp.Data.Manager.DB
                             }
                             string valueTxt = "(" + string.Join(",", tupple) + ")";
                             AddToParentGroup(new WhereGroupConstantOther(valueTxt));
+                            break;
+                        }
+                        else if (c.Value is Datetime datetime)
+                        {
+                            AddToParentGroup(new WhereGroupConstantString(datetime.ToString()));
+                            break;
+                        }
+                        else if (c.Value is Date date)
+                        {
+                            AddToParentGroup(new WhereGroupConstantString(date.ToString()));
                             break;
                         }
                         throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
@@ -365,10 +384,14 @@ namespace AventusSharp.Data.Manager.DB
                 typeof(List<float>),
                 typeof(List<string>),
                 typeof(List<bool>),
+                typeof(List<Datetime>),
+                typeof(List<Date>),
+                typeof(List<DateTime>),
             };
             string methodName = node.Method.Name;
             Type? onType = node.Object?.Type;
             WhereGroupFctEnum? fct = null;
+            WhereGroupFctSqlEnum? fctSql = null;
             bool reverse = false;
             if (onType == typeof(string))
             {
@@ -384,6 +407,21 @@ namespace AventusSharp.Data.Manager.DB
                 {
                     fct = WhereGroupFctEnum.EndsWith;
                 }
+                else if(methodName == "ToLower")
+                {
+                    fctSql = WhereGroupFctSqlEnum.ToLower;
+                }
+                else if (methodName == "ToUpper")
+                {
+                    fctSql = WhereGroupFctSqlEnum.ToUpper;
+                }
+            }
+            else if (onType == typeof(DateTime) || onType == typeof(Datetime))
+            {
+                if (methodName == "DateOnly")
+                {
+                    fctSql = WhereGroupFctSqlEnum.Date;
+                }
             }
             else if (onType != null && listAllowed.Contains(onType))
             {
@@ -393,7 +431,8 @@ namespace AventusSharp.Data.Manager.DB
                     reverse = true;
                 }
             }
-            else if(onType != null && isListUsable(onType)) {
+            else if (onType != null && isListUsable(onType))
+            {
                 if (methodName == "Contains")
                 {
                     fct = WhereGroupFctEnum.Equal;
@@ -425,7 +464,7 @@ namespace AventusSharp.Data.Manager.DB
                 return node;
             }
 
-            if (fct == null)
+            if (fct == null && fctSql == null)
             {
                 throw new Exception("Method " + methodName + " isn't allowed");
             }
@@ -444,27 +483,40 @@ namespace AventusSharp.Data.Manager.DB
             }
             queryGroups.Add(newGroup);
 
-
-            fctMethodCall = (WhereGroupFctEnum)fct;
-            if (reverse)
+            if (fct != null)
             {
-                foreach (Expression argument in node.Arguments)
+                fctMethodCall = (WhereGroupFctEnum)fct;
+                if (reverse)
                 {
-                    Visit(argument);
+                    foreach (Expression argument in node.Arguments)
+                    {
+                        Visit(argument);
+                    }
+                    AddToParentGroup(new WhereGroupFct(fctMethodCall));
+                    Visit(node.Object);
                 }
-                AddToParentGroup(new WhereGroupFct(fctMethodCall));
-                Visit(node.Object);
+                else
+                {
+                    Visit(node.Object);
+                    AddToParentGroup(new WhereGroupFct(fctMethodCall));
+                    foreach (Expression argument in node.Arguments)
+                    {
+                        Visit(argument);
+                    }
+                }
+                fctMethodCall = WhereGroupFctEnum.None;
             }
-            else
+            else if(fctSql != null)
             {
+                AddToParentGroup(new WhereGroupFctSql((WhereGroupFctSqlEnum)fctSql));
+                WhereGroup newGroup2 = new();
+                AddToParentGroup(newGroup2);
+                currentGroup = newGroup2;
+                queryGroups.Add(newGroup2);
                 Visit(node.Object);
-                AddToParentGroup(new WhereGroupFct(fctMethodCall));
-                foreach (Expression argument in node.Arguments)
-                {
-                    Visit(argument);
-                }
+                queryGroups.RemoveAt(queryGroups.Count - 1);
+                currentGroup = queryGroups.LastOrDefault();
             }
-            fctMethodCall = WhereGroupFctEnum.None;
 
             queryGroups.RemoveAt(queryGroups.Count - 1);
             currentGroup = queryGroups.LastOrDefault();

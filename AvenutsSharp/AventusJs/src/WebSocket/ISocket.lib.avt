@@ -35,6 +35,10 @@ namespace WebSocket {
          * Define the websocket connection must be open during creation
          */
         autoStart?: boolean;
+        /**
+         * Define if a /ping msg must be sent
+         */
+        sendPing?: number,
     }
 
     export interface SocketSendMessageOptions {

@@ -653,6 +653,11 @@ namespace AventusSharp.Data.Manager
         public ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U
         {
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
+            if(ids.Count == 0)
+            {
+                result.Result = new List<X>();
+                return result;
+            }
             List<GenericError> errors = CanGetByIds(ids);
             if (errors.Count > 0)
             {

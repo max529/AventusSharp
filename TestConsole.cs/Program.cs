@@ -202,43 +202,61 @@ if (!appResult.Success)
 //home.country.shortName = "CH3";
 //home.Update();
 
-//PersonHuman maxime = new() { firstname = "Maxime", lastname = "Bétrisey", location = home };
+PersonHuman maxime = new()
+{
+    firstname = "Maxime",
+    lastname = "Bétrisey",
+    birthday = new Datetime(new DateTime(1995, 06, 16)),
+    tags = new List<Tag>()
+    {
+        //new Tag()
+        //{
+        //    Name = "Man"
+        //},
+        // new Tag()
+        //{
+        //    Name = "Unknow"
+        //}
+    }
+};
+PersonHuman.Create(maxime);
 //PersonHuman benjamin = new() { firstname = "Benjamin", lastname = "Bétrisey" };
-//PersonHuman.Create(maxime);
 //benjamin.Create();
 
+//List<string> names = new List<string>() { "Maxime" };
 
-Cat felix = new()
-{
-    name = "felix",
-    color = "brun"
-};
-felix.Create();
+PersonHuman.GetAll();
+//Cat felix = new()
+//{
+//    name = "felix",
+//    color = "brun"
+//};
+//felix.Create();
 
-Dog medor = new()
-{
-    name = "medor"
-};
-Animal<IAnimal>.Create(medor);
+//Dog medor = new()
+//{
+//    name = "medor"
+//};
+//Animal<IAnimal>.Create(medor);
 
-Cat filou = new()
-{
-    color = "white",
-    name = "filou"
-};
+//Cat filou = new()
+//{
+//    color = "white",
+//    name = "filou"
+//};
 
-Dog snoopy = new()
-{
-    name = "snoopy"
-};
+//Dog snoopy = new()
+//{
+//    name = "snoopy"
+//};
 
-Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
+//Storable<IAnimal>.Create(new List<IAnimal>() { filou, snoopy });
 
-Console.WriteLine("Creation done");
+//Console.WriteLine("Creation done");
 
-felix.name += "2";
-var t = felix.UpdateWithError();
-Console.WriteLine("");
+//felix.name += "2";
+//var t = felix.UpdateWithError();
+//Console.WriteLine("");
 //#endregion
 
 //#region GetAll

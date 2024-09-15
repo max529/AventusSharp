@@ -21,6 +21,7 @@ namespace AventusSharpTest.Test.AAB_Create
         public static Location home;
         public static PersonHuman john;
         public static PersonHuman jane;
+        public static PersonHuman junior;
         public static Cat felix;
         public static Cat filou;
         public static Dog medor;
@@ -38,7 +39,7 @@ namespace AventusSharpTest.Test.AAB_Create
             };
             NUnitExt.AssertNoError(swiss.CreateWithError());
 
-            
+
         }
 
         [Test]
@@ -55,10 +56,20 @@ namespace AventusSharpTest.Test.AAB_Create
         [Order(3)]
         public void CreateWithLink()
         {
-            john = new() { firstname = "John", lastname = "Doe", location = home };
-            jane = new() { firstname = "Jane", lastname = "Doe" };
+            john = new() { 
+                firstname = "John", 
+                lastname = "Doe", 
+                location = home, 
+                tags = new List<Tag>() { 
+                    new Tag() { Name = "Man" },
+                    new Tag() { Name = "Unknow" },
+                } 
+            };
+            jane = new() { firstname = "Jane", lastname = "Doe", tags = new List<Tag>() { new Tag() { Name = "Woman" } } };
+            junior = new() { firstname = "Junior", lastname = "Doe" };
             NUnitExt.AssertNoError(PersonHuman.CreateWithError(john));
             NUnitExt.AssertNoError(jane.CreateWithError());
+            NUnitExt.AssertNoError(junior.CreateWithError());
         }
 
         [Test]

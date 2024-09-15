@@ -232,6 +232,7 @@ namespace AventusSharp.Data.Storage.Mysql
             if (dbType == DbType.Double) { return "float"; }
             if (dbType == DbType.Boolean) { return "bit"; }
             if (dbType == DbType.DateTime) { return "datetime"; }
+            if (dbType == DbType.Date) { return "date"; }
             if (dbType == DbType.String)
             {
                 if (tableMember is TableMemberInfoSqlBasic basic && basic.SizeAttr != null)

@@ -33,7 +33,6 @@ namespace CSharpToTypescript.Container
         }
 
 
-        public Type realType;
         public string typescriptPath = "";
         public string eventPath = "";
         public string fileName = "";

@@ -26,6 +26,9 @@ namespace AventusSharp.Data.Manager.DB
 
         public Dictionary<string, ParamsInfo> WhereParamsInfo { get; set; } = new Dictionary<string, ParamsInfo>(); // type is the type of the variable to use
 
+        public int? LimitSize { get; private set; } = null;
+        public int? OffsetSize { get; private set; } = null;
+
         public DatabaseGenericBuilder(IDBStorage storage, IGenericDM DM, Type? baseType = null) : base()
         {
             Storage = storage;
@@ -389,6 +392,16 @@ namespace AventusSharp.Data.Manager.DB
                 }
             }
             throw new Exception();
+        }
+
+        protected void LimitGeneric(int limit)
+        {
+            LimitSize = limit;
+        }
+
+        protected void OffsetGeneric(int offset)
+        {
+            OffsetSize = offset;
         }
 
         public bool MustLoadMembers(List<string> path)

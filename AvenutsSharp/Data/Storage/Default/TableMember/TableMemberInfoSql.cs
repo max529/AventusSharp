@@ -141,6 +141,7 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 }
             }
 
+            // TODO manage List<int,... and Enum>
             if (isList && IsListTypeUsable(type) != null)
             {
                 return new TableMemberInfoSqlNM(memberInfo, tableInfo, isNullable);

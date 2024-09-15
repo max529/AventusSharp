@@ -30,7 +30,14 @@ namespace AventusSharp.Data.Manager.DB
         EndsWith,
         ContainsStr,
         ListContains,
-        Link
+        Link,
+    }
+
+    public enum WhereGroupFctSqlEnum
+    {
+        Date,
+        ToLower,
+        ToUpper,
     }
 
     public interface IWhereGroup { }
@@ -52,6 +59,16 @@ namespace AventusSharp.Data.Manager.DB
             Fct = fct;
         }
     }
+
+    public class WhereGroupFctSql : IWhereGroup
+    {
+        public WhereGroupFctSqlEnum Fct { get; set; }
+        public WhereGroupFctSql(WhereGroupFctSqlEnum fct)
+        {
+            Fct = fct;
+        }
+    }
+
     public class WhereGroupSingleBool : IWhereGroup, IWhereRootGroup
     {
         public string Alias { get; set; }
@@ -327,19 +344,19 @@ namespace AventusSharp.Data.Manager.DB
                     }
                 }
             }
-            result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+            // result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
 
-            //if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
-            //{
-            //    if (joinsNM.ContainsKey(linkMultiple))
-            //    {
-            //        result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
-            //    }
-            //}
-            //else
-            //{
-            //    result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
-            //}
+            if (memberInfo is ITableMemberInfoSqlLinkMultiple linkMultiple)
+            {
+               if (joinsNM.ContainsKey(linkMultiple))
+               {
+                   result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, joinsNM[linkMultiple]);
+               }
+            }
+            else
+            {
+               result = new KeyValuePair<TableMemberInfoSql?, string>(memberInfo, aliasTemp);
+            }
             return result;
         }
 

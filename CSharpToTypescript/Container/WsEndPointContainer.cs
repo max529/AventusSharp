@@ -31,7 +31,7 @@ namespace CSharpToTypescript.Container
         private string className = "";
         private string fullClassName = "";
         private string path = "";
-        private Type realType;
+        private new Type realType;
         private bool isMain = false;
         private bool isParentWsEndPoint = true;
 

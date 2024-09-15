@@ -28,6 +28,7 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             whereTxt += "(";
             string subQuery = "";
             IWhereGroup? lastGroup = null;
+            bool applyNegate = true;
             if (rootWhereGroup is WhereGroup whereGroup)
             {
                 foreach (IWhereGroup queryGroup in whereGroup.Groups)
@@ -43,6 +44,10 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                     else if (queryGroup is WhereGroupFct fctGroup)
                     {
                         subQuery += GetFctName(fctGroup.Fct);
+                    }
+                    else if (queryGroup is WhereGroupFctSql fctGroupSql)
+                    {
+                        subQuery += GetFctSqlName(fctGroupSql.Fct);
                     }
                     else if (queryGroup is WhereGroupConstantNull nullConst)
                     {
@@ -123,10 +128,11 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
             {
                 string value = rootWhereGroup.negate ? "0" : "1";
                 whereTxt += whereSingleBool.Alias + "." + whereSingleBool.TableMemberInfo.SqlName + " = " + value;
+                applyNegate = false;
             }
 
             whereTxt += ")";
-            if (rootWhereGroup.negate)
+            if (rootWhereGroup.negate && applyNegate)
             {
                 whereTxt = "!" + whereTxt;
             }
@@ -152,6 +158,17 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 WhereGroupFctEnum.Or => " OR ",
                 WhereGroupFctEnum.Subtract => " - ",
                 WhereGroupFctEnum.ListContains => " IN ",
+                _ => "",
+            };
+        }
+
+        public static string GetFctSqlName(WhereGroupFctSqlEnum fctEnum)
+        {
+            return fctEnum switch
+            {
+                WhereGroupFctSqlEnum.Date => "Date",
+                WhereGroupFctSqlEnum.ToLower => "LOWER",
+                WhereGroupFctSqlEnum.ToUpper => "UPPER",
                 _ => "",
             };
         }

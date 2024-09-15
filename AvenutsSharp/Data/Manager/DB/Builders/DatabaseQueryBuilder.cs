@@ -96,5 +96,17 @@ namespace AventusSharp.Data.Manager.DB.Builders
             IncludeGeneric(expression);
             return this;
         }
+
+        public IQueryBuilder<T> Limit(int limit)
+        {
+            LimitGeneric(limit);
+            return this;
+        }
+
+        public IQueryBuilder<T> Offset(int offset)
+        {
+            OffsetGeneric(offset);
+            return this;
+        }
     }
 }

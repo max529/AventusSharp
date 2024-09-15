@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Data;
 using AventusSharp.Data.Attributes;
+using System.Collections.Generic;
 
 namespace AventusSharpTest.Program.Data
 {
@@ -15,6 +16,9 @@ namespace AventusSharpTest.Program.Data
 
         [NotInDB]
         public Role role { get; set; }
+
+        [AutoCRUD]
+        public List<Tag> tags { get; set; } = new List<Tag>();
     }
 
     

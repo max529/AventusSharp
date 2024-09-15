@@ -1036,6 +1036,7 @@ namespace AventusSharp.Data.Storage.Default
             VoidWithError result = new();
             ResultWithError<bool> tableExist = TableExist(table);
             result.Errors.AddRange(tableExist.Errors);
+           
             if (tableExist.Success && !tableExist.Result)
             {
                 string sql = PrepareSQLCreateTable(table);
@@ -1129,6 +1130,7 @@ namespace AventusSharp.Data.Storage.Default
                 Dictionary<ParamsInfo, QueryParameterType> parametersCreate = new();
                 foreach (ParamsInfo parameterInfo in query.Parameters)
                 {
+                    parameterInfo.Value = null;
                     parametersCreate.Add(parameterInfo, QueryParameterType.GrabValue);
                 }
                 if (!query.HasPrimaryResult && query.PrimaryToSet != null)

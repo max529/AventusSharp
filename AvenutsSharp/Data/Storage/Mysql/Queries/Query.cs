@@ -131,11 +131,22 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 joinTxt = " " + joinTxt;
             }
 
+            string limitOffset = "";
+            if (queryBuilder.LimitSize != null)
+            {
+                limitOffset = "LIMIT " + queryBuilder.LimitSize;
+                if (queryBuilder.OffsetSize != null)
+                {
+                    limitOffset += " OFFSET " + queryBuilder.OffsetSize;
+                }
+            }
+
             string sql = "SELECT " + string.Join(",", fields)
                 + " FROM `" + mainInfo.TableInfo.SqlTableName + "` " + mainInfo.Alias
                 + joinTxt
                 + whereTxt
-                + groupBy;
+                + groupBy
+                + limitOffset;
 
 
             return new DatabaseQueryBuilderInfo(sql);

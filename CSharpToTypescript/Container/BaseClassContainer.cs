@@ -238,6 +238,11 @@ namespace CSharpToTypescript.Container
                         extends.Add(GetTypeName(type.BaseType));
                     }
                 }
+
+                if(extends.Count == 0)
+                {
+                    extends.Add("AventusSharp.Data.SharpClass");
+                }
             }
 
             AddExtends(extends);
