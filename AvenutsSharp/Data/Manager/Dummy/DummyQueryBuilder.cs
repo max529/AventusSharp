@@ -1,4 +1,5 @@
-﻿using AventusSharp.Tools;
+﻿using AventusSharp.Data.Manager.DB;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -17,6 +18,15 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
+        public IQueryBuilder<T> Limit(int? limit)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryBuilder<T> Offset(int? offset)
+        {
+            throw new NotImplementedException();
+        }
 
         public IQueryBuilder<T> Prepare(params object[] objects)
         {
@@ -44,6 +54,16 @@ namespace AventusSharp.Data.Manager.Dummy
         }
 
         public ResultWithError<T> SingleWithError()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryBuilder<T> Sort<U>(Expression<Func<T, U>> expression, Sort? sort)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryBuilder<T> Take(int length, int? offset)
         {
             throw new NotImplementedException();
         }

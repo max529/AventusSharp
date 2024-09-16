@@ -1,4 +1,5 @@
-﻿using AventusSharp.Tools;
+﻿using AventusSharp.Data.Manager.DB;
+using AventusSharp.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,8 +24,11 @@ namespace AventusSharp.Data.Manager
         public IQueryBuilder<T> WhereWithParameters(Expression<Func<T, bool>> func);
 
         public IQueryBuilder<T> Field<U>(Expression<Func<T, U>> memberExpression);
-
+        public IQueryBuilder<T> Sort<U>(Expression<Func<T, U>> expression, Sort? sort);
         public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> memberExpression);
+        public IQueryBuilder<T> Limit(int? limit);
+        public IQueryBuilder<T> Offset(int? offset);
+        public IQueryBuilder<T> Take(int length, int? offset);
     }
 
 

@@ -96,6 +96,32 @@ namespace AventusSharp.Data
         public static bool operator !=(Datetime d1, Datetime d2) => !(d1 == d2);
         public static bool operator !=(Datetime d1, DateTime d2) => !(d1 == d2);
 
+        public static bool operator >(Datetime d1, Datetime d2) {
+            return d1.DateTime > d2.DateTime;
+        }
+        public static bool operator <(Datetime d1, Datetime d2) {
+            return d1.DateTime < d2.DateTime;
+        }
+        public static bool operator >=(Datetime d1, Datetime d2) {
+            return d1.DateTime >= d2.DateTime;
+        }
+        public static bool operator <=(Datetime d1, Datetime d2) {
+            return d1.DateTime <= d2.DateTime;
+        }
+
+        public static bool operator >(Datetime d1, DateTime d2) {
+            return d1.DateTime > d2;
+        }
+        public static bool operator <(Datetime d1, DateTime d2) {
+            return d1.DateTime < d2;
+        }
+        public static bool operator >=(Datetime d1, DateTime d2) {
+            return d1.DateTime >= d2;
+        }
+        public static bool operator <=(Datetime d1, DateTime d2) {
+            return d1.DateTime <= d2;
+        }
+
         public override bool Equals(object? obj)
         {
             if(obj is DateTime dateTime) {

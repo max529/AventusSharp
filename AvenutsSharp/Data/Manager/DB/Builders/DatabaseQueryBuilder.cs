@@ -91,9 +91,9 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return this;
         }
 
-        public IQueryBuilder<T> Sort<U>(Expression<Func<T, U>> expression, Sort sort = DB.Sort.ASC)
+        public IQueryBuilder<T> Sort<U>(Expression<Func<T, U>> expression, Sort? sort)
         {
-            SortGeneric(expression, sort);
+            SortGeneric(expression, sort ?? DB.Sort.ASC);
             return this;
         }
 
@@ -103,15 +103,22 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return this;
         }
 
-        public IQueryBuilder<T> Limit(int limit)
+        public IQueryBuilder<T> Limit(int? limit)
         {
             LimitGeneric(limit);
             return this;
         }
 
-        public IQueryBuilder<T> Offset(int offset)
+        public IQueryBuilder<T> Offset(int? offset)
         {
             OffsetGeneric(offset);
+            return this;
+        }
+
+        public IQueryBuilder<T> Take(int length, int? offset)
+        {
+            Limit(length);
+            Offset(offset);
             return this;
         }
     }

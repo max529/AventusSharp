@@ -137,15 +137,18 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
                 foreach (SortInfo sortInfo in queryBuilder.Sorting)
                 {
                     string order = sortInfo.Sort == Sort.ASC ? "ASC" : "DESC";
-                    orderByPart.Add("`"+sortInfo.Alias+"."+sortInfo.TableMember.SqlName+"` "+order);
+                    orderByPart.Add(sortInfo.Alias + "." + sortInfo.TableMember.SqlName + " " + order);
                 }
             }
-            string orderBy = string.Join(", ", orderByPart);
-
+            string orderBy = "";
+            if (orderByPart.Count > 0)
+            {
+                orderBy = " ORDER BY " + string.Join(", ", orderByPart);
+            }
             string limitOffset = "";
             if (queryBuilder.LimitSize != null)
             {
-                limitOffset = "LIMIT " + queryBuilder.LimitSize;
+                limitOffset = " LIMIT " + queryBuilder.LimitSize;
                 if (queryBuilder.OffsetSize != null)
                 {
                     limitOffset += " OFFSET " + queryBuilder.OffsetSize;

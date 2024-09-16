@@ -450,12 +450,12 @@ namespace AventusSharp.Data.Manager.DB
             throw new Exception();
         }
 
-        protected void LimitGeneric(int limit)
+        protected void LimitGeneric(int? limit)
         {
             LimitSize = limit;
         }
 
-        protected void OffsetGeneric(int offset)
+        protected void OffsetGeneric(int? offset)
         {
             OffsetSize = offset;
         }
