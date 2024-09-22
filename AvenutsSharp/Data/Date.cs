@@ -62,7 +62,7 @@ namespace AventusSharp.Data
     {
         private static readonly string Pattern = "yyyy-MM-dd";
 
-        public DateTime DateTime { get; internal set; }
+        public DateTime DateTime { get; set; }
         public Date()
         {
             DateTime = DateTime.Now.Date;

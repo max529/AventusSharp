@@ -20,7 +20,7 @@ namespace RAM {
                 if(response.success && response.result) {
                     for(let item of response.result) {
                         let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
-                        this.addOrUpdateData(item, resultTemp);
+                        await this.addOrUpdateData(item, resultTemp);
                         if(!resultTemp.success) {
                             result.errors = [...result.errors, ...resultTemp.errors];
                         }
@@ -41,7 +41,7 @@ namespace RAM {
                 let response = await this.routes.GetById(id);
                 if(response.success && response.result) {
                     let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
-                    this.addOrUpdateData(response.result, resultTemp);
+                    await this.addOrUpdateData(response.result, resultTemp);
                     if(!resultTemp.success) {
                         result.errors = [...result.errors, ...resultTemp.errors];
                     }

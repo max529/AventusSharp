@@ -115,7 +115,12 @@ namespace AventusSharp.Data.Manager.DB.Builders
             return this;
         }
 
-        public IQueryBuilder<T> Take(int length, int? offset)
+        public IQueryBuilder<T> Take(int length)
+        {
+            Limit(length);
+            return this;
+        }
+        public IQueryBuilder<T> Take(int length, int offset)
         {
             Limit(length);
             Offset(offset);

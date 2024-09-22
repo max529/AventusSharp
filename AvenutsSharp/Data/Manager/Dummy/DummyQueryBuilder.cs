@@ -63,7 +63,12 @@ namespace AventusSharp.Data.Manager.Dummy
             throw new NotImplementedException();
         }
 
-        public IQueryBuilder<T> Take(int length, int? offset)
+        public IQueryBuilder<T> Take(int length)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryBuilder<T> Take(int length, int offset)
         {
             throw new NotImplementedException();
         }

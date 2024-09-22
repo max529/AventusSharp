@@ -28,7 +28,8 @@ namespace AventusSharp.Data.Manager
         public IQueryBuilder<T> Include(Expression<Func<T, IStorable>> memberExpression);
         public IQueryBuilder<T> Limit(int? limit);
         public IQueryBuilder<T> Offset(int? offset);
-        public IQueryBuilder<T> Take(int length, int? offset);
+        public IQueryBuilder<T> Take(int length);
+        public IQueryBuilder<T> Take(int length, int offset);
     }
 
 
