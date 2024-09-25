@@ -15,8 +15,14 @@ namespace AventusSharp.WebSocket
         public Func<string, Dictionary<string, WebSocketRouterParameterInfo>, object, bool, string>? transformPattern;
         public Func<string, bool, Regex>? transformPatternIntoRegex;
 
-        public JsonSerializerSettings? CustomJSONSettings { get; set; }
-        public JsonConverter CustomJSONConverter { get; set; } = new AventusJsonConverter();
+        public JsonSerializerSettings JSONSettings { get; set; } = new JsonSerializerSettings()
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            NullValueHandling = NullValueHandling.Ignore,
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            DateFormatString = "yyyy-MM-ddTHH:mm:ss.ffffffZ",
+            Converters = new List<JsonConverter>() { new AventusJsonConverter() }
+        };
 
         public bool PrintRoute { get; set; } = false;
         public bool PrintTrigger { get; set; } = false;

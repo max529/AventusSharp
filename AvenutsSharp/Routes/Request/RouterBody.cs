@@ -304,14 +304,12 @@ namespace AventusSharp.Routes.Request
                         }
                     }
                 }
+
+                
                 object? temp = JsonConvert.DeserializeObject(
                     JsonConvert.SerializeObject(dataToUse),
                     type,
-                    new JsonSerializerSettings
-                    {
-                        TypeNameHandling = TypeNameHandling.Auto,
-                        NullValueHandling = NullValueHandling.Ignore
-                    }
+                    RouterMiddleware.config.JSONSettings
                 );
                 if (temp != null)
                 {

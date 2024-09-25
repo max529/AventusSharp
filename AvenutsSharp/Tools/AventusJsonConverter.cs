@@ -25,24 +25,25 @@ namespace AventusSharp.Tools
         {
             return true;
         }
-        /// <summary>
-        /// always false because its a writer not a reader
-        /// </summary>
+
         public override bool CanRead
         {
-            get { return false; }
+            get { return true; }
         }
-        /// <summary>
-        /// Throw an error because this class is a writer not a reader
-        /// </summary>
+
+        public override bool CanWrite
+        {
+            get { return true; }
+        }
+
         /// <param name="reader"></param>
         /// <param name="objectType"></param>
         /// <param name="existingValue"></param>
         /// <param name="serializer"></param>
         /// <returns></returns>
-        public override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
-            throw new NotImplementedException("Unnecessary because CanRead is false. The type will skip the converter.");
+            return CloneNoConverter(serializer).Deserialize(reader, objectType);
         }
         /// <summary>
         /// 
@@ -90,7 +91,7 @@ namespace AventusSharp.Tools
                                 JToken.FromObject(valueEnumerator.Current, serializer)
                             };
                             jo.Add(keyValue);
-                            
+
                         }
                     }
                     jo.WriteTo(writer);
@@ -149,6 +150,71 @@ namespace AventusSharp.Tools
                     jo.WriteTo(writer);
                 }
             }
+        }
+
+
+        private static JsonSerializer? _cloneConverter;
+        private static JsonSerializer CloneNoConverter(JsonSerializer settings)
+        {
+            if (_cloneConverter == null)
+            {
+                JsonSerializer serializer = JsonSerializer.Create();
+                // if (!CollectionUtils.IsNullOrEmpty(settings.Converters))
+                // {
+                //     // insert settings converters at the beginning so they take precedence
+                //     // if user wants to remove one of the default converters they will have to do it manually
+                //     for (int i = 0; i < settings.Converters.Count; i++)
+                //     {
+                //         serializer.Converters.Insert(i, settings.Converters[i]);
+                //     }
+                // }
+
+                // serializer specific
+                serializer.TypeNameHandling = settings.TypeNameHandling;
+                serializer.MetadataPropertyHandling = settings.MetadataPropertyHandling;
+                serializer.TypeNameAssemblyFormatHandling = settings.TypeNameAssemblyFormatHandling;
+                serializer.PreserveReferencesHandling = settings.PreserveReferencesHandling;
+                serializer.ReferenceLoopHandling = settings.ReferenceLoopHandling;
+                serializer.MissingMemberHandling = settings.MissingMemberHandling;
+                serializer.ObjectCreationHandling = settings.ObjectCreationHandling;
+                serializer.NullValueHandling = settings.NullValueHandling;
+                serializer.DefaultValueHandling = settings.DefaultValueHandling;
+                serializer.ConstructorHandling = settings.ConstructorHandling;
+                serializer.Context = settings.Context;
+
+
+                if (settings.ContractResolver != null)
+                {
+                    serializer.ContractResolver = settings.ContractResolver;
+                }
+                if (settings.TraceWriter != null)
+                {
+                    serializer.TraceWriter = settings.TraceWriter;
+                }
+                if (settings.EqualityComparer != null)
+                {
+                    serializer.EqualityComparer = settings.EqualityComparer;
+                }
+                if (settings.SerializationBinder != null)
+                {
+                    serializer.SerializationBinder = settings.SerializationBinder;
+                }
+
+                // reader/writer specific
+                // unset values won't override reader/writer set values
+                serializer.Formatting = settings.Formatting;
+                serializer.DateFormatHandling = settings.DateFormatHandling;
+                serializer.DateTimeZoneHandling = settings.DateTimeZoneHandling;
+                serializer.DateParseHandling = settings.DateParseHandling;
+                serializer.DateFormatString = settings.DateFormatString;
+                serializer.FloatFormatHandling = settings.FloatFormatHandling;
+                serializer.FloatParseHandling = settings.FloatParseHandling;
+                serializer.StringEscapeHandling = settings.StringEscapeHandling;
+                serializer.Culture = settings.Culture;
+                serializer.MaxDepth = settings.MaxDepth;
+                _cloneConverter = serializer;
+            }
+            return _cloneConverter;
         }
     }
 }

@@ -160,11 +160,8 @@ namespace WebSocket {
         }
 
         private jsonReplacer(key: string, value: any) {
-            if(this[key] instanceof Date && this[key].getFullYear() < 100) {
-                return "0001-01-01T00:00:00";
-            } else if(this[key] instanceof Date) {
-                const offset = this[key].getTimezoneOffset() * 60000;
-                return new Date(this[key].getTime() - offset).toISOString();
+            if(this[key] instanceof Date) {
+                return Aventus.DateConverter.converter.toString(this[key]);
             }
             return value;
         }

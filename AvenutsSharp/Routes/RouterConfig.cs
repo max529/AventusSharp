@@ -1,4 +1,5 @@
-﻿using AventusSharp.Tools;
+﻿using AventusSharp.Routes.Response;
+using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using System;
@@ -17,8 +18,14 @@ namespace AventusSharp.Routes
 
         public Func<string, Dictionary<string, RouterParameterInfo>, Type, MethodInfo, Regex>? transformPattern;
 
-        public JsonSerializerSettings? CustomJSONSettings { get; set; }
-        public JsonConverter? CustomJSONConverter { get; set; } = new AventusJsonConverter();
+        public JsonSerializerSettings JSONSettings { get; set; } = new JsonSerializerSettings()
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            NullValueHandling = NullValueHandling.Ignore,
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            DateFormatString = "yyyy-MM-ddTHH:mm:ss.fffZ",
+            Converters = new List<JsonConverter>() { new AventusJsonConverter() }
+        };
 
         public bool PrintRoute { get; set; } = false;
         public bool PrintTrigger { get; set; } = false;

@@ -51,11 +51,7 @@ namespace AventusSharp.WebSocket.Request
                     }
                 }
                 string txt = JsonConvert.SerializeObject(dataToUse);
-                object? temp = JsonConvert.DeserializeObject(txt, type, new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore
-                });
+                object? temp = JsonConvert.DeserializeObject(txt, type, WebSocketMiddleware.config.JSONSettings);
                 if (temp != null)
                 {
                     result.Result = temp;

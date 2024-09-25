@@ -94,6 +94,10 @@ namespace AventusSharp.Routes
             ResultWithError<T> result = DM_GetById(context, id);
             if (result.Result != null)
             {
+                if (result.Result.Id != id)
+                {
+                    Console.WriteLine("Impossible " + StorableName() + ": get " + result.Result.Id + " instead of " + id);
+                }
                 result.Result = OnSend(context, result.Result);
             }
             return result;

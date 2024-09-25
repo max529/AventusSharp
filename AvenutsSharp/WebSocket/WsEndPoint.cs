@@ -30,15 +30,15 @@ namespace AventusSharp.WebSocket
         internal Dictionary<string, WebSocketRouteInfo> routesInfo = new Dictionary<string, WebSocketRouteInfo>();
         internal readonly List<WebSocketConnection> connections = new();
         private readonly List<Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>>> middlewares = new();
-        internal JsonConverter converter;
+        internal JsonSerializerSettings settings;
         public string Path { get; }
 
         public WsEndPoint()
         {
             Configure();
-            if (converter == null)
+            if (settings == null)
             {
-                converter = WebSocketMiddleware.config.CustomJSONConverter;
+                settings = WebSocketMiddleware.config.JSONSettings;
             }
             Path = DefinePath();
         }
@@ -53,9 +53,9 @@ namespace AventusSharp.WebSocket
         {
         }
 
-        protected void setConverter(JsonConverter converter)
+        protected void setSettings(JsonSerializerSettings settings)
         {
-            this.converter = converter;
+            this.settings = settings;
         }
 
         /// <summary>
@@ -399,7 +399,7 @@ namespace AventusSharp.WebSocket
             {
                 if (obj != null)
                 {
-                    string json = JsonConvert.SerializeObject(obj, converter);
+                    string json = JsonConvert.SerializeObject(obj, settings);
                     await Broadcast(eventName, json, uid, connections, omit);
                 }
                 else

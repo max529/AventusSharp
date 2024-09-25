@@ -11,28 +11,12 @@ namespace AventusSharp.Routes.Response
         private string txt;
         public Json(object? o)
         {
-            if (RouterMiddleware.config.CustomJSONConverter != null)
-            {
-                txt = JsonConvert.SerializeObject(o, RouterMiddleware.config.CustomJSONConverter);
-            }
-            else if (RouterMiddleware.config.CustomJSONSettings != null)
-            {
-                txt = JsonConvert.SerializeObject(o, RouterMiddleware.config.CustomJSONSettings);
-            }
-            else
-            {
-                txt = JsonConvert.SerializeObject(o);
-            }
+            txt = JsonConvert.SerializeObject(o, RouterMiddleware.config.JSONSettings);
         }
 
         public Json(object? o, JsonConverter converter)
         {
             txt = JsonConvert.SerializeObject(o, converter);
-        }
-
-        public Json(object? o, JsonSerializerSettings settings)
-        {
-            txt = JsonConvert.SerializeObject(o, settings);
         }
 
         public Json(string json)

@@ -224,7 +224,7 @@ namespace AventusSharp.WebSocket
             {
                 if (obj != null)
                 {
-                    string json = JsonConvert.SerializeObject(obj, instance.converter);
+                    string json = JsonConvert.SerializeObject(obj, instance.settings);
                     await Send(eventName, json, uid);
                 }
                 else
