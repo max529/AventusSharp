@@ -13,7 +13,7 @@ namespace TestConsole.cs.Data
 
         public string lastname { get; set; }
 
-        public Datetime birthday { get; set; }
+        public DateTime birthday { get; set; }
 
         [Nullable]
         public Location location { get; set; }

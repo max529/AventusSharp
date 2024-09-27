@@ -28,7 +28,11 @@ namespace AventusSharp.Routes
         public static void Configure(Action<RouterConfig> configAction)
         {
             RouterMiddleware.configAction = configAction;
+        }
 
+        public static List<RouteInfo> GetAllRoutes()
+        {
+            return routesInfo.Values.ToList();
         }
 
         public static void Register()

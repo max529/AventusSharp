@@ -529,7 +529,8 @@ namespace AventusSharp.Data.Manager.DB
                     // }
 
                     // ResultWithError<X> resultTemp = ((DatabaseUpdateBuilder<X>)savedUpdateQuery[type]).Prepare(value.Id).RunWithErrorSingle(value);
-                    ResultWithError<X> resultTemp  = new DatabaseUpdateBuilder<X>(Storage, this, NeedLocalCache, value.GetType())
+                    id = value.Id;
+                    ResultWithError<X> resultTemp = new DatabaseUpdateBuilder<X>(Storage, this, NeedLocalCache, value.GetType())
                                                             .Where(p => p.Id == id)
                                                             .RunWithErrorSingle(value);
 
@@ -574,6 +575,7 @@ namespace AventusSharp.Data.Manager.DB
                     // }
 
                     // ResultWithError<List<X>> resultTemp = ((DatabaseDeleteBuilder<X>)savedDeleteQuery[type]).Prepare(value.Id).RunWithError();
+                    id = value.Id;
                     ResultWithError<List<X>> resultTemp = new DatabaseDeleteBuilder<X>(Storage, this, NeedLocalCache, value.GetType())
                                                                 .Where(p => p.Id == id)
                                                                 .RunWithError();

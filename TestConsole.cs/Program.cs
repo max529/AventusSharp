@@ -206,7 +206,7 @@ PersonHuman maxime = new()
 {
     firstname = "Maxime",
     lastname = "Bétrisey",
-    birthday = new Datetime(new DateTime(1995, 06, 16)),
+    birthday = new DateTime(1995, 06, 16),
     tags = new List<Tag>()
     {
         //new Tag()
@@ -225,7 +225,8 @@ PersonHuman.Create(maxime);
 
 //List<string> names = new List<string>() { "Maxime" };
 
-PersonHuman.GetAll();
+PersonHuman.WhereWithError(p => p.birthday.Year == 1995);
+//PersonHuman.GetAll();
 //Cat felix = new()
 //{
 //    name = "felix",

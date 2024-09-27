@@ -166,9 +166,16 @@ namespace AventusSharp.Data.Storage.Mysql.Queries
         {
             return fctEnum switch
             {
-                WhereGroupFctSqlEnum.Date => "Date",
+                WhereGroupFctSqlEnum.Date => "DATE",
+                WhereGroupFctSqlEnum.Time => "TIME",
                 WhereGroupFctSqlEnum.ToLower => "LOWER",
                 WhereGroupFctSqlEnum.ToUpper => "UPPER",
+                WhereGroupFctSqlEnum.Year => "YEAR",
+                WhereGroupFctSqlEnum.Month => "MONTH",
+                WhereGroupFctSqlEnum.Day => "DAY",
+                WhereGroupFctSqlEnum.Hour => "HOUR",
+                WhereGroupFctSqlEnum.Minute => "MINUTE",
+                WhereGroupFctSqlEnum.Second => "SECOND",
                 _ => "",
             };
         }

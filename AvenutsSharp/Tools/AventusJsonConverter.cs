@@ -78,8 +78,12 @@ namespace AventusSharp.Tools
                     {
                         return;
                     }
+                    JObject jo = new()
+                    {
+                        { "$type", "Aventus.Map" }
+                    };
                     IEnumerator valueEnumerator = values.GetEnumerator();
-                    JArray jo = new();
+                    JArray joArray = new();
                     foreach (object key in keys)
                     {
                         valueEnumerator.MoveNext();
@@ -90,10 +94,11 @@ namespace AventusSharp.Tools
                                 JToken.FromObject(key, serializer),
                                 JToken.FromObject(valueEnumerator.Current, serializer)
                             };
-                            jo.Add(keyValue);
+                            joArray.Add(keyValue);
 
                         }
                     }
+                    jo.Add("values", joArray);
                     jo.WriteTo(writer);
                 }
                 else if (type.IsGenericType && type.GetInterfaces().Contains(typeof(IList)))

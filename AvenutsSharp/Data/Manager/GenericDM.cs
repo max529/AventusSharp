@@ -73,6 +73,104 @@ namespace AventusSharp.Data.Manager
             return result;
 
         }
+
+        public static ResultWithError<List<Y>> LoadDependances<X, Y>(ResultWithError<List<X>> from, Func<X, int> fct, Action<X, Y> set) where X : IStorable where Y : IStorable
+        {
+            ResultWithError<List<Y>> result = new ResultWithError<List<Y>>();
+            if (!from.Success || from.Result == null)
+            {
+                result.Errors = from.Errors;
+            }
+            else
+            {
+                List<int> ids = new List<int>();
+                foreach (X recolte in from.Result)
+                {
+                    int id = fct(recolte);
+                    if (!ids.Contains(id))
+                    {
+                        ids.Add(id);
+                    }
+                }
+
+                if (ids.Count > 0)
+                {
+                    result = GenericDM.Get<Y>().WhereWithError<Y>(p => ids.Contains(p.Id));
+                    if (result.Success && result.Result != null)
+                    {
+                        Dictionary<int, Y> dico = result.Result.ToDictionary(p => p.Id, p => p);
+                        foreach (X recolte in from.Result)
+                        {
+                            int id = fct(recolte);
+                            if (dico.ContainsKey(id))
+                            {
+                                set(recolte, dico[id]);
+                            }
+                            else
+                            {
+                                // result.Errors.Add(new )
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            return result;
+        }
+
+        public static ResultWithError<List<Y>> LoadDependancesList<X, Y>(ResultWithError<List<X>> from, Func<X, List<int>> fct, Action<X, Y> set) where X : IStorable where Y : IStorable
+        {
+            ResultWithError<List<Y>> result = new ResultWithError<List<Y>>();
+            if (!from.Success || from.Result == null)
+            {
+                result.Errors = from.Errors;
+            }
+            else
+            {
+                List<int> ids = new List<int>();
+                foreach (X recolte in from.Result)
+                {
+                    List<int> idTemps = fct(recolte);
+                    foreach (int id in idTemps)
+                    {
+                        if (!ids.Contains(id))
+                        {
+                            ids.Add(id);
+                        }
+                    }
+                }
+
+                if (ids.Count > 0)
+                {
+                    result = GenericDM.Get<Y>().WhereWithError<Y>(p => ids.Contains(p.Id));
+                    if (result.Success && result.Result != null)
+                    {
+                        Dictionary<int, Y> dico = result.Result.ToDictionary(p => p.Id, p => p);
+                        foreach (X recolte in from.Result)
+                        {
+                            List<int> idTemps = fct(recolte);
+                            foreach (int id in idTemps)
+                            {
+                                if (dico.ContainsKey(id))
+                                {
+                                    set(recolte, dico[id]);
+                                }
+                                else
+                                {
+                                    // result.Errors.Add(new )
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            return result;
+        }
+
+
     }
     public abstract class GenericDM<T, U> : IGenericDM<U> where T : IGenericDM<U>, new() where U : notnull, IStorable
     {
@@ -653,7 +751,7 @@ namespace AventusSharp.Data.Manager
         public ResultWithError<List<X>> GetByIdsWithError<X>(List<int> ids) where X : U
         {
             ResultWithError<List<X>> result = new ResultWithError<List<X>>();
-            if(ids.Count == 0)
+            if (ids.Count == 0)
             {
                 result.Result = new List<X>();
                 return result;
@@ -2075,7 +2173,7 @@ namespace AventusSharp.Data.Manager
                             return;
                         }
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         if (mustThrow)
                         {
@@ -2114,6 +2212,7 @@ namespace AventusSharp.Data.Manager
             }
             return false;
         }
+
 
         internal void PrintErrors(IWithError withError)
         {

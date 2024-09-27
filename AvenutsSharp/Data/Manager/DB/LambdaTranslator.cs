@@ -23,7 +23,10 @@ namespace AventusSharp.Data.Manager.DB
     }
     public class LambdaTranslator<T> : ExpressionVisitor
     {
+        private static List<Type> _dateTypes = new List<Type>() { typeof(DateTime), typeof(Datetime), typeof(Date) };
         public List<string> pathes = new();
+        public List<WhereGroupFctSqlEnum> sqlFcts = new();
+        public bool alreadyAdded = false;
         public List<Type> types = new();
         private readonly ILambdaTranslatable databaseBuilder;
         private readonly List<DataMemberInfo> variableAccess = new();
@@ -248,7 +251,33 @@ namespace AventusSharp.Data.Manager.DB
             bool isBase = types.Count == 0;
             if (isBase)
             {
+                alreadyAdded = false;
                 onParameter = false;
+            }
+            if (m.Member.Name == "birthday")
+            {
+                Console.WriteLine("in");
+            }
+            if (_dateTypes.Contains(m.Type))
+            {
+                if (pathes.Count > 0)
+                {
+                    WhereGroupFctSqlEnum? fct = null;
+                    if (pathes[0] == "Year") fct = WhereGroupFctSqlEnum.Year;
+                    else if (pathes[0] == "Month") fct = WhereGroupFctSqlEnum.Month;
+                    else if (pathes[0] == "Day") fct = WhereGroupFctSqlEnum.Day;
+                    else if (pathes[0] == "Hour") fct = WhereGroupFctSqlEnum.Hour;
+                    else if (pathes[0] == "Minute") fct = WhereGroupFctSqlEnum.Minute;
+                    else if (pathes[0] == "Second") fct = WhereGroupFctSqlEnum.Second;
+
+                    if (fct is WhereGroupFctSqlEnum realFct)
+                    {
+                        pathes.RemoveAt(0);
+                        types.RemoveAt(0);
+                        isBase = types.Count == 0;
+                        sqlFcts.Insert(0, realFct);
+                    }
+                }
             }
 
             pathes.Insert(0, m.Member.Name);
@@ -296,6 +325,10 @@ namespace AventusSharp.Data.Manager.DB
                 else
                 {
                     Expression result = Visit(m.Expression);
+                    if(isBase && alreadyAdded)
+                    {
+                        isBase = false;
+                    }
                     if (result is ConstantExpression cstExpression)
                     {
                         DataMemberInfo? memberInfo;
@@ -340,6 +373,14 @@ namespace AventusSharp.Data.Manager.DB
                     KeyValuePair<TableMemberInfoSql?, string> memberInfo = databaseBuilder.InfoByPath[fullPath].GetTableMemberInfoAndAlias(m.Member.Name);
                     if (memberInfo.Key != null)
                     {
+                        foreach (WhereGroupFctSqlEnum sqlFct in sqlFcts)
+                        {
+                            AddToParentGroup(new WhereGroupFctSql(sqlFct));
+                            WhereGroup newGroup = new();
+                            AddToParentGroup(newGroup);
+                            currentGroup = newGroup;
+                            queryGroups.Add(newGroup);
+                        }
                         WhereGroupField field = new(memberInfo.Value, memberInfo.Key);
                         if (memberInfo.Key.MemberType == typeof(bool))
                         {
@@ -362,11 +403,18 @@ namespace AventusSharp.Data.Manager.DB
                         {
                             AddToParentGroup(field);
                         }
+                        foreach (WhereGroupFctSqlEnum sqlFct in sqlFcts)
+                        {
+                            queryGroups.RemoveAt(queryGroups.Count - 1);
+                            currentGroup = queryGroups.LastOrDefault();
+                        }
                     }
                 }
                 pathes.Clear();
                 types.Clear();
+                sqlFcts.Clear();
                 variableAccess.Clear();
+                alreadyAdded = true;
             }
             return m;
 
@@ -407,7 +455,7 @@ namespace AventusSharp.Data.Manager.DB
                 {
                     fct = WhereGroupFctEnum.EndsWith;
                 }
-                else if(methodName == "ToLower")
+                else if (methodName == "ToLower")
                 {
                     fctSql = WhereGroupFctSqlEnum.ToLower;
                 }
@@ -506,7 +554,7 @@ namespace AventusSharp.Data.Manager.DB
                 }
                 fctMethodCall = WhereGroupFctEnum.None;
             }
-            else if(fctSql != null)
+            else if (fctSql != null)
             {
                 AddToParentGroup(new WhereGroupFctSql((WhereGroupFctSqlEnum)fctSql));
                 WhereGroup newGroup2 = new();

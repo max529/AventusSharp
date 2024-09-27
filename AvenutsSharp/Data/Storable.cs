@@ -461,6 +461,27 @@ namespace AventusSharp.Data
         {
             return new List<DataError>();
         }
+
+        public static ResultWithError<List<Y>> LoadDependances<Y>(List<T>? from, Func<T, int> fct, Action<T, Y> set) where Y : IStorable
+        {
+            ResultWithError<List<T>> realFrom = new ResultWithError<List<T>>() { Result = from };
+            return LoadDependances(realFrom, fct, set);
+        }
+
+        public static ResultWithError<List<Y>> LoadDependances<Y>(ResultWithError<List<T>> from, Func<T, int> fct, Action<T, Y> set) where Y : IStorable
+        {
+            return GenericDM.LoadDependances(from, fct, set);
+        }
+
+        public static ResultWithError<List<Y>> LoadDependancesList<Y>(List<T>? from, Func<T, List<int>> fct, Action<T, Y> set) where Y : IStorable
+        {
+            ResultWithError<List<T>> realFrom = new ResultWithError<List<T>>() { Result = from };
+            return LoadDependancesList(realFrom, fct, set);
+        }
+        public static ResultWithError<List<Y>> LoadDependancesList<Y>(ResultWithError<List<T>> from, Func<T, List<int>> fct, Action<T, Y> set) where Y : IStorable
+        {
+            return GenericDM.LoadDependancesList(from, fct, set);
+        }
     }
 
 

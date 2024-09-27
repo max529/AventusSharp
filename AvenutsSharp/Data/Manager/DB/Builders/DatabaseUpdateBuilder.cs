@@ -118,7 +118,7 @@ namespace AventusSharp.Data.Manager.DB.Builders
 
             if (resultTemp.Success && resultTemp.Result != null)
             {
-                if (resultTemp.Result.Count == 1)
+                if (resultTemp.Result.Count <= 1)
                 {
                     foreach (KeyValuePair<string, ParamsInfo> paramUpdated in UpdateParamsInfo)
                     {

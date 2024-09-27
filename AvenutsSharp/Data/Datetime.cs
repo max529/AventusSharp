@@ -55,12 +55,19 @@ namespace AventusSharp.Data
 
 
     /// <summary>
-    /// Class to handle file during process
+    /// Class to handle date during process
     /// </summary>
     [CustomTableMemberType<DatetimeTableMember>]
     public class Datetime
     {
         private static readonly string Pattern = "yyyy-MM-dd HH-mm-ss";
+
+        public int Year { get => DateTime.Year; }
+        public int Month { get => DateTime.Month; }
+        public int Day { get => DateTime.Day; }
+        public int Hour { get => DateTime.Hour; }
+        public int Minute { get => DateTime.Minute; }
+        public int Second { get => DateTime.Second; }
 
         public DateTime DateTime { get; set; }
         public Datetime()

@@ -36,8 +36,15 @@ namespace AventusSharp.Data.Manager.DB
     public enum WhereGroupFctSqlEnum
     {
         Date,
+        Time,
         ToLower,
         ToUpper,
+        Year,
+        Month,
+        Day,
+        Hour,
+        Minute,
+        Second,
     }
 
     public interface IWhereGroup { }
@@ -258,16 +265,16 @@ namespace AventusSharp.Data.Manager.DB
     public class SortInfo
     {
         public TableMemberInfoSql TableMember { get; set; }
-        public string Alias {get; set;}
+        public string Alias { get; set; }
 
-        public Sort Sort {get; set;} 
+        public Sort Sort { get; set; }
 
         public SortInfo(TableMemberInfoSql tableMember, string alias, Sort sort)
         {
             TableMember = tableMember;
             Alias = alias;
             Sort = sort;
-        }   
+        }
     }
     public class DatabaseBuilderInfoChild
     {

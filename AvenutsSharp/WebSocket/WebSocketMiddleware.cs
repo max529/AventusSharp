@@ -25,6 +25,10 @@ namespace AventusSharp.WebSocket
         internal static WebSocketConfig config = new WebSocketConfig();
         internal static Dictionary<Type, object> injected = new Dictionary<Type, object>();
 
+        public static Dictionary<WsEndPoint, List<WebSocketRouteInfo>> GetAllRoutes()
+        {
+            return endPointInstances.ToDictionary(p => p.Value, p => p.Value.routesInfo.Values.ToList());
+        }
         public static void Configure(Action<WebSocketConfig> configAction)
         {
             WebSocketMiddleware.configAction = configAction;
@@ -39,7 +43,7 @@ namespace AventusSharp.WebSocket
         public static WebSocketConnection? GetConnection<T>(string sessionId) where T : WsEndPoint
         {
             WsEndPoint? endPoint = endPointInstances.Values.FirstOrDefault(p => p.GetType() == typeof(T));
-            if(endPoint == null) return null;
+            if (endPoint == null) return null;
 
             WebSocketConnection? connection = endPoint.connections.FirstOrDefault(p => p.SessionId == sessionId);
             return connection;

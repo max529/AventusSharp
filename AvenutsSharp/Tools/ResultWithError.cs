@@ -105,7 +105,7 @@ namespace AventusSharp.Tools
 
     public class VoidWithError : VoidWithError<GenericError>
     {
-        
+
         public new VoidWithError Run(Func<List<GenericError>> fct)
         {
             base.Run(fct);
@@ -189,11 +189,24 @@ namespace AventusSharp.Tools
             return this;
         }
 
+        public X? Execute<X>(Func<ResultWithError<X, U>> fct)
+        {
+            if (Success)
+            {
+                ResultWithError<X, U> execResult = fct();
+                if (execResult.Errors.Count > 0)
+                {
+                    Errors.AddRange(execResult.Errors);
+                }
+                return execResult.Result;
+            }
+            return default;
+        }
     }
 
     public class ResultWithError<T> : ResultWithError<T, GenericError>
     {
-        
+
         public new ResultWithError<T> Run(Func<List<GenericError>> fct)
         {
             base.Run(fct);

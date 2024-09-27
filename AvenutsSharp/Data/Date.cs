@@ -55,18 +55,22 @@ namespace AventusSharp.Data
 
 
     /// <summary>
-    /// Class to handle file during process
+    /// Class to handle date during process
     /// </summary>
     [CustomTableMemberType<DateTableMember>]
     public class Date
     {
         private static readonly string Pattern = "yyyy-MM-dd";
 
+        public int Year { get => DateTime.Year; }
+        public int Month { get => DateTime.Month; }
+        public int Day { get => DateTime.Day; }
         public DateTime DateTime { get; set; }
         public Date()
         {
             DateTime = DateTime.Now.Date;
         }
+
         public Date(DateTime date)
         {
             DateTime = date;
@@ -92,38 +96,48 @@ namespace AventusSharp.Data
         public static bool operator !=(Date d1, Date d2) => !(d1 == d2);
         public static bool operator !=(Date d1, DateTime d2) => !(d1 == d2);
 
-        public static bool operator >(Date d1, Date d2) {
+        public static bool operator >(Date d1, Date d2)
+        {
             return d1.DateTime > d2.DateTime;
         }
-        public static bool operator <(Date d1, Date d2) {
+        public static bool operator <(Date d1, Date d2)
+        {
             return d1.DateTime < d2.DateTime;
         }
-        public static bool operator >=(Date d1, Date d2) {
+        public static bool operator >=(Date d1, Date d2)
+        {
             return d1.DateTime >= d2.DateTime;
         }
-        public static bool operator <=(Date d1, Date d2) {
+        public static bool operator <=(Date d1, Date d2)
+        {
             return d1.DateTime <= d2.DateTime;
         }
 
-        public static bool operator >(Date d1, DateTime d2) {
+        public static bool operator >(Date d1, DateTime d2)
+        {
             return d1.DateTime > d2;
         }
-        public static bool operator <(Date d1, DateTime d2) {
+        public static bool operator <(Date d1, DateTime d2)
+        {
             return d1.DateTime < d2;
         }
-        public static bool operator >=(Date d1, DateTime d2) {
+        public static bool operator >=(Date d1, DateTime d2)
+        {
             return d1.DateTime >= d2;
         }
-        public static bool operator <=(Date d1, DateTime d2) {
+        public static bool operator <=(Date d1, DateTime d2)
+        {
             return d1.DateTime <= d2;
         }
 
         public override bool Equals(object? obj)
         {
-            if(obj is DateTime dateTime) {
+            if (obj is DateTime dateTime)
+            {
                 return this == dateTime;
             }
-            if(obj is Date date) {
+            if (obj is Date date)
+            {
                 return this == date;
             }
             return false;
