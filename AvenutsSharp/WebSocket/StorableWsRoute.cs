@@ -154,6 +154,28 @@ namespace AventusSharp.WebSocket
             return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
+        [Path("/[StorableName]s")]
+        public virtual ResultWithError<List<T>> GetByIds(List<int> ids)
+        {
+            ResultWithError<List<T>> result = DM_GetByIds(ids);
+            if (result.Result != null)
+            {
+                List<T> list = new();
+                foreach (T item in result.Result)
+                {
+                    list.Add(OnSend(item));
+                }
+                result.Result = list;
+            }
+            return result;
+        }
+        protected virtual ResultWithError<List<T>> DM_GetByIds(List<int> ids)
+        {
+            return Storable<T>.GetByIdsWithError(ids).ToGeneric();
+        }
+
+
+
         [Path("/[StorableName]/{id}/Update"), Broadcast]
         public virtual ResultWithError<T> Update(int id, T item)
         {

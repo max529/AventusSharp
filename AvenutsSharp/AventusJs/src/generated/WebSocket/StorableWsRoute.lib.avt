@@ -13,6 +13,7 @@ namespace WebSocket {
 			Create: StorableWsRoute_Create<T>,
 			CreateMany: StorableWsRoute_CreateMany<T>,
 			GetById: StorableWsRoute_GetById<T>,
+			GetByIds: StorableWsRoute_GetByIds<T>,
 			Update: StorableWsRoute_Update<T>,
 			UpdateMany: StorableWsRoute_UpdateMany<T>,
 			Delete: StorableWsRoute_Delete<T>,
@@ -26,6 +27,7 @@ namespace WebSocket {
 				Create: new StorableWsRoute_Create<T>(this.endpoint, this.getPrefix, this.StorableName),
 				CreateMany: new StorableWsRoute_CreateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
 				GetById: new StorableWsRoute_GetById<T>(this.endpoint, this.getPrefix, this.StorableName),
+				GetByIds: new StorableWsRoute_GetByIds<T>(this.endpoint, this.getPrefix, this.StorableName),
 				Update: new StorableWsRoute_Update<T>(this.endpoint, this.getPrefix, this.StorableName),
 				UpdateMany: new StorableWsRoute_UpdateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
 				Delete: new StorableWsRoute_Delete<T>(this.endpoint, this.getPrefix, this.StorableName),
@@ -69,6 +71,15 @@ namespace WebSocket {
 				...options,
 			};
 			return await this.endpoint.sendMessageAndWait<ExtractResponse<StorableWsRoute_GetById<T>>>(info);
+		}
+
+		public async GetByIds(body: { ids: number[] } | FormData, options: WsRouteSendOptions = {}): Promise<ExtractResponse<StorableWsRoute_GetByIds<T>>> {
+			const info: SocketSendMessageOptions = {
+				channel: `${this.getPrefix()}/${this.StorableName()}s`,
+				body: body,
+				...options,
+			};
+			return await this.endpoint.sendMessageAndWait<ExtractResponse<StorableWsRoute_GetByIds<T>>>(info);
 		}
 
 		public async Update(id: number, body: { item: T } | FormData, options: WsRouteSendOptions = {}): Promise<ExtractResponse<StorableWsRoute_Update<T>>> {
@@ -154,6 +165,22 @@ namespace WebSocket {
 		 */
 		protected override path(): string {
 			return `${this.getPrefix()}/${this.StorableName()}/{id:number}`;
+		}
+	}
+	 
+	export class StorableWsRoute_GetByIds<T> extends WsEvent<T[]> {
+		
+		public StorableName: () => string;
+		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+			super(endpoint, getPrefix);
+			this.StorableName = StorableName;
+		}
+		
+		/**
+		 * @inheritdoc
+		 */
+		protected override path(): string {
+			return `${this.getPrefix()}/${this.StorableName()}s`;
 		}
 	}
 	 
