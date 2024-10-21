@@ -1,8 +1,8 @@
 import { Route, type WsRouteSendOptions, type ExtractResponse } from '../../WebSocket/Route.lib.avt';
 import { EndPoint } from '../../WebSocket/EndPoint.lib.avt';
 import { type SocketSendMessageOptions } from '../../WebSocket/ISocket.lib.avt';
-import { WsEvent } from '../../WebSocket/Event.lib.avt';
 import { ResultWithError } from '../Tools/ResultWithError.lib.avt';
+import { WsEvent } from "../../WebSocket/Event.lib.avt";
 
 namespace WebSocket {
 

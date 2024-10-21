@@ -60,7 +60,7 @@ namespace Data {
 	}
 
 	@Convertible()
-	export class FieldErrorInfo {
+	export class FieldErrorInfo  {
 		public static get Fullname(): string { return "AventusSharp.Data.FieldErrorInfo, AventusSharp"; }
 		public Name!: string;
 	}

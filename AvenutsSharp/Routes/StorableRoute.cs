@@ -1,11 +1,9 @@
 ﻿using AventusSharp.Data;
 using AventusSharp.Routes.Attributes;
-using AventusSharp.Routes.Response;
 using AventusSharp.Tools;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace AventusSharp.Routes
 {
@@ -46,7 +44,7 @@ namespace AventusSharp.Routes
             return Storable<T>.GetAllWithError().ToGeneric();
         }
 
-        [Post, Attributes.Path("/[StorableName]")]
+        [Post, Path("/[StorableName]")]
         public virtual ResultWithError<T> Create(HttpContext context, T item)
         {
             item = OnReceive(context, item);
@@ -62,7 +60,7 @@ namespace AventusSharp.Routes
             return Storable<T>.CreateWithError(item).ToGeneric();
         }
 
-        [Post, Attributes.Path("/[StorableName]s")]
+        [Post, Path("/[StorableName]s")]
         public virtual ResultWithError<List<T>> CreateMany(HttpContext context, List<T> list)
         {
             List<T> _list = new();
@@ -88,7 +86,7 @@ namespace AventusSharp.Routes
             return Storable<T>.CreateWithError(list).ToGeneric();
         }
 
-        [Get, Attributes.Path("/[StorableName]/{id}")]
+        [Get, Path("/[StorableName]/{id}")]
         public virtual ResultWithError<T> GetById(HttpContext context, int id)
         {
             ResultWithError<T> result = DM_GetById(context, id);
@@ -107,8 +105,29 @@ namespace AventusSharp.Routes
             return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
+        [Get, Path("/[StorableName]s")]
+        public virtual ResultWithError<List<T>> GetByIds(HttpContext context, List<int> ids)
+        {
+            ResultWithError<List<T>> result = DM_GetByIds(context, ids);
+            if (result.Result != null)
+            {
+                List<T> list = new();
+                foreach (T item in result.Result)
+                {
+                    list.Add(OnSend(context, item));
+                }
+                result.Result = list;
+            }
+            return result;
+        }
+        protected virtual ResultWithError<List<T>> DM_GetByIds(HttpContext context, List<int> ids)
+        {
+            return Storable<T>.GetByIdsWithError(ids).ToGeneric();
+        }
+
+
         [Put]
-        [Attributes.Path("/[StorableName]/{id}")]
+        [Path("/[StorableName]/{id}")]
         public virtual ResultWithError<T> Update(HttpContext context, int id, T item)
         {
             item.Id = id;
@@ -126,7 +145,7 @@ namespace AventusSharp.Routes
         }
 
         [Put]
-        [Attributes.Path("/[StorableName]s")]
+        [Path("/[StorableName]s")]
         public virtual ResultWithError<List<T>> UpdateMany(HttpContext context, List<T> list)
         {
             List<T> _list = new();
@@ -153,7 +172,7 @@ namespace AventusSharp.Routes
             return Storable<T>.UpdateWithError(list).ToGeneric();
         }
 
-        [Delete, Attributes.Path("/[StorableName]/{id}")]
+        [Delete, Path("/[StorableName]/{id}")]
         public virtual ResultWithError<T> Delete(HttpContext context, int id)
         {
             ResultWithError<T> result = DM_Delete(context, id);
@@ -168,7 +187,7 @@ namespace AventusSharp.Routes
             return Storable<T>.DeleteWithError(id).ToGeneric();
         }
 
-        [Delete, Attributes.Path("/[StorableName]s")]
+        [Delete, Path("/[StorableName]s")]
         public virtual ResultWithError<List<T>> DeleteMany(HttpContext context, List<int> ids)
         {
             ResultWithError<List<T>> result = DM_DeleteMany(context, ids);

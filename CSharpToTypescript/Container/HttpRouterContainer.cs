@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -633,6 +634,12 @@ namespace CSharpToTypescript.Container
                         return;
                     }
                     SymbolInfo temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(returnStatement.Expression);
+                    bool isAwait = false;
+                    if(returnStatement.Expression is AwaitExpressionSyntax awaitExpressionSyntax)
+                    {
+                        temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(awaitExpressionSyntax.Expression);
+                        isAwait = true;
+                    }
                     if (temp.Symbol is ILocalSymbol localSymbol)
                     {
                         AddTypeToListReturn(localSymbol.Type);
@@ -653,7 +660,21 @@ namespace CSharpToTypescript.Container
                         }
                         else
                         {
-                            AddTypeToListReturn(methodSymbol.ReturnType);
+                            if (isAwait)
+                            {
+                                if(methodSymbol.ReturnType is INamedTypeSymbol named)
+                                {
+                                    ImmutableArray<ITypeSymbol> arguments = named.TypeArguments;
+                                    if(arguments.Length == 1)
+                                    {
+                                        AddTypeToListReturn(arguments[0]);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                AddTypeToListReturn(methodSymbol.ReturnType);
+                            }
                         }
                     }
                     else if (temp.Symbol is IPropertySymbol propertySymbol)

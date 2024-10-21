@@ -60,12 +60,18 @@ namespace RAM {
             }
 
             if(missingIds.length > 0) {
-                for(let id of missingIds) {
-                    let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
-                    await this.beforeGetById(id, resultTemp);
-                    if(!resultTemp.success) {
-                        result.errors = [...result.errors, ...resultTemp.errors];
+                let response = await this.routes.GetByIds({ ids: missingIds });
+                if(response.success && response.result) {
+                    for(let item of response.result) {
+                        let resultTemp: Aventus.ResultRamWithError<Aventus.RamItem<T>> = new Aventus.ResultRamWithError();
+                        await this.addOrUpdateData(item, resultTemp);
+                        if(!resultTemp.success) {
+                            result.errors = [...result.errors, ...resultTemp.errors];
+                        }
                     }
+                }
+                else {
+                    result.errors = [...result.errors, ...response.errors];
                 }
             }
         }
