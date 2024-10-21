@@ -105,7 +105,7 @@ namespace AventusSharp.Routes
             return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
-        [Get, Path("/[StorableName]s")]
+        [Post, Path("/[StorableName]s")]
         public virtual ResultWithError<List<T>> GetByIds(HttpContext context, List<int> ids)
         {
             ResultWithError<List<T>> result = DM_GetByIds(context, ids);
