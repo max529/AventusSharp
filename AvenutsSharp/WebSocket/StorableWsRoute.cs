@@ -154,7 +154,7 @@ namespace AventusSharp.WebSocket
             return Storable<T>.GetByIdWithError(id).ToGeneric();
         }
 
-        [Path("/[StorableName]s")]
+        [Path("/[StorableName]/getbyids")]
         public virtual ResultWithError<List<T>> GetByIds(List<int> ids)
         {
             ResultWithError<List<T>> result = DM_GetByIds(ids);

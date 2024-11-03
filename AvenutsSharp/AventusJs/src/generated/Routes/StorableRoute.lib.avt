@@ -30,7 +30,7 @@ namespace Routes {
 		}
 
 		public async GetByIds(body: { ids: number[] } | FormData): Promise<ResultWithError<T[]>> {
-			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}s`, Aventus.HttpMethod.POST);
+			const request = new Aventus.HttpRequest(`${this.getPrefix()}/${this.StorableName()}/getbyids`, Aventus.HttpMethod.POST);
 			request.setBody(body);
 			type TypeResult = T[];
 			return await request.queryJSON<TypeResult>(this.router);

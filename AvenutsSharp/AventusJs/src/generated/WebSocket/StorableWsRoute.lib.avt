@@ -75,7 +75,7 @@ namespace WebSocket {
 
 		public async GetByIds(body: { ids: number[] } | FormData, options: WsRouteSendOptions = {}): Promise<ExtractResponse<StorableWsRoute_GetByIds<T>>> {
 			const info: SocketSendMessageOptions = {
-				channel: `${this.getPrefix()}/${this.StorableName()}s`,
+				channel: `${this.getPrefix()}/${this.StorableName()}/getbyids`,
 				body: body,
 				...options,
 			};
