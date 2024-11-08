@@ -14,14 +14,37 @@ namespace AventusSharp.Data
 {
     public class DataManagerConfig
     {
+        /// <summary>
+        /// Define the default Storage connexion to use for your DatabaseDM
+        /// </summary>
         public IDBStorage? defaultStorage;
+        /// <summary>
+        /// Define the default DataManager to use for you Storable
+        /// </summary>
         public Type defaultDM = typeof(DummyDM<>);
-        public bool createExternalData = false;
+        /// <summary>
+        /// Define logs you need to see
+        /// </summary>
         public DataManagerConfigLog log = new();
+        /// <summary>
+        /// Define if the database fields are nullable by default
+        /// </summary>
         public bool nullByDefault = false;
+        /// <summary>
+        /// Define if local cache must be used. Local cache keep all objects inside the RAM
+        /// </summary>
         public bool preferLocalCache = false;
+        /// <summary>
+        /// Define if element link must only load Type and Id
+        /// </summary>
         public bool preferShortLink = false;
+        /// <summary>
+        /// By default only abstract inheritance is allowed. You can bypass this by setting allowNonAbstractExtension to true
+        /// </summary>
         public bool allowNonAbstractExtension = false;
+        /// <summary>
+        /// Define the name of sql table based on the current type
+        /// </summary>
         public Func<Type, string> GetSQLTableName = (type) =>
         {
             Attribute? attr = type.GetCustomAttribute(typeof(SqlName));
@@ -38,19 +61,40 @@ namespace AventusSharp.Data
     }
     public class DataManagerConfigLog
     {
+        /// <summary>
+        /// Display dependances for all your models
+        /// </summary>
         public bool monitorDataDependances = false;
+        /// <summary>
+        /// Show Analyze managers step
+        /// </summary>
         public bool monitorManagerAnalyze = false;
+        /// <summary>
+        /// Display time to init each data manager
+        /// </summary>
         public bool monitorManagerInit = false;
+        /// <summary>
+        ///  Display time to order each data manager
+        /// </summary>
         public bool monitorManagerOrdering = false;
+        /// <summary>
+        ///  Display ordered managers
+        /// </summary>
         public bool monitorManagerOrdered = false;
+        /// <summary>
+        ///  Display time to order each model
+        /// </summary>
         public bool monitorDataOrdering = false;
+        /// <summary>
+        /// Display ordered models
+        /// </summary>
         public bool monitorDataOrdered = false;
         /// <summary>
         /// Print all errors from storable action in the console
         /// </summary>
         public bool printErrorInConsole = false;
     }
-    
+
     public static class DataMainManager
     {
         static internal DataManagerConfig Config { get; private set; } = new DataManagerConfig();
@@ -173,7 +217,7 @@ namespace AventusSharp.Data
 
             public DataInit()
             {
-                
+
             }
 
 

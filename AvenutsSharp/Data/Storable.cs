@@ -91,6 +91,10 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetByIds<T>(ids);
         }
+        public static List<T> GetByIds(params int[] ids)
+        {
+            return GenericDM.Get<T>().GetByIds<T>(ids.ToList());
+        }
         public static ResultWithError<List<T>> GetByIdsWithError(List<int> ids)
         {
             return GenericDM.Get<T>().GetByIdsWithError<T>(ids);
@@ -99,6 +103,7 @@ namespace AventusSharp.Data
         {
             return GenericDM.Get<T>().GetByIdsWithError<T>(ids.ToList());
         }
+
 
         public static List<T> Where(Expression<Func<T, bool>> func)
         {

@@ -15,7 +15,7 @@ namespace AventusSharp.Tools
         Exception GetException();
     }
     [NoTypescript]
-    public abstract class GenericError : IGenericError
+    public class GenericError : IGenericError
     {
         public int Code { get; set; }
 

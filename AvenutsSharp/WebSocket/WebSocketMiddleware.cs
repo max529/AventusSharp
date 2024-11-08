@@ -1,5 +1,6 @@
 ﻿using AventusSharp.Routes;
 using AventusSharp.Routes.Request;
+using AventusSharp.Tools;
 using AventusSharp.WebSocket.Attributes;
 using AventusSharp.WebSocket.Event;
 using Microsoft.AspNetCore.Http;
@@ -56,28 +57,28 @@ namespace AventusSharp.WebSocket
                 await endpoint.Value.Stop();
             }
         }
-        public static VoidWithWsError Register()
+        public static VoidWithError Register()
         {
             Assembly? entry = Assembly.GetEntryAssembly();
             if (entry != null)
             {
                 return Register(entry);
             }
-            VoidWithWsError result = new VoidWithWsError();
+            VoidWithError result = new VoidWithError();
             result.Errors.Add(new WsError(WsErrorCode.CantDefineAssembly, "Can't determine the entry assembly"));
             return result;
         }
 
-        public static VoidWithWsError Register(Assembly assembly)
+        public static VoidWithError Register(Assembly assembly)
         {
             List<Type> typesEndpoint = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IWsEndPoint))).ToList();
             List<Type> typesRoute = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IWsRoute))).ToList();
             return Register(typesEndpoint, typesRoute);
         }
 
-        public static VoidWithWsError Register(IEnumerable<Type> typesEndpoint, IEnumerable<Type> typesRoute)
+        public static VoidWithError Register(IEnumerable<Type> typesEndpoint, IEnumerable<Type> typesRoute)
         {
-            VoidWithWsError result;
+            VoidWithError result;
             result = LoadConfig();
             if (!result.Success)
             {
@@ -313,7 +314,7 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        private static VoidWithWsError LoadConfig()
+        private static VoidWithError LoadConfig()
         {
             VoidWithWsError result = new();
             if (!configLoaded)
@@ -327,7 +328,7 @@ namespace AventusSharp.WebSocket
                     result.Errors.Add(new WsError(WsErrorCode.ConfigError, e));
                 }
             }
-            return result;
+            return result.ToGeneric();
         }
 
         public static string PrepareUrl(string urlPattern, Dictionary<string, WebSocketRouterParameterInfo> @params, object o, bool isEvent)

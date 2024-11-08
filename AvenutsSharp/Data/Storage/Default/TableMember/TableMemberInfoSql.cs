@@ -46,6 +46,8 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 return DbType.Double;
             if (type == typeof(string))
                 return DbType.String;
+            if (type == typeof(char))
+                return DbType.String;
             if (type == typeof(bool))
                 return DbType.Boolean;
             if (type == typeof(DateTime))
@@ -125,6 +127,25 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             {
                 isNullable = true;
                 type = type.GetGenericArguments()[0];
+            }
+            else
+            {
+                if (memberInfo is PropertyInfo propertyInfo)
+                {
+                    NullabilityInfo info =  new NullabilityInfoContext().Create(propertyInfo);
+                    if (info.WriteState == NullabilityState.Nullable || info.ReadState == NullabilityState.Nullable)
+                    {
+                        isNullable = true;
+                    }
+                }
+                else if (memberInfo is FieldInfo fieldInfo)
+                {
+                    NullabilityInfo info =  new NullabilityInfoContext().Create(fieldInfo);
+                    if (info.WriteState == NullabilityState.Nullable || info.ReadState == NullabilityState.Nullable)
+                    {
+                        isNullable = true;
+                    }
+                }
             }
             bool isList = type.GetInterfaces().Contains(typeof(IList));
             bool isDico = type.GetInterfaces().Contains(typeof(IDictionary));
@@ -293,14 +314,14 @@ namespace AventusSharp.Data.Storage.Default.TableMember
                 IsAutoIncrement = true;
                 return true;
             }
-            if (attribute.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute")
-            {
-                // use it to handle null on string
-                // by default a string can be null so the compiler won't change the type but add an attribute
-                IsNullable = true;
-                IsNullByAttribute = true;
-                return true;
-            }
+            // if (attribute.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute")
+            // {
+            //     // use it to handle null on string
+            //     // by default a string can be null so the compiler won't change the type but add an attribute
+            //     IsNullable = true;
+            //     IsNullByAttribute = true;
+            //     return true;
+            // }
             if (attribute is Attributes.Nullable)
             {
                 IsNullable = true;

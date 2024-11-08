@@ -13,6 +13,7 @@ namespace AventusSharp.Routes
         CantGetValueFromBody,
         CantMoveFile,
         CantCreateFolders,
+        RouteAlreadyExist,
     }
     public class RouteError : GenericError<RouteErrorCode>
     {

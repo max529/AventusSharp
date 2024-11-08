@@ -35,23 +35,25 @@ namespace AventusSharp.Routes
             return routesInfo.Values.ToList();
         }
 
-        public static void Register()
+        public static VoidWithError Register()
         {
             Assembly? entry = Assembly.GetEntryAssembly();
             if (entry != null)
             {
-                Register(entry);
+                return Register(entry);
             }
+            return new VoidWithError();
         }
 
-        public static void Register(Assembly assembly)
+        public static VoidWithError Register(Assembly assembly)
         {
             List<Type> types = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IRoute))).ToList();
-            Register(types);
+            return Register(types);
         }
 
-        public static void Register(IEnumerable<Type> types)
+        public static VoidWithError Register(IEnumerable<Type> types)
         {
+            VoidWithRouteError result = new VoidWithRouteError();
             LoadConfig();
             Func<string, Dictionary<string, RouterParameterInfo>, Type, MethodInfo, Regex> transformPattern = config.transformPattern ?? PrepareUrl;
 
@@ -154,18 +156,20 @@ namespace AventusSharp.Routes
                                         if (config.PrintRoute)
                                             Console.WriteLine("Add http : " + info.ToString());
                                         RouteInfo otherInfo = routesInfo[info.UniqueKey];
-                                        throw new Exception(info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")");
+                                        result.Errors.Add(new RouteError(RouteErrorCode.RouteAlreadyExist, info.ToString() + " is already added from " + otherInfo.action.Name + " (" + otherInfo.action.DeclaringType?.Assembly.FullName + ")"));
                                     }
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine(e);
+                                    result.Errors.Add(new RouteError(RouteErrorCode.UnknowError, e));
                                 }
                             }
                         }
                     }
                 }
             }
+
+            return result.ToGeneric();
         }
 
         public static void Inject(object o)
@@ -381,6 +385,10 @@ namespace AventusSharp.Routes
                             else if (o is byte[] bytes)
                             {
                                 await new ByteResponse(bytes).send(context, routerInfo.router);
+                            }
+                            else if (o is string txt)
+                            {
+                                await new TextResponse(txt).send(context, routerInfo.router);
                             }
                             else
                             {
