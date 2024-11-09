@@ -235,7 +235,7 @@ namespace AventusSharp.Data.Storage.Mysql
             if (dbType == DbType.Date) { return "date"; }
             if (dbType == DbType.String)
             {
-                if (tableMember is TableMemberInfoSqlBasic basic && basic.SizeAttr != null)
+                if (tableMember is ITableMemberInfoSizable basic && basic.SizeAttr != null)
                 {
                     if (basic.SizeAttr.SizeType == null) return "varchar(" + basic.SizeAttr.Max + ")";
                     else if (basic.SizeAttr.SizeType == SizeEnum.MaxVarChar) return "TEXT";

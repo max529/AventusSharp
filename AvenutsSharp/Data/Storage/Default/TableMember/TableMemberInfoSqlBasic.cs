@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace AventusSharp.Data.Storage.Default.TableMember
 {
-    public class TableMemberInfoSqlBasic : TableMemberInfoSql, ITableMemberInfoSqlWritable
+    public class TableMemberInfoSqlBasic : TableMemberInfoSql, ITableMemberInfoSqlWritable, ITableMemberInfoSizable
     {
         public DbType SqlType { get; protected set; } = DbType.String;
 

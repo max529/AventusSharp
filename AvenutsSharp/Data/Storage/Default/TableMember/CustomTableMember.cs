@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Reflection;
+using AventusSharp.Data.Attributes;
 using AventusSharp.Tools;
 
 namespace AventusSharp.Data.Storage.Default.TableMember
@@ -19,16 +20,16 @@ namespace AventusSharp.Data.Storage.Default.TableMember
     {
         public CustomTableMemberType() : base(typeof(T))
         {
-            
+
         }
     }
-    
-    
-    public abstract class CustomTableMember : TableMemberInfoSql, ITableMemberInfoSqlWritable
+
+
+    public abstract class CustomTableMember : TableMemberInfoSql, ITableMemberInfoSqlWritable, ITableMemberInfoSizable
     {
         public DbType SqlType { get; protected set; } = DbType.String;
 
-
+        public Size? SizeAttr { get; protected set; }
         public CustomTableMember(MemberInfo? memberInfo, TableInfo tableInfo, bool isNullable) : base(memberInfo, tableInfo, isNullable)
         {
         }
@@ -55,6 +56,20 @@ namespace AventusSharp.Data.Storage.Default.TableMember
             return result;
         }
 
+        protected override bool ParseAttribute(Attribute attribute)
+        {
+            if (base.ParseAttribute(attribute))
+            {
+                return true;
+            }
+
+            if (attribute is Size sizeAttr)
+            {
+                SizeAttr = sizeAttr;
+                return true;
+            }
+            return false;
+        }
     }
 
 }

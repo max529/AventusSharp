@@ -254,10 +254,6 @@ namespace AventusSharp.Data.Manager.DB
                 alreadyAdded = false;
                 onParameter = false;
             }
-            if (m.Member.Name == "birthday")
-            {
-                Console.WriteLine("in");
-            }
             if (_dateTypes.Contains(m.Type))
             {
                 if (pathes.Count > 0)

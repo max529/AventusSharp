@@ -531,19 +531,16 @@ namespace AventusSharp.Data
                 foreach (PropertyInfo property in properties)
                 {
                     DataMemberInfo memberInfo = new(property);
-                    if (!TypeTools.IsPrimitiveType(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
+                    ForeignKey? foreignKeyAttr = memberInfo.GetAttribute<ForeignKey>(false);
+                    if (foreignKeyAttr != null)
+                    {
+                        AddDataDependance(dataType, foreignKeyAttr.Type, memberInfo.Name);
+                    }
+                    else if (!TypeTools.IsPrimitiveType(memberInfo.Type) && memberInfo.GetAttribute<IAvoidDependance>(false) == null)
                     {
                         AddDataDependance(dataType, memberInfo.Type, memberInfo.Name);
                     }
-                    else
-                    {
-                        ForeignKey? foreignKeyAttr = memberInfo.GetAttribute<ForeignKey>(false);
-                        if (foreignKeyAttr != null)
-                        {
-                            AddDataDependance(dataType, foreignKeyAttr.Type, memberInfo.Name);
-                        }
 
-                    }
                     info.membersInfo.Add(memberInfo.Name, memberInfo);
                 }
 

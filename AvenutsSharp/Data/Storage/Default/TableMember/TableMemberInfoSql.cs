@@ -19,6 +19,9 @@ namespace AventusSharp.Data.Storage.Default.TableMember
     {
         public DbType SqlType { get; }
     }
+    public interface ITableMemberInfoSizable {
+        public Size? SizeAttr { get; }
+    }
     public interface ITableMemberInfoSqlLinkSingle : ITableMemberInfoSqlLink, ITableMemberInfoSqlWritable
     {
 
