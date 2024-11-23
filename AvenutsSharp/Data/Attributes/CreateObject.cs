@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AventusSharp.Tools.Attributes
+namespace AventusSharp.Data.Attributes
 {
     /// <summary>
     /// Set it over an Foreignkey to create the object field linked to the id during export to AventusJs

@@ -10,6 +10,7 @@ using AventusSharp.Routes.Form;
 using AventusSharp.Routes.Request;
 using AventusSharp.Routes.Response;
 using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Scriban.Syntax;
@@ -105,6 +106,7 @@ namespace AventusSharp.Routes
                         List<string> routes = new List<string>();
                         List<Attribute> methodsAttribute = method.GetCustomAttributes().ToList();
                         List<MethodType> methodsToUse = new List<MethodType>();
+                        bool canUse = true;
                         foreach (Attribute methodAttribute in methodsAttribute)
                         {
                             if (methodAttribute is Attributes.Path pathAttr)
@@ -120,7 +122,12 @@ namespace AventusSharp.Routes
                             else if (methodAttribute is Put) { methodsToUse.Add(MethodType.Put); }
                             else if (methodAttribute is Options) { methodsToUse.Add(MethodType.Options); }
                             else if (methodAttribute is Delete) { methodsToUse.Add(MethodType.Delete); }
+                            else if (methodAttribute is NoExport)
+                            {
+                                canUse = false;
+                            }
                         }
+                        if (!canUse) continue;
                         if (methodsToUse.Count == 0)
                         {
                             methodsToUse.Add(MethodType.Get);
