@@ -79,7 +79,7 @@ namespace CSharpToTypescript
         public string parent = "Aventus.HttpRouter";
         public string? parentFile;
         [JsonProperty("namespace")]
-        public string? _namespace;
+        public string? _namespace = "Routes";
     }
 
     public class ProjectConfigWsEndpoint
@@ -90,7 +90,6 @@ namespace CSharpToTypescript
         public bool? useHttps;
         public string parent = "AventusSharp.WebSocket.EndPoint";
         public string? parentFile;
-
     }
     #endregion
 

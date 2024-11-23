@@ -7,7 +7,7 @@ using System;
 namespace AventusSharp.WebSocket
 {
 
-    [Typescript]
+    [Export]
     public enum WsErrorCode
     {
         UnknowError,

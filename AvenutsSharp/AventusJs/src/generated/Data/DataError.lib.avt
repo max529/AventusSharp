@@ -1,4 +1,5 @@
 import { VoidWithError, ResultWithError } from '../Tools/ResultWithError.lib.avt';
+import { SharpClass } from '../../Data/SharpClass.lib.avt';
 
 namespace Data {
 
@@ -60,7 +61,7 @@ namespace Data {
 	}
 
 	@Convertible()
-	export class FieldErrorInfo  {
+	export class FieldErrorInfo extends SharpClass  {
 		public static get Fullname(): string { return "AventusSharp.Data.FieldErrorInfo, AventusSharp"; }
 		public Name!: string;
 	}

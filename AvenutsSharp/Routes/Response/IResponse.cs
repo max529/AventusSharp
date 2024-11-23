@@ -5,6 +5,6 @@ namespace AventusSharp.Routes.Response
 {
     public interface IResponse
     {
-        public Task send(HttpContext context, IRoute? from);
+        public Task send(HttpContext context, IRouter? from);
     }
 }

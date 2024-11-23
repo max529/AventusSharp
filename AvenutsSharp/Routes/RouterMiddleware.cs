@@ -18,7 +18,7 @@ namespace AventusSharp.Routes
 {
     public static class RouterMiddleware
     {
-        private static Dictionary<Type, IRoute> routerInstances = new Dictionary<Type, IRoute>();
+        private static Dictionary<Type, IRouter> routerInstances = new Dictionary<Type, IRouter>();
         private static Dictionary<string, RouteInfo> routesInfo = new Dictionary<string, RouteInfo>();
         private static Action<RouterConfig> configAction = (config) => { };
         private static bool configLoaded = false;
@@ -47,7 +47,7 @@ namespace AventusSharp.Routes
 
         public static VoidWithError Register(Assembly assembly)
         {
-            List<Type> types = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IRoute))).ToList();
+            List<Type> types = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IRouter))).ToList();
             return Register(types);
         }
 
@@ -66,7 +66,7 @@ namespace AventusSharp.Routes
 
                 if (!t.IsAbstract)
                 {
-                    IRoute? routerTemp = (IRoute?)Activator.CreateInstance(t);
+                    IRouter? routerTemp = (IRouter?)Activator.CreateInstance(t);
                     if (routerTemp != null)
                     {
                         routerInstances[t] = routerTemp;
@@ -81,7 +81,6 @@ namespace AventusSharp.Routes
                             prefix = prefixAttr.txt;
                         }
                     }
-
                     List<MethodInfo> methods = t.GetMethods()
                                                 //.Where(p => p.GetCustomAttributes().Where(p1 => p1 is Attributes.Path).Count() > 0)
                                                 .ToList();
@@ -128,7 +127,7 @@ namespace AventusSharp.Routes
                         }
                         if (routes.Count == 0)
                         {
-                            string defaultName = Tools.GetDefaultMethodUrl(method);
+                            string defaultName = prefix + Tools.GetDefaultMethodUrl(method);
                             routes.Add(defaultName);
                         }
                         foreach (string route in routes)
@@ -175,6 +174,22 @@ namespace AventusSharp.Routes
         public static void Inject(object o)
         {
             injected[o.GetType()] = o;
+        }
+        public static void Inject(Type type, object o)
+        {
+            injected[type] = o;
+        }
+        public static void Inject<T>(T o) where T : notnull
+        {
+            injected[o.GetType()] = o;
+        }
+        public static void Inject<T, U>() where T : notnull where U : T
+        {
+            object? o = Activator.CreateInstance(typeof(U));
+            if (o != null)
+                injected[typeof(T)] = o;
+            else
+                Console.WriteLine("Can't create " + typeof(U));
         }
         public static Regex PrepareUrl(string urlPattern, Dictionary<string, RouterParameterInfo> @params, Type t, MethodInfo methodInfo)
         {

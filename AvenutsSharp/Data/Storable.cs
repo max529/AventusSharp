@@ -39,7 +39,7 @@ namespace AventusSharp.Data
     }
 
     [ForceInherit]
-    [NoTypescript]
+    [NoExport]
     public abstract class StorableTimestamp<T> : Storable<T>, IStorableTimestamp where T : IStorableTimestamp
     {
         public DateTime CreatedDate { get; set; }
@@ -47,7 +47,7 @@ namespace AventusSharp.Data
     }
 
     [ForceInherit]
-    [NoTypescript]
+    [NoExport]
     public abstract class Storable<T> : IStorable where T : IStorable
     {
 

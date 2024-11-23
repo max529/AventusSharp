@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket
 {
-    public abstract class StorableWsRoute<T> : WsRoute where T : IStorable
+    public abstract class StorableWsRoute<T> : WsRouter where T : IStorable
     {
 
         protected IGenericDM<T>? DM;

@@ -11,7 +11,7 @@ namespace AventusSharp.Routes
         public Regex pattern;
         public MethodType method;
         public MethodInfo action;
-        public IRoute router;
+        public IRouter router;
         public int nbParamsFunction;
         public Dictionary<string, RouterParameterInfo> parameters = new Dictionary<string, RouterParameterInfo>();
         public string UniqueKey
@@ -19,7 +19,7 @@ namespace AventusSharp.Routes
             get => pattern.ToString() + "||" + method.ToString();
         }
 
-        public RouteInfo(Regex pattern, MethodType method, MethodInfo action, IRoute router, int nbParamsFunction)
+        public RouteInfo(Regex pattern, MethodType method, MethodInfo action, IRouter router, int nbParamsFunction)
         {
             this.pattern = pattern;
             this.method = method;

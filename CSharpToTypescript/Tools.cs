@@ -19,14 +19,14 @@ namespace CSharpToTypescript
             List<AttributeData> attrs = type.GetAttributes().ToList();
             if (defaultValue)
             {
-                if (attrs.Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(NoTypescript).FullName) != null)
+                if (attrs.Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(NoExport).FullName) != null)
                 {
                     return false;
                 }
             }
             else
             {
-                if (attrs.Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(Typescript).FullName) != null)
+                if (attrs.Find(p => p.AttributeClass != null && p.AttributeClass.ToString() == typeof(Export).FullName) != null)
                 {
                     return true;
                 }

@@ -28,7 +28,7 @@ namespace CSharpToTypescript.Container
         {
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.genericError, fullname, result);
         }

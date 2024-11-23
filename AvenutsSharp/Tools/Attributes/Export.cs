@@ -3,24 +3,24 @@
 namespace AventusSharp.Tools.Attributes
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Enum | AttributeTargets.Interface)]
-    public class Typescript : Attribute
+    public class Export : Attribute
     {
         public string? Namespace;
         public bool? Internal;
 
-        public Typescript() { }
+        public Export() { }
 
-        public Typescript(string _namespace)
+        public Export(string _namespace)
         {
             Namespace = _namespace;
         }
 
-        public Typescript(bool _internal)
+        public Export(bool _internal)
         {
             Internal = _internal;
         }
 
-        public Typescript(string _namespace, bool _internal)
+        public Export(string _namespace, bool _internal)
         {
             Namespace = _namespace;
             Internal = _internal;
@@ -28,7 +28,7 @@ namespace AventusSharp.Tools.Attributes
     }
 
     [AttributeUsage(AttributeTargets.All)]
-    public class NoTypescript : Attribute
+    public class NoExport : Attribute
     {
 
     }

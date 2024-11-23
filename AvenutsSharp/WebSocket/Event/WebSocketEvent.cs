@@ -13,7 +13,7 @@ namespace AventusSharp.WebSocket.Event
     {
 
     }
-    [NoTypescript]
+    [NoExport]
     public abstract class WebSocketEvent : IWebSocketEvent
     {
         protected WsEndPoint? endPoint { get; set; }

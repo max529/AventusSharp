@@ -8,11 +8,11 @@ namespace WebSocket {
     export abstract class Connection {
 
         public static Debug: boolean = false;
-        private options: Required<ConnectionOptions>;
-        private waitingList: { [uuid: string]: (channel: string, data: any) => void; } = {};
-        private memoryBeforeOpen: SocketSendMessageOptions[] = [];
-        private socket?: Socket;
-        private actionGuard: Aventus.ActionGuard = new Aventus.ActionGuard();
+        protected options: Required<ConnectionOptions>;
+        protected waitingList: { [uuid: string]: (channel: string, data: any) => void; } = {};
+        protected memoryBeforeOpen: SocketSendMessageOptions[] = [];
+        protected socket?: Socket;
+        protected actionGuard: Aventus.ActionGuard = new Aventus.ActionGuard();
 
         /**
          * Create a singleton
@@ -46,7 +46,7 @@ namespace WebSocket {
         /**
          * Configure a new Websocket
          */
-        private _configure(options: ConnectionOptions = {}): Required<ConnectionOptions> {
+        protected _configure(options: ConnectionOptions = {}): Required<ConnectionOptions> {
 
             if(!options.host) {
                 options.host = window.location.hostname;
@@ -80,10 +80,21 @@ namespace WebSocket {
                 options.sendPing = undefined;
             }
 
+            if(options.logPrefix === undefined) {
+                options.logPrefix = "";
+            }
+
             return options as Required<ConnectionOptions>;
         }
 
-
+        private getUrl() {
+            let protocol = "ws";
+            if(this.options.useHttps) {
+                protocol = "wss";
+            }
+            let url = protocol + "://" + this.options.host + ":" + this.options.port + this.options.socketName;
+            return url;
+        }
 
 
         /**
@@ -125,7 +136,7 @@ namespace WebSocket {
             }
         }
 
-        private openCallback: ((isOpen: boolean) => void) | undefined;
+        protected openCallback: ((isOpen: boolean) => void) | undefined;
         /**
          * Try to open the websocket
          */
@@ -133,12 +144,8 @@ namespace WebSocket {
             return this.actionGuard.run(["open"], () => {
                 return new Promise<boolean>((resolve) => {
                     try {
-                        let protocol = "ws";
-                        if(this.options.useHttps) {
-                            protocol = "wss";
-                        }
-                        let url = protocol + "://" + this.options.host + ":" + this.options.port + this.options.socketName;
-                        this.log(url);
+                        let url = this.getUrl();
+                        this.log("Opening " + url);
                         this.openCallback = (isOpen) => {
                             resolve(isOpen);
                         };
@@ -159,7 +166,7 @@ namespace WebSocket {
 
         }
 
-        private jsonReplacer(key: string, value: any) {
+        protected jsonReplacer(key: string, value: any) {
             if(this[key] instanceof Date) {
                 return Aventus.DateConverter.converter.toString(this[key]);
             }
@@ -307,13 +314,17 @@ namespace WebSocket {
             clearInterval(this.sendPingTimeout);
         }
 
-        private _onOpen() {
+        protected _onOpen() {
             if(this.socket?.isReady()) {
                 if(this.openCallback) {
                     this.openCallback(true);
                     this.openCallback = undefined;
                 }
-                this.log('Connection successfully established !' + this.options.host + ":" + this.options.port);
+                let protocol = "ws";
+                if(this.options.useHttps) {
+                    protocol = "wss";
+                }
+                this.log(`Connection successfully established to ${this.getUrl()}!`);
                 this.onOpen.trigger([]);
 
                 for(let i = 0; i < this.memoryBeforeOpen.length; i++) {
@@ -332,9 +343,9 @@ namespace WebSocket {
             }
         }
 
-        private errorOccur: boolean = false;
+        protected errorOccur: boolean = false;
 
-        private _onError(event: Event) {
+        protected _onError(event: Event) {
             this.errorOccur = true;
             if(this.openCallback) {
                 this.openCallback(false);
@@ -345,7 +356,7 @@ namespace WebSocket {
             this.onError.trigger([event]);
         }
 
-        private _onClose(event: Event) {
+        protected _onClose(event: Event) {
             this.stopPing();
             if(this.errorOccur) {
                 this.errorOccur = false;
@@ -369,7 +380,7 @@ namespace WebSocket {
             }
         }
 
-        private onMessage(event: MessageEvent<any>) {
+        protected onMessage(event: MessageEvent<any>) {
             let response: {
                 channel: string,
                 data: string,
@@ -416,15 +427,16 @@ namespace WebSocket {
                 const hours = (now.getHours()).toLocaleString(undefined, { minimumIntegerDigits: 2 });
                 const minutes = (now.getMinutes()).toLocaleString(undefined, { minimumIntegerDigits: 2 });
                 const seconds = (now.getSeconds()).toLocaleString(undefined, { minimumIntegerDigits: 2 });
+                const prefix = this.options.logPrefix ? `[${this.options.logPrefix}] ` : '';
                 if(message instanceof Object) {
                     let cloneMessage = JSON.parse(JSON.stringify(message, this.jsonReplacer));
                     if(cloneMessage.data && typeof cloneMessage.data == 'string') {
                         cloneMessage.data = JSON.parse(cloneMessage.data);
                     }
-                    console.log(`[WEBSOCKET] [${hours}:${minutes}:${seconds}]: `, cloneMessage);
+                    console.log(`${prefix}[${hours}:${minutes}:${seconds}]: `, cloneMessage);
                 }
                 else {
-                    console.log(`[WEBSOCKET] [${hours}:${minutes}:${seconds}]: `, message);
+                    console.log(`${prefix}[${hours}:${minutes}:${seconds}]: `, message);
                 }
             }
         }

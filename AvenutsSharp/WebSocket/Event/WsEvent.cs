@@ -28,7 +28,7 @@ namespace AventusSharp.WebSocket.Event
         }
     }
 
-    [NoTypescript]
+    [NoExport]
     public abstract class WsEvent<T> : WebSocketEvent
     {
         public WsEvent()
@@ -48,7 +48,7 @@ namespace AventusSharp.WebSocket.Event
                 WsEndPoint endPoint;
                 string path;
                 string basePath;
-                WebSocketAttributeAnalyze infoMethod = WebSocketMiddleware.PrepareAttributes(GetType().GetCustomAttributes());
+                WebSocketAttributeAnalyze infoMethod = WebSocketMiddleware.PrepareAttributes(GetType().GetCustomAttributes(), "");
                 if (infoMethod.endPoints.Count == 0)
                 {
                     endPoint = WebSocketMiddleware.GetMain();

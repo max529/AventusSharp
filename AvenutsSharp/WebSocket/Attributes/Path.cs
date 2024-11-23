@@ -8,6 +8,14 @@ namespace AventusSharp.WebSocket.Attributes
         public string pattern { get; private set; }
         public Path(string pattern)
         {
+            if (!pattern.StartsWith("/"))
+            {
+                pattern = "/" + pattern;
+            }
+            if (pattern.EndsWith("/"))
+            {
+                pattern = pattern.TrimEnd('/');
+            }
             this.pattern = pattern;
         }
     }

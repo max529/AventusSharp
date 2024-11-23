@@ -24,7 +24,7 @@ namespace AventusSharp.Routes.Response
             txt = json;
         }
 
-        public async Task send(HttpContext context, IRoute? from = null)
+        public async Task send(HttpContext context, IRouter? from = null)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(txt);
             context.Response.ContentType = "application/json";

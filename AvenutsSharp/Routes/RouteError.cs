@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace AventusSharp.Routes
 {
-    [Typescript]
+    [Export]
     public enum RouteErrorCode
     {
         UnknowError,

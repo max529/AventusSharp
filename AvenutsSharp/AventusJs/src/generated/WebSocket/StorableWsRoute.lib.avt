@@ -1,28 +1,27 @@
-import { Route, type WsRouteSendOptions, type ExtractResponse } from '../../WebSocket/Route.lib.avt';
-import { EndPoint } from '../../WebSocket/EndPoint.lib.avt';
+import { Router, type WsRouteSendOptions, type ExtractResponse } from '../../WebSocket/Router.lib.avt';
 import { type SocketSendMessageOptions } from '../../WebSocket/ISocket.lib.avt';
+import { WsEvent } from '../../WebSocket/WsEvent.lib.avt';
+import { EndPoint } from '../../WebSocket/EndPoint.lib.avt';
 import { ResultWithError } from '../Tools/ResultWithError.lib.avt';
-import { WsEvent } from "../../WebSocket/Event.lib.avt";
 
 namespace WebSocket {
 
-	export abstract class StorableWsRoute<T extends Aventus.IData> extends Route {
+	export type StorableWsRoute__Routes<T extends Aventus.IData> = {
+		GetAll: StorableWsRoute_GetAll<T>,
+		Create: StorableWsRoute_Create<T>,
+		CreateMany: StorableWsRoute_CreateMany<T>,
+		GetById: StorableWsRoute_GetById<T>,
+		GetByIds: StorableWsRoute_GetByIds<T>,
+		Update: StorableWsRoute_Update<T>,
+		UpdateMany: StorableWsRoute_UpdateMany<T>,
+		Delete: StorableWsRoute_Delete<T>,
+		DeleteMany: StorableWsRoute_DeleteMany<T>,
+	};
+	export abstract class StorableWsRoute<T extends Aventus.IData, __Route extends StorableWsRoute__Routes<T> = StorableWsRoute__Routes<T>> extends Router <__Route>{
 		
-		public events: {
-			GetAll: StorableWsRoute_GetAll<T>,
-			Create: StorableWsRoute_Create<T>,
-			CreateMany: StorableWsRoute_CreateMany<T>,
-			GetById: StorableWsRoute_GetById<T>,
-			GetByIds: StorableWsRoute_GetByIds<T>,
-			Update: StorableWsRoute_Update<T>,
-			UpdateMany: StorableWsRoute_UpdateMany<T>,
-			Delete: StorableWsRoute_Delete<T>,
-			DeleteMany: StorableWsRoute_DeleteMany<T>,
-		}
-		
-		public constructor(endpoint?: EndPoint) {
-			super(endpoint);
-			this.events = {
+		 protected override defineEvents(): Partial<__Route> {
+			return {
+				...super.defineEvents(),
 				GetAll: new StorableWsRoute_GetAll<T>(this.endpoint, this.getPrefix, this.StorableName),
 				Create: new StorableWsRoute_Create<T>(this.endpoint, this.getPrefix, this.StorableName),
 				CreateMany: new StorableWsRoute_CreateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
@@ -32,12 +31,9 @@ namespace WebSocket {
 				UpdateMany: new StorableWsRoute_UpdateMany<T>(this.endpoint, this.getPrefix, this.StorableName),
 				Delete: new StorableWsRoute_Delete<T>(this.endpoint, this.getPrefix, this.StorableName),
 				DeleteMany: new StorableWsRoute_DeleteMany<T>(this.endpoint, this.getPrefix, this.StorableName),
-			};
-			
-			for(let key in this.events) {
-				this.events[key].init();
 			}
 		}
+		
 
 		public async GetAll(options: WsRouteSendOptions = {}): Promise<ExtractResponse<StorableWsRoute_GetAll<T>>> {
 			const info: SocketSendMessageOptions = {
@@ -180,7 +176,7 @@ namespace WebSocket {
 		 * @inheritdoc
 		 */
 		protected override path(): string {
-			return `${this.getPrefix()}/${this.StorableName()}s`;
+			return `${this.getPrefix()}/${this.StorableName()}/getbyids`;
 		}
 	}
 	 
@@ -224,9 +220,9 @@ namespace WebSocket {
 			return `${this.getPrefix()}/${this.StorableName()}/CreateMany`;
 		}
 		public StorableName: () => string;
-		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+		public constructor(endpoint: EndPoint, getPrefix?: () => string, StorableName?: () => string) {
 			super(endpoint, getPrefix);
-			this.StorableName = StorableName
+			this.StorableName = StorableName ?? (() => "")
 		}
 	}
 
@@ -238,9 +234,9 @@ namespace WebSocket {
 			return `${this.getPrefix()}/${this.StorableName()}/UpdateMany`;
 		}
 		public StorableName: () => string;
-		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+		public constructor(endpoint: EndPoint, getPrefix?: () => string, StorableName?: () => string) {
 			super(endpoint, getPrefix);
-			this.StorableName = StorableName
+			this.StorableName = StorableName ?? (() => "")
 		}
 	}
 
@@ -252,9 +248,9 @@ namespace WebSocket {
 			return `${this.getPrefix()}/${this.StorableName()}/DeleteMany`;
 		}
 		public StorableName: () => string;
-		public constructor(endpoint: EndPoint, getPrefix: () => string, StorableName: () => string) {
+		public constructor(endpoint: EndPoint, getPrefix?: () => string, StorableName?: () => string) {
 			super(endpoint, getPrefix);
-			this.StorableName = StorableName
+			this.StorableName = StorableName ?? (() => "")
 		}
 	}
 

@@ -14,7 +14,7 @@ namespace CSharpToTypescript.Container
         public static bool Is(INamedTypeSymbol type, string fileName, out BaseContainer? result)
         {
             result = null;
-            if (Tools.HasAttribute<Typescript>(type))
+            if (Tools.HasAttribute<Export>(type))
             {
                 result = new NormalClassContainer(type);
                 return true;
@@ -26,7 +26,7 @@ namespace CSharpToTypescript.Container
         {
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.normalClass, fullname, result);
         }

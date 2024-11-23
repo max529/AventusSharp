@@ -15,7 +15,7 @@ namespace AventusSharp.Routes.Response
         {
             this.viewName = viewName;
         }
-        public async Task send(HttpContext context, IRoute? from = null)
+        public async Task send(HttpContext context, IRouter? from = null)
         {
             string directory = RouterMiddleware.config.ViewDir(context, from);
             string path = Path.Combine(directory, viewName);
@@ -28,14 +28,14 @@ namespace AventusSharp.Routes.Response
                 byte[] bytes = File.ReadAllBytes(path) ?? Array.Empty<byte>();
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "text/html";
-                context.Response.Headers.Add("content-length", bytes.Length + "");
+                context.Response.Headers.Append("content-length", bytes.Length + "");
                 await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
             }
             else
             {
                 byte[] bytes = Encoding.ASCII.GetBytes("View " + path + " not found");
                 context.Response.StatusCode = 400;
-                context.Response.Headers.Add("content-length", bytes.Length + "");
+                context.Response.Headers.Append("content-length", bytes.Length + "");
                 await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
             }
         }

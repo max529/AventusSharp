@@ -24,7 +24,7 @@ namespace CSharpToTypescript.Container
         public static bool Is(INamedTypeSymbol type, string fileName, out BaseContainer? result)
         {
             result = null;
-            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IRoute>(p)) != null)
+            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IRouter>(p)) != null)
             {
                 if (Tools.ExportToTypesript(type, ProjectManager.Config.exportHttpRouteByDefault))
                 {
@@ -53,7 +53,7 @@ namespace CSharpToTypescript.Container
                 }
             }
 
-            if (routes.Count == 0 && realType.BaseType == typeof(Route))
+            if (routes.Count == 0 && realType.BaseType == typeof(Router))
             {
                 CanBeAdded = false;
                 return;
@@ -231,7 +231,7 @@ namespace CSharpToTypescript.Container
                 }
                 ParseFunctions(urlPattern, fcts);
             }
-            IRoute? routerTemp = (IRoute?)Activator.CreateInstance(realType);
+            IRouter? routerTemp = (IRouter?)Activator.CreateInstance(realType);
             foreach (string fct in fcts)
             {
                 MethodInfo? method = realType.GetMethod(fct, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -270,7 +270,7 @@ namespace CSharpToTypescript.Container
             }
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.httpRouter, fullname, result);
         }
@@ -329,7 +329,7 @@ namespace CSharpToTypescript.Container
             _method = methodTemp;
             canBeAdded = true;
 
-            if (method.GetCustomAttribute(typeof(NoTypescript)) != null)
+            if (method.GetCustomAttribute(typeof(NoExport)) != null)
             {
                 canBeAdded = false;
                 return;
@@ -340,10 +340,10 @@ namespace CSharpToTypescript.Container
             }
             LoadHttpMethod(method);
 
-            Attribute? attr = method.GetCustomAttribute(typeof(TypescriptName));
+            Attribute? attr = method.GetCustomAttribute(typeof(FctName));
             if (attr != null)
             {
-                this.name = ((TypescriptName)attr).name;
+                this.name = ((FctName)attr).name;
             }
 
             Dictionary<string, ParameterInfo> @params = method.GetParameters().ToDictionary(p => p.Name ?? "", p => p);
@@ -362,7 +362,7 @@ namespace CSharpToTypescript.Container
                         {
                             continue;
                         }
-                        if (Tools.HasAttribute<NoTypescript>(parameter))
+                        if (Tools.HasAttribute<NoExport>(parameter))
                         {
                             continue;
                         }
@@ -393,7 +393,7 @@ namespace CSharpToTypescript.Container
                 {
                     needRecheck = true;
                 }
-                else if(returnType == typeof(byte[]))
+                else if (returnType == typeof(byte[]))
                 {
                     typeContainer = typeof(ByteResponse);
                 }
@@ -562,7 +562,7 @@ namespace CSharpToTypescript.Container
                         }
                         else
                         {
-                            IRoute? routerTemp = (IRoute?)Activator.CreateInstance(@class);
+                            IRouter? routerTemp = (IRouter?)Activator.CreateInstance(@class);
                             object? o = methodTemp.Invoke(routerTemp, Array.Empty<object>());
                             if (o != null)
                             {
@@ -635,7 +635,7 @@ namespace CSharpToTypescript.Container
                     }
                     SymbolInfo temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(returnStatement.Expression);
                     bool isAwait = false;
-                    if(returnStatement.Expression is AwaitExpressionSyntax awaitExpressionSyntax)
+                    if (returnStatement.Expression is AwaitExpressionSyntax awaitExpressionSyntax)
                     {
                         temp = ProjectManager.Compilation.GetSemanticModel(node.SyntaxTree).GetSymbolInfo(awaitExpressionSyntax.Expression);
                         isAwait = true;
@@ -662,10 +662,10 @@ namespace CSharpToTypescript.Container
                         {
                             if (isAwait)
                             {
-                                if(methodSymbol.ReturnType is INamedTypeSymbol named)
+                                if (methodSymbol.ReturnType is INamedTypeSymbol named)
                                 {
                                     ImmutableArray<ITypeSymbol> arguments = named.TypeArguments;
-                                    if(arguments.Length == 1)
+                                    if (arguments.Length == 1)
                                     {
                                         AddTypeToListReturn(arguments[0]);
                                     }
@@ -750,6 +750,8 @@ namespace CSharpToTypescript.Container
             string fctDesc = BaseContainer.GetAccessibility(methodSymbol) + overrideTxt + "async " + name + "(" + @params + "): $resultType {";
             string request = "const request = new Aventus.HttpRequest(`${this.getPrefix()}" + route + "`, Aventus.HttpMethod." + this.httpMethods[0].ToUpper() + ");";
             string body = "";
+            string resultWithErrorType = parent.GetAventusTypeName("AventusSharp.Tools.ResultWithError");
+            string voidWithErrorType = parent.GetAventusTypeName("AventusSharp.Tools.VoidWithError");
             if (parametersBodyAndType.Count > 0)
             {
                 body = "request.setBody(" + bodyKey + ");";
@@ -759,19 +761,19 @@ namespace CSharpToTypescript.Container
             if (typeContainer == null)
             {
                 returnTxt = "return await request.queryVoid(this.router);";
-                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<" + voidWithErrorType + ">");
             }
             else if (typeContainer == typeof(Json))
             {
                 if (listReturns.Count == 0)
                 {
                     returnTxt = "return await request.queryVoid(this.router);";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<" + voidWithErrorType + ">");
                 }
                 else if (listReturns.Count == 1 && new Regex("Aventus\\.VoidWithError(<|$)").IsMatch(listReturns[0] ?? ""))
                 {
                     returnTxt = "return await request.queryVoid(this.router);";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.VoidWithError>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<" + voidWithErrorType + ">");
                 }
                 else
                 {
@@ -798,24 +800,24 @@ namespace CSharpToTypescript.Container
 
                     string typeReturn = string.Join(" | ", realTypes);
                     typeTxt = "type TypeResult = " + typeReturn + ";";
-                    fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<" + typeReturn + ">>");
+                    fctDesc = fctDesc.Replace("$resultType", "Promise<"+ resultWithErrorType + "<" + typeReturn + ">>");
                     returnTxt = "return await request.queryJSON<TypeResult>(this.router);";
                 }
 
             }
-            else if(typeContainer == typeof(ByteResponse))
+            else if (typeContainer == typeof(ByteResponse))
             {
-                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<Blob>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<"+ resultWithErrorType + "<Blob>>");
                 returnTxt = "return await request.queryBlob(this.router);";
             }
             else if (typeContainer == typeof(TextResponse))
             {
-                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<string>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<"+ resultWithErrorType + "<string>>");
                 returnTxt = "return await request.queryTxt(this.router);";
             }
             else
             {
-                fctDesc = fctDesc.Replace("$resultType", "Promise<AventusSharp.Tools.ResultWithError<string>>");
+                fctDesc = fctDesc.Replace("$resultType", "Promise<"+ resultWithErrorType + "<string>>");
                 returnTxt = "return await request.queryTxt(this.router);";
             }
 

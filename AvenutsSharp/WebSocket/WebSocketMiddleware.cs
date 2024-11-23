@@ -1,13 +1,10 @@
-﻿using AventusSharp.Routes;
-using AventusSharp.Routes.Request;
-using AventusSharp.Tools;
+﻿using AventusSharp.Tools;
+using AventusSharp.Tools.Attributes;
 using AventusSharp.WebSocket.Attributes;
-using AventusSharp.WebSocket.Event;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -16,7 +13,7 @@ namespace AventusSharp.WebSocket
 {
     public class WebSocketMiddleware
     {
-        private static Dictionary<Type, IWsRoute> routeInstances = new Dictionary<Type, IWsRoute>();
+        private static Dictionary<Type, IWsRouter> routeInstances = new Dictionary<Type, IWsRouter>();
         internal static readonly Dictionary<string, WsEndPoint> endPointInstances = new();
         private static WsEndPoint? mainEndPoint;
 
@@ -40,7 +37,22 @@ namespace AventusSharp.WebSocket
         {
             injected[o.GetType()] = o;
         }
-
+        public static void Inject(Type type, object o)
+        {
+            injected[type] = o;
+        }
+        public static void Inject<T>(T o) where T : notnull
+        {
+            injected[o.GetType()] = o;
+        }
+        public static void Inject<T, U>() where T : notnull where U : T
+        {
+            object? o = Activator.CreateInstance(typeof(U));
+            if (o != null)
+                injected[typeof(T)] = o;
+            else
+                Console.WriteLine("Can't create " + typeof(U));
+        }
         public static WebSocketConnection? GetConnection<T>(string sessionId) where T : WsEndPoint
         {
             WsEndPoint? endPoint = endPointInstances.Values.FirstOrDefault(p => p.GetType() == typeof(T));
@@ -72,7 +84,7 @@ namespace AventusSharp.WebSocket
         public static VoidWithError Register(Assembly assembly)
         {
             List<Type> typesEndpoint = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IWsEndPoint))).ToList();
-            List<Type> typesRoute = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IWsRoute))).ToList();
+            List<Type> typesRoute = assembly.GetTypes().Where(p => p.GetInterfaces().Contains(typeof(IWsRouter))).ToList();
             return Register(typesEndpoint, typesRoute);
         }
 
@@ -135,12 +147,18 @@ namespace AventusSharp.WebSocket
                     }
                 }
             }
+
+            if (endPointInstances.Count() == 1 && mainEndPoint == null)
+            {
+                mainEndPoint = endPointInstances.ElementAt(0).Value;
+            }
+
             return result;
         }
         private static void RegisterRoutes(IEnumerable<Type> typesRoute)
         {
             Func<string, Dictionary<string, WebSocketRouterParameterInfo>, object, bool, string> transformPattern = config.transformPattern ?? PrepareUrl;
-            Func<string, bool, Regex> transformPatternIntoRegex = config.transformPatternIntoRegex ?? PrepareRegex;
+            Func<string, Regex> transformPatternIntoRegex = config.transformPatternIntoRegex ?? PrepareRegex;
 
             foreach (Type t in typesRoute)
             {
@@ -154,7 +172,7 @@ namespace AventusSharp.WebSocket
                     continue;
                 }
 
-                IWsRoute? routeTemp = (IWsRoute?)Activator.CreateInstance(t);
+                IWsRouter? routeTemp = (IWsRouter?)Activator.CreateInstance(t);
                 if (routeTemp != null)
                 {
                     routeInstances[t] = routeTemp;
@@ -164,6 +182,7 @@ namespace AventusSharp.WebSocket
                 List<WsEndPoint> endpointsClass = new List<WsEndPoint>();
                 List<Attribute> routeAttributes = t.GetCustomAttributes().ToList();
                 Dictionary<Type, WsEndPoint> availables = endPointInstances.Values.ToDictionary(t => t.GetType(), t => t);
+                string prefix = "";
 
                 foreach (Attribute routeAttribute in routeAttributes)
                 {
@@ -177,6 +196,10 @@ namespace AventusSharp.WebSocket
                                 endpointsClass.Add(endpoint);
                             }
                         }
+                    }
+                    else if (routeAttribute is Prefix prefixAttr)
+                    {
+                        prefix = prefixAttr.txt;
                     }
                 }
 
@@ -201,7 +224,7 @@ namespace AventusSharp.WebSocket
                     }
 
                     List<Attribute> methodsAttribute = method.GetCustomAttributes().ToList();
-                    WebSocketAttributeAnalyze infoMethod = PrepareAttributes(methodsAttribute);
+                    WebSocketAttributeAnalyze infoMethod = PrepareAttributes(methodsAttribute, prefix);
 
                     if (!infoMethod.canUse) continue;
 
@@ -219,7 +242,7 @@ namespace AventusSharp.WebSocket
 
                     if (infoMethod.pathes.Count == 0)
                     {
-                        infoMethod.pathes.Add(Tools.GetDefaultMethodUrl(method));
+                        infoMethod.pathes.Add(prefix + Tools.GetDefaultMethodUrl(method));
                     }
 
                     foreach (string route in infoMethod.pathes)
@@ -227,7 +250,7 @@ namespace AventusSharp.WebSocket
                         Dictionary<string, WebSocketRouterParameterInfo> @params = fctParams.ToDictionary(p => p.name, p => p);
                         string urlPattern = route;
                         string url = transformPattern(urlPattern, @params, routeInstances[t], false);
-                        Regex regex = transformPatternIntoRegex(url, false);
+                        Regex regex = transformPatternIntoRegex(url);
 
                         foreach (IWsEndPoint endpointType in infoMethod.endPoints)
                         {
@@ -260,33 +283,34 @@ namespace AventusSharp.WebSocket
             }
         }
 
-        internal static WebSocketAttributeAnalyze PrepareAttributes(IEnumerable<object> attrs)
+        internal static WebSocketAttributeAnalyze PrepareAttributes(IEnumerable<object> attrs, string prefix)
         {
             WebSocketAttributeAnalyze info = new WebSocketAttributeAnalyze();
             Dictionary<Type, WsEndPoint> availables = endPointInstances.Values.ToDictionary(t => t.GetType(), t => t);
             foreach (object attr in attrs)
             {
-                PrepareAttributesPart(attr, info, availables);
+                PrepareAttributesPart(attr, info, availables, prefix);
             }
             return info;
         }
-        internal static WebSocketAttributeAnalyze PrepareAttributes(IEnumerable<Attribute> attrs)
+        internal static WebSocketAttributeAnalyze PrepareAttributes(IEnumerable<Attribute> attrs, string prefix)
         {
             WebSocketAttributeAnalyze info = new WebSocketAttributeAnalyze();
             Dictionary<Type, WsEndPoint> availables = endPointInstances.Values.ToDictionary(t => t.GetType(), t => t);
             foreach (object attr in attrs)
             {
-                PrepareAttributesPart(attr, info, availables);
+                PrepareAttributesPart(attr, info, availables, prefix);
             }
             return info;
         }
-        internal static void PrepareAttributesPart(object attr, WebSocketAttributeAnalyze info, Dictionary<Type, WsEndPoint> availables)
+        internal static void PrepareAttributesPart(object attr, WebSocketAttributeAnalyze info, Dictionary<Type, WsEndPoint> availables, string prefix)
         {
             if (attr is Path pathAttr)
             {
-                if (!info.pathes.Contains(pathAttr.pattern))
+                string pattern = prefix + pathAttr.pattern;
+                if (!info.pathes.Contains(pattern))
                 {
-                    info.pathes.Add(pathAttr.pattern);
+                    info.pathes.Add(pattern);
                 }
             }
             else if (attr is Attributes.EndPoint endPointAttr)
@@ -308,7 +332,7 @@ namespace AventusSharp.WebSocket
                 }
                 info.CustomFct = responseType.CustomFct;
             }
-            else if (attr is NotRoute)
+            else if (attr is NoExport)
             {
                 info.canUse = false;
             }
@@ -390,7 +414,7 @@ namespace AventusSharp.WebSocket
             return urlPattern;
         }
 
-        public static Regex PrepareRegex(string urlPattern, bool isEvent)
+        public static Regex PrepareRegex(string urlPattern)
         {
             if (!urlPattern.StartsWith("^"))
             {

@@ -72,10 +72,10 @@ namespace CSharpToTypescript.Container
             }
             this.realType = realType;
 
-            object? attr = this.realType.GetCustomAttributes(false).ToList().Find(p => p is Typescript);
+            object? attr = this.realType.GetCustomAttributes(false).ToList().Find(p => p is Export);
             if (attr != null)
             {
-                Typescript typescriptAttr = (Typescript)attr;
+                Export typescriptAttr = (Export)attr;
                 if (typescriptAttr.Namespace != null)
                 {
                     Namespace = typescriptAttr.Namespace;
@@ -181,6 +181,11 @@ namespace CSharpToTypescript.Container
             return GetTypeName(Tools.GetTypeSymbol(type), depth, genericExtendsConstraint);
         }
 
+        public string GetAventusTypeName(string type)
+        {
+            string result = applyReplacer(ProjectManager.Config.replacer.all, "", type) ?? "";
+            return CustomReplacer(null, "", result) ?? "";
+        }
         public virtual string GetTypeName(ISymbol type, int depth = 0, bool genericExtendsConstraint = false)
         {
             string name = "";
@@ -225,7 +230,7 @@ namespace CSharpToTypescript.Container
                 name = DetermineGenericType(namedType, name, depth, genericExtendsConstraint);
             }
             //name = Replacer(name);
-            if (isNullable)
+            if (isNullable && !name.EndsWith("?"))
             {
                 name += "?";
             }
@@ -326,9 +331,9 @@ namespace CSharpToTypescript.Container
             else if (fullName == typeof(DateTime).FullName) result = "Date";
             else if (fullName == typeof(IStorable).FullName) result = "Aventus.IData";
             else if (fullName == typeof(GenericError).FullName) result = "Aventus.GenericError";
-            else if (fullName == typeof(Route).FullName) result = "Aventus.HttpRoute";
+            else if (fullName == typeof(Router).FullName) result = "Aventus.HttpRoute";
             else if (fullName == typeof(WsEvent<>).FullName?.Split("`")[0]) result = "AventusSharp.WebSocket.WsEvent";
-            else if (fullName == typeof(WsRoute).FullName) result = "AventusSharp.WebSocket.Route";
+            else if (fullName == typeof(WsRouter).FullName) result = "AventusSharp.WebSocket.Router";
             else if (fullName == typeof(WsEndPoint).FullName) result = "AventusSharp.WebSocket.EndPoint";
             else if (fullName == typeof(HttpFile).FullName) result = "File";
             else if (fullName == typeof(List<>).FullName?.Split("`")[0] && type is INamedTypeSymbol namedType)
@@ -355,7 +360,7 @@ namespace CSharpToTypescript.Container
             result = applyReplacer(ProjectManager.Config.replacer.all, fullName, result) ?? "";
             return CustomReplacer(type, fullName, result) ?? "";
         }
-        protected virtual string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected virtual string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return result;
         }
@@ -376,7 +381,7 @@ namespace CSharpToTypescript.Container
         {
             foreach (KeyValuePair<string, ProjectConfigReplacerInfo> info in part.type)
             {
-                if (info.Key == fullname)
+                if (fullname != "" && info.Key == fullname)
                 {
                     result = info.Value.result;
                     if (!string.IsNullOrEmpty(info.Value.file))
@@ -412,7 +417,6 @@ namespace CSharpToTypescript.Container
                         string file = ProjectManager.Config.AbsoluteUrl(info.Value.file);
                         if (!importedFiles.ContainsKey(file))
                         {
-                            File.AppendAllText("D:\\debug.txt", file + "\r\n");
                             importedFiles[file] = new();
                         }
                         if (!importedFiles[file].Contains(result))

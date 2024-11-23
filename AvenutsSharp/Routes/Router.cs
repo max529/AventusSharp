@@ -2,12 +2,12 @@
 
 namespace AventusSharp.Routes
 {
-    public interface IRoute
+    public interface IRouter
     {
 
     }
-    [NoTypescript]
-    public abstract class Route: IRoute
+    [NoExport]
+    public abstract class Router: IRouter
     {
 
     }

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.Data
 {
-    [Typescript]
+    [Export]
     public enum DataErrorCode
     {
         DefaultDMGenericType,
@@ -75,7 +75,7 @@ namespace AventusSharp.Data
 
     }
 
-    [Typescript]
+    [Export]
     public class FieldErrorInfo
     {
         public string Name { get; set; }

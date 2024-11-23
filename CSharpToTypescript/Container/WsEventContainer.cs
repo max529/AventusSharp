@@ -235,7 +235,7 @@ namespace CSharpToTypescript.Container
                 string constructorTxt = "public constructor(endpoint"+ mark + ": " + endpointName + ", getPrefix?: () => string";
                 foreach (string fctToInject in fctsConstructor)
                 {
-                    constructorTxt += ", " + fctToInject + ": () => string";
+                    constructorTxt += ", " + fctToInject + "?: () => string";
                     AddTxt("public " + fctToInject + ": () => string;", result);
                 }
 
@@ -252,7 +252,7 @@ namespace CSharpToTypescript.Container
                 }
                 foreach (string fctToInject in fctsConstructor)
                 {
-                    AddTxt("this." + fctToInject + " = "+fctToInject, result);
+                    AddTxt("this." + fctToInject + " = "+fctToInject+" ?? (() => \"\")", result);
                 }
                 AddTxtClose("}", result);
             }
@@ -277,7 +277,7 @@ namespace CSharpToTypescript.Container
             return string.Join("\r\n", result);
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.wsEvent, fullname, result);
         }

@@ -14,7 +14,7 @@ namespace AventusSharp.Tools
         void Print();
         Exception GetException();
     }
-    [NoTypescript]
+    [NoExport]
     public class GenericError : IGenericError
     {
         public int Code { get; set; }
@@ -75,7 +75,7 @@ namespace AventusSharp.Tools
 
     }
 
-    [NoTypescript]
+    [NoExport]
     public abstract class GenericError<T> : GenericError where T : Enum
     {
         public new T Code { get; set; }

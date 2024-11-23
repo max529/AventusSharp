@@ -8,6 +8,14 @@ namespace AventusSharp.WebSocket.Attributes
         public string txt { get; private set; }
         public Prefix(string txt)
         {
+            if (!txt.StartsWith("/"))
+            {
+                txt = "/" + txt;
+            }
+            if (txt.EndsWith("/"))
+            {
+                txt = txt.TrimEnd('/');
+            }
             this.txt = txt;
         }
     }

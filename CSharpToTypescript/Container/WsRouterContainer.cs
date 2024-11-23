@@ -2,19 +2,14 @@
 using AventusSharp.Tools;
 using AventusSharp.WebSocket;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using AventusSharp.WebSocket.Attributes;
 using AventusSharp.WebSocket.Event;
 using Microsoft.AspNetCore.Http;
-using System.Linq;
-using AventusSharp.Routes.Attributes;
 using AventusSharp.Data;
-using System.Xml.Linq;
-using MySqlX.XDevAPI.Common;
-using System.Net;
 using EndPoint = AventusSharp.WebSocket.Attributes.EndPoint;
+using AventusSharp.Routes.Attributes;
 
 namespace CSharpToTypescript.Container
 {
@@ -23,7 +18,7 @@ namespace CSharpToTypescript.Container
         public static bool Is(INamedTypeSymbol type, string fileName, out BaseContainer? result)
         {
             result = null;
-            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IWsRoute>(p)) != null)
+            if (type.AllInterfaces.ToList().Find(p => Tools.IsSameType<IWsRouter>(p)) != null)
             {
                 if (Tools.ExportToTypesript(type, ProjectManager.Config.exportWsRouteByDefault))
                 {
@@ -37,6 +32,7 @@ namespace CSharpToTypescript.Container
 
         public string typescriptPath = "";
         public string fileName = "";
+        public string parentRoute = "";
         private List<WsRouteContainer> routes = new List<WsRouteContainer>();
         private List<Func<string>> additionalFcts = new();
         public List<LocalEventInfo> routeEvents = new();
@@ -52,8 +48,9 @@ namespace CSharpToTypescript.Container
 
                 if (symbol is IMethodSymbol methodSymbol && methodSymbol.MethodKind != MethodKind.Constructor && !methodSymbol.IsExtern && !methodSymbol.IsStatic)
                 {
-
-                    routes.Add(new WsRouteContainer(methodSymbol, realType, this));
+                    WsRouteContainer routeTemp = new WsRouteContainer(methodSymbol, realType, this);
+                    if (routeTemp.canBeAdded)
+                        routes.Add(routeTemp);
                 }
             }
             ParentCheck();
@@ -108,6 +105,7 @@ namespace CSharpToTypescript.Container
         }
         private void ParentCheck()
         {
+            ParentEvents();
             if (type.IsAbstract)
             {
                 return;
@@ -136,7 +134,7 @@ namespace CSharpToTypescript.Container
                 }
                 ParseFunctions(urlPattern, fcts);
             }
-            IWsRoute? routerTemp = (IWsRoute?)Activator.CreateInstance(realType);
+            IWsRouter? routerTemp = (IWsRouter?)Activator.CreateInstance(realType);
             foreach (string fct in fcts)
             {
                 MethodInfo? method = realType.GetMethod(fct, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -174,6 +172,44 @@ namespace CSharpToTypescript.Container
                 additionalFcts.Add(getFct);
             }
         }
+        private void ParentEvents()
+        {
+            Type? parentType = Tools.GetCompiledType(type.BaseType);
+
+            while (parentType != null && parentType != typeof(WsRouter))
+            {
+                List<MethodInfo> methods = parentType.GetMethods().ToList();
+                foreach (MethodInfo method in methods)
+                {
+                    if (method.IsPublic && !method.IsStatic && !method.IsConstructor && !method.IsAbstract)
+                    {
+                        IEnumerable<Attribute> attrs = method.GetCustomAttributes();
+                        bool isValid = true;
+                        foreach (Attribute attr in attrs)
+                        {
+                            if (attr is NoExport)
+                            {
+                                isValid = false;
+                                break;
+                            }
+                        }
+
+                        if (isValid)
+                        {
+                            string parentName = GetTypeName(parentType, 0, true);
+                            string[] splitted = parentName.Split("<");
+                            splitted[0] += "__Routes";
+                            parentRoute = string.Join("<", splitted);
+                            return;
+                        }
+                    }
+                }
+
+                parentType = parentType.BaseType;
+            }
+
+
+        }
         private void ParseFunctions(string urlPattern, List<string> fcts)
         {
             MatchCollection matchingFct = new Regex("\\[.*?\\]").Matches(urlPattern);
@@ -199,12 +235,79 @@ namespace CSharpToTypescript.Container
                 AddIndent();
             }
 
+            // write events
+            string className = GetTypeName(type, 0, true);
+            if (routeEvents.Count > 0)
+            {
+                string parentName = className;
+                string[] splitted = parentName.Split("<");
+                splitted[0] += "__Routes";
+                string eventListName = string.Join("<", splitted);
+                AddTxtOpen("export type " + eventListName + " = {", result);
+
+                foreach (LocalEventInfo routeEvent in routeEvents)
+                {
+                    AddTxt(routeEvent.name + ": " + routeEvent.fctName + ",", result);
+                }
+
+                if (parentRoute != "")
+                {
+                    AddTxtClose("} & " + parentRoute + ";", result);
+                }
+                else
+                {
+                    AddTxtClose("};", result);
+                }
+
+
+                string parentNameNoExtend = GetTypeName(type);
+                string[] splittedNoExtend = parentNameNoExtend.Split("<");
+                splittedNoExtend[0] += "__Routes";
+                string eventListNameNoExtend = string.Join("<", splittedNoExtend);
+
+                if (className.EndsWith(">"))
+                {
+                    className = className.Substring(0, className.Length - 1);
+                    className += ", __Route extends " + eventListNameNoExtend + " = " + eventListNameNoExtend + ">";
+                }
+                else
+                {
+                    className += "<__Route extends " + eventListNameNoExtend + " = " + eventListNameNoExtend + ">";
+                }
+            }
+            else
+            {
+                // si pas de route on doit prendre celle du parent
+                if (className.EndsWith(">"))
+                {
+                    className = className.Substring(0, className.Length - 1);
+                    className += ", __Route extends " + parentRoute + ">";
+                }
+                else
+                {
+                    className += "<__Route extends " + parentRoute + ">";
+                }
+            }
+
+            string extensionName = GetExtension();
+            if (extensionName.EndsWith("> "))
+            {
+                extensionName = extensionName.Substring(0, extensionName.Length - 2);
+                extensionName += ", __Route> ";
+            }
+            else
+            {
+                extensionName = extensionName.Substring(0, extensionName.Length - 1);
+                extensionName += "<__Route> ";
+            }
+
             string documentation = GetDocumentation(type);
             if (documentation.Length > 0)
             {
                 result.Add(documentation);
             }
-            AddTxtOpen(GetAccessibilityExport(type) + GetAbstract() + "class " + GetTypeName(type, 0, true) + " " + GetExtension() + "{", result);
+
+            AddTxtOpen(GetAccessibilityExport(type) + GetAbstract() + "class " + className + " " + extensionName + "{", result);
             result.Add(GetContent());
             AddTxtClose("}", result);
             result.Add(GetEventsDef());
@@ -229,7 +332,7 @@ namespace CSharpToTypescript.Container
         private bool isParsingExtension = false;
         private string GetExtension()
         {
-            string extend = "AventusSharp.WsRoute";
+            string extend = "AventusSharp.WebSocket.Router";
             if (type.BaseType != null && type.BaseType.Name != "Object")
             {
                 isParsingExtension = true;
@@ -254,28 +357,9 @@ namespace CSharpToTypescript.Container
                 if (routeEvents.Count > 0)
                 {
                     AddTxt("", eventList);
-                    AddTxtOpen("public events: {", eventList);
-                    foreach (LocalEventInfo routeEvent in routeEvents)
-                    {
-                        AddTxt(routeEvent.name + ": " + routeEvent.fctName + ",", eventList);
-                    }
-                    AddTxtClose("}", eventList);
-                }
-
-                AddTxt("", eventList);
-                AddTxtOpen("public constructor(endpoint?: " + GetTypeName(typeof(WsEndPoint)) + ") {", eventList);
-                if (endPoint != null)
-                {
-                    string endPointType = GetTypeName(endPoint);
-                    AddTxt("super(endpoint ?? " + endPointType + ".getInstance());", eventList);
-                }
-                else
-                {
-                    AddTxt("super(endpoint);", eventList);
-                }
-                if (routeEvents.Count > 0)
-                {
-                    AddTxtOpen("this.events = {", eventList);
+                    AddTxtOpen(" protected override defineEvents(): Partial<__Route> {", eventList);
+                    AddTxtOpen("return {", eventList);
+                    AddTxt("...super.defineEvents(),", eventList);
                     foreach (LocalEventInfo routeEvent in routeEvents)
                     {
                         if (routeEvent.functionNeeded.Count == 0)
@@ -288,14 +372,20 @@ namespace CSharpToTypescript.Container
                             AddTxt(routeEvent.name + ": new " + routeEvent.fctName + "(this.endpoint, this.getPrefix, " + txt + "),", eventList);
                         }
                     }
-                    AddTxtClose("};", eventList);
-                    AddTxt("", eventList);
-                    AddTxtOpen("for(let key in this.events) {", eventList);
-                    AddTxt("this.events[key].init();", eventList);
+                    AddTxtClose("}", eventList);
                     AddTxtClose("}", eventList);
                 }
-                
-                AddTxtClose("}", eventList);
+
+                AddTxt("", eventList);
+                if (endPoint != null)
+                {
+                    AddTxtOpen("public constructor(endpoint?: " + GetTypeName(typeof(WsEndPoint)) + ") {", eventList);
+                    string endPointType = GetTypeName(endPoint);
+                    AddTxt("super(endpoint ?? " + endPointType + ".getInstance());", eventList);
+                    AddTxtClose("}", eventList);
+                }
+
+
 
                 result.Add(string.Join("\r\n", eventList));
             }
@@ -382,7 +472,7 @@ namespace CSharpToTypescript.Container
             return string.Join("\r\n", eventContent);
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.wsRouter, fullname, result);
         }
@@ -419,6 +509,7 @@ namespace CSharpToTypescript.Container
             method = methodTemp;
             canBeAdded = true;
             LoadWsAttributes(methodTemp);
+            if (!canBeAdded) return;
             LoadMethodParameters();
             LoadReturnType();
         }
@@ -451,7 +542,7 @@ namespace CSharpToTypescript.Container
                         {
                             continue;
                         }
-                        if (Tools.HasAttribute<NoTypescript>(parameter))
+                        if (Tools.HasAttribute<NoExport>(parameter))
                         {
                             continue;
                         }
@@ -481,9 +572,13 @@ namespace CSharpToTypescript.Container
                 {
                     listenOnBoot = attrListenOnBoot.listen;
                 }
-                else if (attr is NotRoute)
+                else if (attr is NoExport)
                 {
                     canBeAdded = false;
+                }
+                else if(attr is FctName fctNameAttr)
+                {
+                    this.name = fctNameAttr.name;
                 }
             }
 
@@ -652,7 +747,7 @@ namespace CSharpToTypescript.Container
                         }
                         else
                         {
-                            IWsRoute? routerTemp = (IWsRoute?)Activator.CreateInstance(@class);
+                            IWsRouter? routerTemp = (IWsRouter?)Activator.CreateInstance(@class);
                             object? o = methodTemp.Invoke(routerTemp, Array.Empty<object>());
                             if (o != null)
                             {
@@ -727,8 +822,8 @@ namespace CSharpToTypescript.Container
                 parametersUrlAndType[optionsKey] = "WsRouteSendOptions = {}";
                 infoType = "SocketSendMessageOptions";
                 this.parent.addImport(".\\AventusJs\\src\\WebSocket\\ISocket.lib.avt", "type SocketSendMessageOptions");
-                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Route.lib.avt", "type WsRouteSendOptions");
-                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Route.lib.avt", "type ExtractResponse");
+                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Router.lib.avt", "type WsRouteSendOptions");
+                this.parent.addImport(".\\AventusJs\\src\\WebSocket\\Router.lib.avt", "type ExtractResponse");
                 extractType = "ExtractResponse";
             }
             else

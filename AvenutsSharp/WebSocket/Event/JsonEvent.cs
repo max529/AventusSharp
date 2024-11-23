@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket.Event
 {
-    [NoTypescript]
+    [NoExport]
     public class JsonEvent : WebSocketEvent
     {
         private object? o;

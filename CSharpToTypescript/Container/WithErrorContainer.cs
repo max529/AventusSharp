@@ -56,17 +56,17 @@ namespace CSharpToTypescript.Container
             return isPasserel == false;
         }
 
-        protected override void AddExtends(List<string> extends)
+        protected override void AddExtends(Action<string> add)
         {
-            if(isPasserel)
+            if (isPasserel)
             {
                 if (isVoid)
                 {
-                    extends.Add("Aventus.VoidWithError<T>");
+                    add("Aventus.VoidWithError<T>");
                 }
                 else
                 {
-                    extends.Add("Aventus.ResultWithError<T, U>");
+                    add("Aventus.ResultWithError<T, U>");
                 }
             }
         }
@@ -93,7 +93,7 @@ namespace CSharpToTypescript.Container
             }
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.withError, fullname, result);
         }

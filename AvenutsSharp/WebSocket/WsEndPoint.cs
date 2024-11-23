@@ -22,11 +22,9 @@ namespace AventusSharp.WebSocket
         bool Main();
     }
 
-    [NoTypescript]
+    [NoExport]
     public abstract class WsEndPoint : IWsEndPoint
     {
-
-
         internal Dictionary<string, WebSocketRouteInfo> routesInfo = new Dictionary<string, WebSocketRouteInfo>();
         internal readonly List<WebSocketConnection> connections = new();
         private readonly List<Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>>> middlewares = new();
@@ -35,7 +33,6 @@ namespace AventusSharp.WebSocket
 
         public WsEndPoint()
         {
-            Configure();
             if (settings == null)
             {
                 settings = WebSocketMiddleware.config.JSONSettings;
@@ -47,10 +44,6 @@ namespace AventusSharp.WebSocket
         public virtual bool Main()
         {
             return false;
-        }
-
-        protected virtual void Configure()
-        {
         }
 
         protected void setSettings(JsonSerializerSettings settings)
@@ -163,8 +156,6 @@ namespace AventusSharp.WebSocket
         /// <returns></returns>
         public async Task Route(WebSocketConnection connection, string path, WebSocketRouterBody body, string uid = "")
         {
-            if (WebSocketMiddleware.config.PrintQuery)
-                Console.WriteLine("query " + path);
             foreach (Func<WebSocketConnection, string, WebSocketRouterBody, string, Task<bool>> middleware in middlewares)
             {
                 if (!await middleware(connection, path, body, uid))
@@ -416,7 +407,7 @@ namespace AventusSharp.WebSocket
 
     }
 
-    [NoTypescript]
+    [NoExport]
     public sealed class DefaultWsEndPoint : WsEndPoint
     {
         public override string DefinePath()

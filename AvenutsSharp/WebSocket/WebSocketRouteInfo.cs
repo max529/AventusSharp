@@ -10,7 +10,7 @@ namespace AventusSharp.WebSocket
     {
         public Regex pattern;
         public MethodInfo action;
-        public IWsRoute router;
+        public IWsRouter router;
         public int nbParamsFunction;
         public Dictionary<string, WebSocketRouterParameterInfo> parameters = new Dictionary<string, WebSocketRouterParameterInfo>();
         public ResponseTypeEnum eventType;
@@ -21,7 +21,7 @@ namespace AventusSharp.WebSocket
             get => pattern.ToString();
         }
 
-        public WebSocketRouteInfo(Regex pattern, MethodInfo action, IWsRoute router, int nbParamsFunction, ResponseTypeEnum eventType, Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? customFct)
+        public WebSocketRouteInfo(Regex pattern, MethodInfo action, IWsRouter router, int nbParamsFunction, ResponseTypeEnum eventType, Func<WsEndPoint, WebSocketConnection?, List<WebSocketConnection>>? customFct)
         {
             this.pattern = pattern;
             this.action = action;

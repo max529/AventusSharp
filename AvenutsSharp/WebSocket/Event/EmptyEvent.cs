@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace AventusSharp.WebSocket.Event
 {
-    [NoTypescript]
+    [NoExport]
     public class EmptyEvent : WebSocketEvent
     {
         internal override async Task _Emit()

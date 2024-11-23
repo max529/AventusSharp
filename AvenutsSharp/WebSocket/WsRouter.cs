@@ -6,16 +6,15 @@ using System.Collections.Generic;
 
 namespace AventusSharp.WebSocket
 {
-    public interface IWsRoute
+    public interface IWsRouter
     {
         void AddEndPoint(WsEndPoint endPoint);
     }
-    [NoTypescript]
-    public abstract class WsRoute : IWsRoute
+    [NoExport]
+    public abstract class WsRouter : IWsRouter
     {
         protected List<WsEndPoint> Endpoints { get; set; } = new List<WsEndPoint>();
 
-        [NotRoute]
         public void AddEndPoint(WsEndPoint endPoint)
         {
             if (!Endpoints.Contains(endPoint))

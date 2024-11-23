@@ -1,13 +1,5 @@
-﻿using AventusSharp.Routes;
-using AventusSharp.WebSocket;
-using Microsoft.AspNetCore.Mvc.Diagnostics;
+﻿using AventusSharp.WebSocket;
 using Microsoft.CodeAnalysis;
-using System;
-using System.Collections.Generic;
-using System.Composition;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CSharpToTypescript.Container
 {
@@ -117,7 +109,7 @@ namespace CSharpToTypescript.Container
                 ProjectConfigWsEndpoint config = ProjectManager.Config.wsEndpoint;
                 if (config.host != null)
                 {
-                    options.Add("options.host = " + config.host + ";");
+                    options.Add("options.host = \"" + config.host + "\";");
                 }
                 if (config.port != null)
                 {
@@ -135,7 +127,7 @@ namespace CSharpToTypescript.Container
                     {
                         AddTxt(option, result);
                     }
-                    AddTxt("return Aventus.Instance.get(" + className + ");", result);
+                    AddTxt("return options;", result);
                     AddTxtClose("}", result);
                 }
 
@@ -146,7 +138,7 @@ namespace CSharpToTypescript.Container
             return string.Join("\r\n", result);
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.wsEndPoint, fullname, result);
         }

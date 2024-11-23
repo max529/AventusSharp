@@ -13,6 +13,8 @@ namespace WebSocket {
     export interface ConnectionOptions {
         /** Enable or disable log */
         log?: boolean,
+        /** A tag to prefix your log */
+        logPrefix?: string;
         /** Determine the host for the ws connection. By default it's the same as your current url  */
         host?: string,
         /** Determine the port for the ws connection. By default 80 or 443 depends of http or https */

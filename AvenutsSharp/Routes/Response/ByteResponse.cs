@@ -15,7 +15,7 @@ namespace AventusSharp.Routes.Response
             this.code = code;
             this.contentType = contentType;
         }
-        public async Task send(HttpContext context, IRoute? from = null)
+        public async Task send(HttpContext context, IRouter? from = null)
         {
             context.Response.ContentType = contentType;
             context.Response.StatusCode = code;

@@ -173,11 +173,12 @@ namespace CSharpToTypescript.Container
             BaseContainer.enumToTypeof = true;
             List<string> extends = new List<string>();
             List<string> implements = new List<string>();
-            List<string> extendsName = new();
             List<string> implementsName = new();
             string fullName = Tools.GetFullName(type);
             if (isInterface)
             {
+                Dictionary<string, int> extendsNameInterface = new();
+                Dictionary<string, string> extendsNameAdded = new();
                 for (int i = matchingTypes.Count - 1; i >= 0; i--)
                 {
                     ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(matchingTypes[i].FullName ?? "");
@@ -191,14 +192,24 @@ namespace CSharpToTypescript.Container
                         {
                             continue;
                         }
-                        if (extendsName.Contains(@interface.Name))
+
+                        if (extendsNameInterface.ContainsKey(@interface.Name))
                         {
-                            continue;
+                            if (extendsNameInterface[@interface.Name] >= @interface.TypeArguments.Length)
+                            {
+                                continue;
+                            }
                         }
                         if (IsValidExtendsInterface(@interface))
                         {
-                            extendsName.Add(@interface.Name);
-                            extends.Add(GetTypeName(@interface));
+                            if(extendsNameAdded.ContainsKey(@interface.Name))
+                            {
+                                extends.Remove(extendsNameAdded[@interface.Name]);
+                            }
+                            extendsNameInterface[@interface.Name] = @interface.TypeArguments.Length;
+                            string nameAdded = GetTypeName(@interface);
+                            extendsNameAdded[@interface.Name] = nameAdded;
+                            extends.Add(nameAdded);
                         }
                     }
                 }
@@ -206,6 +217,7 @@ namespace CSharpToTypescript.Container
             }
             else
             {
+                List<string> extendsName = new();
                 for (int i = matchingTypes.Count - 1; i >= 0; i--)
                 {
                     ITypeSymbol? typeSymbol = ProjectManager.Compilation.GetTypeByMetadataName(matchingTypes[i].FullName ?? "");
@@ -238,14 +250,19 @@ namespace CSharpToTypescript.Container
                         extends.Add(GetTypeName(type.BaseType));
                     }
                 }
-
-                if(extends.Count == 0)
-                {
-                    extends.Add("AventusSharp.Data.SharpClass");
-                }
             }
 
-            AddExtends(extends);
+            AddExtends((value) =>
+            {
+                if (!extends.Contains(value))
+                {
+                    extends.Add(value);
+                }
+            });
+            if (extends.Count == 0 && !isInterface)
+            {
+                extends.Add(GetAventusTypeName("AventusSharp.Data.SharpClass"));
+            }
             AddImplements(implements);
 
             string txt = "";
@@ -299,7 +316,7 @@ namespace CSharpToTypescript.Container
                             {
                                 continue;
                             }
-                            if (HasAttribute<NoTypescript>(member))
+                            if (HasAttribute<NoExport>(member))
                             {
                                 continue;
                             }
@@ -354,7 +371,7 @@ namespace CSharpToTypescript.Container
                             {
                                 continue;
                             }
-                            if (HasAttribute<NoTypescript>(member))
+                            if (HasAttribute<NoExport>(member))
                             {
                                 continue;
                             }
@@ -413,10 +430,10 @@ namespace CSharpToTypescript.Container
 
         protected void AdditionalContentProperty(IPropertySymbol property, List<string> result)
         {
-            if (HasAttribute<TsObject>(property))
+            if (HasAttribute<CreateObject>(property))
             {
                 PropertyInfo propertyInfo = Tools.GetPropertyInfo(property, realType);
-                TsObject? tsObject = propertyInfo.GetCustomAttribute<TsObject>(false);
+                CreateObject? tsObject = propertyInfo.GetCustomAttribute<CreateObject>(false);
                 ForeignKey? foreignKey = propertyInfo.GetCustomAttribute<ForeignKey>(false);
                 if (tsObject == null || foreignKey == null) return;
 
@@ -433,10 +450,10 @@ namespace CSharpToTypescript.Container
 
         protected void AdditionalContentField(IFieldSymbol field, List<string> result)
         {
-            if (HasAttribute<TsObject>(field))
+            if (HasAttribute<CreateObject>(field))
             {
                 FieldInfo propertyInfo = Tools.GetFieldInfo(field, realType);
-                TsObject? tsObject = propertyInfo.GetCustomAttribute<TsObject>(false);
+                CreateObject? tsObject = propertyInfo.GetCustomAttribute<CreateObject>(false);
                 ForeignKey? foreignKey = propertyInfo.GetCustomAttribute<ForeignKey>(false);
                 if (tsObject == null || foreignKey == null) return;
 
@@ -535,7 +552,7 @@ namespace CSharpToTypescript.Container
             return true;
         }
 
-        protected virtual void AddExtends(List<string> extends)
+        protected virtual void AddExtends(Action<string> add)
         {
 
         }

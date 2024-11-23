@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Version>0.0.2</Version>
     <Nullable>enable</Nullable>
     <OutputType>Library</OutputType>
@@ -33,9 +33,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="logo_sharp.png" Pack="true" PackagePath="\"/>
-    <None Include="README.md" Pack="true" PackagePath="\"/>
-    <None Include="LICENSE" Pack="true" PackagePath="\"/>
+    <None Include="logo_sharp.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="LICENSE" Pack="true" PackagePath="\" />
 </ItemGroup>
 
   <ItemGroup>

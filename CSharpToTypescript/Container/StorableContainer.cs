@@ -38,11 +38,11 @@ namespace CSharpToTypescript.Container
                 implements.Add("Aventus.IData");
             }
         }
-        protected override void AddExtends(List<string> extends)
+        protected override void AddExtends(Action<string> add)
         {
-            if (isInterface && !extends.Contains("Aventus.IData"))
+            if (isInterface)
             {
-                extends.Add("Aventus.IData");
+                add("Aventus.IData");
             }
         }
 
@@ -55,7 +55,7 @@ namespace CSharpToTypescript.Container
             }
         }
 
-        protected override string? CustomReplacer(ISymbol type, string fullname, string? result)
+        protected override string? CustomReplacer(ISymbol? type, string fullname, string? result)
         {
             return applyReplacer(ProjectManager.Config.replacer.storable, fullname, result);
         }

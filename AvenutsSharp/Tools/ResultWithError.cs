@@ -12,7 +12,7 @@ namespace AventusSharp.Tools
 {
     public interface IWithError
     {
-        [NoTypescript]
+        [NoExport]
         public List<GenericError> Errors { get; }
 
         public void Print();
@@ -20,7 +20,7 @@ namespace AventusSharp.Tools
 
     public interface IWithError<T> : IWithError where T : GenericError
     {
-        [NoTypescript]
+        [NoExport]
         public new List<T> Errors { get; }
     }
 
@@ -30,7 +30,7 @@ namespace AventusSharp.Tools
 
         public List<T> Errors { get; set; } = new();
 
-        [NoTypescript]
+        [NoExport]
         List<GenericError> IWithError.Errors
         {
             get
@@ -143,7 +143,7 @@ namespace AventusSharp.Tools
 
     public interface IResultWithError : IWithError
     {
-        [NoTypescript]
+        [NoExport]
         public object? Result { get; }
     }
     public interface IResultWithError<T> : IWithError<T>, IResultWithError where T : GenericError
